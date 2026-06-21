@@ -132,7 +132,7 @@ mod (identified by its `uiscias<ModFileName>` portion) should ever be in
 appdata\UOTiaraPack.bat
 ```
 
-## Modding Flow Summary
+## Manual Modding Flow Summary
 
 1. A user creates the `appdata\data` folder (if it doesn't already exist) and
    places their raw mod files inside it.
