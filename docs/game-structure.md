@@ -2,8 +2,7 @@
 
 This document summarizes how the Mabinogi game's folder structure works, with a
 focus on the directories and files relevant to modding. It is intended as
-reference context for both users and the AI assisting in building this mod
-manager.
+reference context for both users and the AI assisting in building Findias.
 
 ## Root Game Folder (`appdata`)
 
@@ -20,7 +19,7 @@ Example:
 D:\Nexon\Library\mabinogi\appdata
 ```
 
-Everything the mod manager cares about lives inside this `appdata` folder.
+Everything relevant to modding lives inside this `appdata` folder.
 
 ## Key Locations
 
@@ -40,14 +39,25 @@ appdata\data
 - **Ships** with the public release of the game.
 - Updated with new `data_XXXXX.it` files on each patch, where `XXXXX` is a
   number that is usually incremented sequentially with each update.
-- On launch, the game loads **all** `.it` files in this folder into memory.
-- Any extra `.it` files dropped here (e.g. `uisciasSomeModFileName_00001.it`)
-  are **also** loaded. This is the mechanism that allows users to add their own
-  mods.
+- On launch, the game loads **all** `.it` files **directly in this folder**
+  into memory. Files in subfolders of `package` are **not** loaded.
+- Any extra `.it` files dropped here (e.g. `eapple_01.it`) are **also**
+  loaded. This is the mechanism that allows users to add their own mods.
 
 ```
 appdata\package
 ```
+
+#### How the client loads `.it` files (critical)
+
+The game client is **not** smart enough to pick a "latest" version among mod
+files. On launch it simply loads **every** `.it` file in the root of `package`
+into memory. If multiple files represent different versions of the same mod, it
+will load **all** of them, which causes conflicts and bugs.
+
+Because only files in the root of `package` are loaded, moving a mod file into
+a subfolder (e.g. `package\disabled\`) prevents the game from loading it without
+deleting it.
 
 #### `.it` file naming format
 
@@ -74,51 +84,8 @@ Examples:
 Notes:
 
 - The game ships its own files using the `data_XXXXX.it` pattern.
-
-#### Mod manager naming convention
-
-This mod manager will use the following format for all mods it installs and
-maintains:
-
-```
-uiscias<ModFileName>_<number>.it
-```
-
-- The `uiscias` prefix marks the file as installed/maintained by this mod
-  manager, so we can reliably identify our own files in the `package` folder.
-- `<ModFileName>` is the descriptive name of the mod (e.g. `SomeModFileName`).
-- `<number>` represents the **version** of the mod and is incremented with each
-  new release.
-
-Versioning example:
-
-- `uisciasSomeModFileName_00001.it` — version 1 of the `SomeModFileName` mod.
-- `uisciasSomeModFileName_00002.it` — version 2 of the same mod.
-
-Because the prefix begins with `u` (a letter after `d`) and contains no extra
-underscores before the `_<number>` suffix, this convention satisfies all of the
-naming rules above.
-
-#### Only the latest version may exist in `package` (critical)
-
-The mod manager must ensure that **only the latest version** of any given mod
-exists in the `package` folder at a time. There should **never** be both
-`uisciasSomeModFileName_00001.it` and `uisciasSomeModFileName_00002.it` present
-simultaneously.
-
-This is critical because the game client is **not** smart enough to pick the
-latest version. On launch it simply loads **every** `.it` file in `package` into
-memory. If multiple versions of the same mod are present, it will load **all**
-of them, which causes conflicts and bugs.
-
-Therefore, whenever the mod manager updates a mod, it must:
-
-1. Write the new version file (e.g. `uisciasSomeModFileName_00002.it`).
-2. **Delete the old version file** (e.g. `uisciasSomeModFileName_00001.it`).
-
-In other words, updating a mod is a **replace** operation — exactly one file per
-mod (identified by its `uiscias<ModFileName>` portion) should ever be in
-`package`.
+- Findias uses its own naming convention on top of these rules — see
+  [`project-overview.md`](./project-overview.md#findias-conventions).
 
 ### `appdata\UOTiaraPack.bat` — The packaging tool
 
@@ -148,8 +115,8 @@ appdata\UOTiaraPack.bat
 ```
 appdata\
 ├── data\              # User-created; raw mod files (not shipped)
-├── package\           # Shipped; all .it files loaded on launch
-│   ├── data_XXXXX.it             # Official game content (sequential patch numbers)
-│   └── uisciasModName_00001.it   # Mod manager files (uiscias prefix + version)
+├── package\           # Shipped; .it files in this folder root are loaded on launch
+│   ├── data_XXXXX.it  # Official game content (sequential patch numbers)
+│   └── eapple_01.it   # Example user mod file
 └── UOTiaraPack.bat    # Packages data\ into a single .it in package\
 ```
