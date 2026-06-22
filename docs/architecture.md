@@ -29,17 +29,63 @@ These constraints drive every decision below:
 
 | Concern | Choice | Rationale |
 | --- | --- | --- |
+| Language | **TypeScript** everywhere possible | One typed language across main, preload, and renderer; shared types for the IPC contract and data models prevent drift between processes. |
 | App shell | **Electron** | Bundles Chromium + Node + app into one self-contained executable; gives the renderer DOM/UI and the main process full filesystem + network access. |
-| UI | Renderer web stack (HTML/CSS + a component framework, e.g. React) | Standard, fast to build a scrollable mod list. Framework choice is not load-bearing for this architecture. |
-| Network | Electron `net` module (preferred) or Node `fetch` | Built in; follows redirects; no third-party HTTP dependency. |
+| Bootstrap / build | **Vite** (via `electron-vite`) | Fast dev server + HMR for the renderer and a single, well-supported way to build all three Electron entry points (main, preload, renderer) with TypeScript. See note below. |
+| UI framework | **React** | Component model fits the scrollable mod list and setup/empty/error states; large ecosystem; first-class Vite support. |
+| Component library | **MUI (Material UI)** | Ready-made, accessible components (lists, buttons, dialogs, progress) so we build the UI quickly with a consistent look. |
+| Renderer async state | **TanStack Query (React Query)** | Manages loading/error/stale state, de-dupes requests, and invalidates after mutations. It wraps the IPC calls — it does **not** perform networking itself (see note). |
+| Network | **`fetch`** (in the main process) | Standard WHATWG API built into Node 18+; follows redirects; trivially mockable in Vitest. All network calls live in the main process, never the renderer. |
 | Filesystem | Node `fs` / `fs/promises`, `path` | Built in; all package-folder operations. |
 | Folder picker | Electron `dialog.showOpenDialog` | Built in; native directory chooser. |
 | Settings store | JSON file in `app.getPath('userData')` | Built in; no `electron-store` strictly required. |
+| Tests | **Vitest** | Pairs with Vite (shares config/transform), fast, Jest-compatible API; used for unit tests of parsers, providers, resolver, and flows. |
 | Packaging | **electron-builder** (dev-only dependency) | Produces a Windows installer / portable `.exe` to attach to the Findias Releases page. |
+| App self-update | **electron-updater** (GitHub provider) | Lets a running Findias check the `tekashi-side/Findias` releases feed and prompt the user to update — no manual re-download. See [App self-update](#app-self-update). |
 
 > "No dependencies" applies to the **end user**. The build machine still uses
-> normal npm dev dependencies (Electron, electron-builder, the UI framework).
-> These are compiled/bundled into the shipped artifact and are invisible to users.
+> normal npm dev/runtime dependencies (Electron, Vite, React, MUI, TanStack
+> Query, electron-builder, electron-updater). These are compiled/bundled into the
+> shipped artifact and are invisible to users.
+
+### Why Vite
+
+Vite is the standard, low-friction way to scaffold a TypeScript + React app and
+gives a fast dev server with hot module replacement. For Electron specifically we
+use **`electron-vite`**, a thin wrapper that builds all three entry points (main,
+preload, renderer) from one Vite config and wires up HMR for the renderer during
+development. Choosing Vite also makes **Vitest** the natural test runner since it
+reuses the same transform pipeline and config.
+
+### `fetch` vs Electron `net`
+
+We use `fetch`. Electron also ships a `net` module that routes through Chromium's
+network stack; its main advantage is automatic **system-proxy / OS certificate**
+support. `fetch` is the standard, portable API (works in Node and the renderer),
+is easy to mock in Vitest, and is sufficient for unauthenticated GitHub GETs and
+redirect-following downloads. The only realistic reason to revisit `net` later is
+if users behind corporate proxies report connection failures.
+
+### React Query over IPC (not over the network)
+
+The renderer never makes network calls. **All networking happens in the main
+process behind IPC.** TanStack Query is used purely as the renderer's async-state
+layer: its `queryFn`/`mutationFn` call `window.findias.*` (which invoke IPC),
+and in return we get loading/error states, request de-duplication, and clean
+post-mutation invalidation/refetch. Conceptually:
+
+```ts
+// renderer
+useQuery({ queryKey: ['modList'], queryFn: () => window.findias.refresh() });
+useMutation({
+  mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['modList'] }),
+});
+```
+
+Because every mutating IPC call already returns the fresh `ModListState`, React
+Query can also seed the cache directly from the mutation result and skip a
+re-fetch.
 
 ## Distribution model
 
@@ -58,6 +104,36 @@ tekashi-side/Findias (GitHub)        Root50199/Uiscias (GitHub)
   latest release there.
 - The mod `.it` files live on **`Root50199/Uiscias`** releases. Findias never
   re-hosts them; the user downloads them straight from GitHub's CDN.
+
+## App self-update
+
+electron-builder only builds and publishes. The auto-update capability comes from
+its companion **`electron-updater`**, configured with the **GitHub provider**
+pointed at `tekashi-side/Findias`.
+
+Flow:
+
+1. We publish a new Findias release (with the electron-updater metadata file,
+   e.g. `latest.yml`, alongside the installer) to the Findias releases page.
+2. On launch (and/or on an interval), the main process calls
+   `autoUpdater.checkForUpdates()`, which reads that releases feed.
+3. If a newer version exists, electron-updater downloads it in the background and
+   emits events. The main process forwards an `update-available` /
+   `update-downloaded` event over IPC, and the renderer shows a non-blocking
+   "Update ready — restart to install" prompt.
+4. On user confirmation, `autoUpdater.quitAndInstall()` swaps in the new version.
+
+Notes and caveats:
+
+- This is **app** self-update (the Findias program), distinct from **mod**
+  updates (the `.it` files), which remain explicit, user-initiated actions.
+- Windows target should be **NSIS** (electron-updater supports it). The portable
+  target does not auto-update.
+- Unsigned builds still update but trigger SmartScreen warnings on install.
+  Code signing removes the warning but has a cost; it is **optional for now** and
+  does not change the architecture.
+- Update checks hit the GitHub releases feed for `tekashi-side/Findias` — a
+  separate, infrequent request from the Uiscias mod-catalog fetch.
 
 ## Process model
 
@@ -84,8 +160,10 @@ security/architecture decision.
 │  Main process (Node)                                               │
 │  - All filesystem, network, and dialog operations                  │
 │  - Owns the canonical in-memory app state                          │
-│  - Modules: SettingsStore, GameLocation, PackageScanner,           │
-│    ReleaseClient, ModResolver, ModInstaller, Downloader            │
+│  - Modules: SettingsStore, GameLocation, ModStore,                 │
+│    GitHubReleaseCatalogProvider (ModCatalogProvider),              │
+│    PackageFolderProvider (InstalledModsProvider),                  │
+│    ModResolver, ModInstaller, Downloader, Updater                  │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -134,7 +212,95 @@ Design rules for the boundary:
 - Every mutating call returns the **fresh `ModListState`** so the UI re-renders
   from authoritative state rather than guessing the result locally.
 
-## External integration: GitHub
+## Source abstraction (swappable providers)
+
+Both "sources of truth" are accessed **only through interfaces**, never directly
+by the rest of the app. This is a deliberate seam: the *current* implementations
+read GitHub releases (remote) and scan the `package` folder (local), but either
+can be swapped for a different strategy by changing **one module**, with no
+impact on `ModResolver`, `ModInstaller`, the IPC layer, or the UI.
+
+Anticipated future strategies the design must not preclude:
+
+- **Remote catalog:** instead of reading release **assets**, read a
+  `manifest.json` attached to the release, or read files from the latest `main`
+  branch of the Uiscias source tree. (Contract not finalized.)
+- **Local installed-state:** instead of scanning the folder, read a richer
+  `installedMods.json` / `manifest.json` in the `package` directory that also
+  records metadata like install/update timestamps. (Contract not finalized.)
+
+### The two interfaces
+
+```ts
+// Remote: "what mods exist, their versions, and how to obtain the bytes"
+interface ModCatalogProvider {
+  getCatalog(): Promise<CatalogEntry[]>;          // normalized, source-agnostic
+}
+
+interface CatalogEntry {
+  modId: string;             // <ModFileName>
+  version: number;           // parsed integer
+  fileName: string;          // target file name in package/
+  size?: number;
+  // The provider returns a way to fetch bytes without leaking source details:
+  fetchBytes(): Promise<ReadableStream>;   // e.g. a release asset URL, or a raw
+                                           // file URL from the source tree
+}
+
+// Local: "what is installed, and how we record changes to that record"
+interface InstalledModsProvider {
+  list(): Promise<InstalledMod[]>;         // normalized installed state
+  // Lifecycle hooks so swapping the strategy doesn't change ModInstaller:
+  onInstalled?(mod: InstalledMod): Promise<void>;
+  onRemoved?(modId: string): Promise<void>;
+}
+
+interface InstalledMod {
+  modId: string;
+  version: number;
+  fileName: string;
+  enabled: boolean;          // false = in package/disabled
+  updatedAt?: string;        // available only if the source records it
+}
+```
+
+The rest of the system depends on these **normalized types** (`CatalogEntry`,
+`InstalledMod`) — never on GitHub-specific or filesystem-specific shapes.
+
+### Separation of physical store vs. installed-state record
+
+There is one invariant that no strategy can change: **the game loads `.it` files
+from the root of `package`**, so the physical files must always be written,
+deleted, and moved there. We therefore separate two concerns:
+
+- **`ModStore` (physical, invariant):** performs the actual disk operations —
+  write a downloaded `.it` into `package`, delete it, move it to/from
+  `package/disabled`. This never changes regardless of how we *track* state.
+- **`InstalledModsProvider` (swappable record):** answers "what is installed"
+  and records changes. Today it simply **derives** the answer by scanning the
+  folder (the folder *is* the record), so `onInstalled`/`onRemoved` are no-ops.
+  A future `installedMods.json` implementation would persist richer metadata in
+  those hooks — and because `ModInstaller` only calls the interface, swapping the
+  implementation requires no change to the installer or anything downstream.
+
+### Current implementations
+
+| Interface | Current implementation | Reads/writes | Possible future implementation |
+| --- | --- | --- | --- |
+| `ModCatalogProvider` | `GitHubReleaseCatalogProvider` | `GET /releases` → newest non-draft → assets | `ManifestCatalogProvider` (release `manifest.json`) or `SourceTreeCatalogProvider` (latest `main`) |
+| `InstalledModsProvider` | `PackageFolderProvider` | scans `package` + `package/disabled` | `LocalManifestProvider` (`installedMods.json`) |
+| `ModStore` (invariant) | `PackageModStore` | writes/deletes/moves `.it` in `package` | — (does not change) |
+
+Swapping a source = constructing a different provider at startup and passing it
+in (dependency injection). The detail of *which* provider is in use is confined
+to that one module.
+
+## External integration: GitHub (current `ModCatalogProvider`)
+
+> This section describes `GitHubReleaseCatalogProvider`, the **current**
+> implementation of [`ModCatalogProvider`](#the-two-interfaces). If the remote
+> contract later changes to a `manifest.json` or source-tree strategy, only this
+> module changes; it must keep returning normalized `CatalogEntry[]`.
 
 ### Reading the available mods (release client)
 
@@ -207,16 +373,31 @@ API). This is comfortably within budget. The client should still:
 - On success the path is written to the settings file and the catalog refresh
   runs.
 
-### Scanning installed mods (package scanner)
+### Scanning installed mods (current `InstalledModsProvider`)
+
+This is `PackageFolderProvider`, the **current** implementation of
+[`InstalledModsProvider`](#the-two-interfaces). It derives installed state purely
+from the filesystem; if we later adopt an `installedMods.json`, only this module
+is replaced (see [Source abstraction](#source-abstraction-swappable-providers)).
 
 - `fs.readdir(<gameRoot>/package)` reads the **root only** (the game ignores
-  subfolders; see game-structure). Subfolders are read separately to detect
-  **disabled** mods.
+  subfolders; see game-structure). The `package/disabled` subfolder is read
+  separately to detect **disabled** mods.
 - Each entry is filtered to `.it` and run through the shared filename parser.
   Files that don't match the managed grammar are **left untouched and ignored**
   (official `data_XXXXX.it` and third-party mods are never modified).
-- The directory is the source of truth: the scan result _is_ the installed-state.
-  Nothing is cached to disk.
+- The directory is the record: the scan result _is_ the installed-state, returned
+  as normalized `InstalledMod[]`. Nothing is cached to disk, and the
+  `onInstalled`/`onRemoved` hooks are no-ops in this implementation.
+
+### The `package/disabled` folder
+
+- Disabled mods live in a single fixed subfolder: **`package/disabled`**.
+- It is **created lazily** — only when a mod is first disabled and the folder
+  does not already exist (`fs.mkdir(..., { recursive: true })`).
+- Findias **never deletes the `disabled` folder** once it exists. Disable/enable
+  only move individual `.it` files in and out of it; the folder itself persists
+  even when empty.
 
 ## Filename grammar and mod identity
 
@@ -300,21 +481,23 @@ app ready
   → valid game path? ──no──► show setup gate (chooseGameFolder)
         │ yes
         ▼
-  scan package (+ disabled subfolder)      ┐ run in parallel
-  GET /releases → pick newest non-draft    ┘
+  InstalledModsProvider.list()    ┐ run in parallel
+  ModCatalogProvider.getCatalog() ┘ (current impls: folder scan + GitHub release)
   → ModResolver.merge() → ModListState
   → renderer renders list (or empty/error state)
+  → (separately) Updater.checkForUpdates() for the Findias app itself
 ```
 
 ### Install
 
 ```
 installOrUpdate(modId)
-  → resolve release asset for modId
-  → stream download browser_download_url → package/<tempfile>
+  → resolve CatalogEntry for modId (from ModCatalogProvider)
+  → Downloader: stream entry.fetchBytes() → package/<tempfile>
      (emit onDownloadProgress)
-  → atomic rename → package/Uiscias<modId>_<n>.it
-  → re-scan + re-resolve → return ModListState
+  → ModStore: atomic rename → package/Uiscias<modId>_<n>.it
+  → InstalledModsProvider.onInstalled(...) (no-op for folder scan today)
+  → re-list + re-resolve → return ModListState
 ```
 
 ### Update (replace semantics)
@@ -344,13 +527,16 @@ deleteMod(modId)
 
 ```
 setDisabled(modId, true)
+  → ensure package/disabled exists (create lazily if missing)
   → fs.rename package/Uiscias<modId>_<n>.it
-            → package/<disabledSubfolder>/Uiscias<modId>_<n>.it
-setDisabled(modId, false) → reverse the move
+            → package/disabled/Uiscias<modId>_<n>.it
+setDisabled(modId, false) → reverse the move (root ← package/disabled)
 ```
 
 The game only loads `.it` files in the **root** of `package`, so moving a file
-into a subfolder disables it without deleting it (see game-structure).
+into the `package/disabled` subfolder disables it without deleting it (see
+game-structure). The `disabled` folder is created on first use and never removed
+by Findias.
 
 ## Application state
 
@@ -391,20 +577,25 @@ interface AppState {
 
 ## Module responsibilities (main process)
 
-| Module | Responsibility |
-| --- | --- |
-| `SettingsStore` | Load/save the JSON settings file in `userData`. |
-| `GameLocation` | Validate a chosen folder, resolve `package` + disabled subfolder paths. |
-| `PackageScanner` | List and parse managed `.it` files (root + disabled). |
-| `ReleaseClient` | Fetch `/releases`, pick newest non-draft, parse assets, read rate-limit headers. |
-| `ModResolver` | Merge release + installed into `ModListState` with status + actions. |
-| `Downloader` | Stream a URL to a temp file with progress + atomic rename. |
-| `ModInstaller` | Orchestrate install / update(replace) / delete / disable using the above. |
-| `ipc` | Register `ipcMain.handle` endpoints; emit progress events; return fresh state. |
+| Module | Implements | Responsibility |
+| --- | --- | --- |
+| `SettingsStore` | — | Load/save the JSON settings file in `userData`. |
+| `GameLocation` | — | Validate a chosen folder; resolve `package` and `package/disabled` paths. |
+| `GitHubReleaseCatalogProvider` | `ModCatalogProvider` | Fetch `/releases`, pick newest non-draft, parse assets, read rate-limit headers; return normalized `CatalogEntry[]`. Swappable (manifest/source-tree). |
+| `PackageFolderProvider` | `InstalledModsProvider` | List/parse managed `.it` files (root + `package/disabled`); return `InstalledMod[]`. Swappable (`installedMods.json`). |
+| `ModStore` | — (invariant) | Physical disk ops: write/delete/move `.it` files in `package` and `package/disabled`. |
+| `ModResolver` | — | Merge catalog + installed into `ModListState` with status + actions. Depends only on the normalized interfaces. |
+| `Downloader` | — | Stream a source's bytes to a temp file with progress + atomic rename. |
+| `ModInstaller` | — | Orchestrate install / update(replace) / delete / disable via the providers + `ModStore`. |
+| `Updater` | — | electron-updater wrapper: check the Findias releases feed, surface update events over IPC. |
+| `ipc` | — | Register `ipcMain.handle` endpoints; emit progress + update events; return fresh state. |
 
 ## Out of scope (technical)
 
-- No background auto-updating, telemetry, or analytics.
+- No automatic, unattended **mod** updating. Mod install/update/delete stay
+  explicit, user-initiated actions. (The **app** does self-update via
+  electron-updater — see [App self-update](#app-self-update).)
+- No telemetry or analytics.
 - No packing/repacking of raw mod content (handled upstream in Uiscias).
 - No management of non-`Uiscias` `.it` files.
 - No authenticated GitHub access or tokens (unauthenticated is sufficient).
