@@ -1,0 +1,18 @@
+appId: com.tekashiside.findias
+productName: Findias
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+publish:
+  provider: github
+  owner: tekashi-side
+  repo: Findias
