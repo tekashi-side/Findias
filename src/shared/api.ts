@@ -3,6 +3,8 @@
  * three processes agree on the shape of the bridge exposed on `window.findias`.
  */
 
+import type { ModListState } from './modList'
+
 export interface AppInfo {
   appVersion: string
   electronVersion: string
@@ -42,11 +44,14 @@ export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>
   getSetupState(): Promise<SetupState>
   chooseGameFolder(): Promise<ChooseFolderResult>
+  /** Scan the package folder, fetch the catalog, and resolve the mod list. */
+  refresh(): Promise<ModListState>
 }
 
 /** IPC channel names, kept in one place to avoid string drift across processes. */
 export const IpcChannels = {
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
-  chooseGameFolder: 'setup:chooseGameFolder'
+  chooseGameFolder: 'setup:chooseGameFolder',
+  refresh: 'mods:refresh'
 } as const

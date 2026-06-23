@@ -60,21 +60,29 @@ Stand up the two swappable providers behind their interfaces.
 **Done when:** on launch the app fetches the catalog and scans the folder, with
 unit tests for both providers (mock fetch + a temp fixture folder). ✅
 
-> A temporary dev-only launch probe in `src/main/index.ts` (`logSourceScan`)
-> exercises both providers on startup; Phase 3 replaces it with the resolver +
-> `refresh` IPC that feeds the renderer.
+> The temporary launch probe was removed in Phase 3 and replaced by the resolver
+> + `refresh` IPC that feeds the renderer.
 
-## Phase 3 — Resolve & render the mod list 🔜
+## Phase 3 — Resolve & render the mod list ✅
 
-- `ModResolver`: merge catalog + installed by `modId` into `ModListState` with
-  status (not installed / up to date / update available / disabled / orphan) and
-  the valid actions per row.
-- Renderer: scrollable MUI list — name, release version, installed version,
-  action buttons; loading / empty / error states (including the "no compatible
-  mods" transition state for non-conforming releases).
+- `ModResolver` (`src/main/modResolver.ts`): merges catalog + installed by
+  `modId` into rows with status (not installed / up to date / update available /
+  disabled / orphan) and the valid actions per row. Pure and unit-tested. ✅
+- DTOs (`src/shared/modList.ts`): `ModListState` / `ModRow` / `ModStatus` /
+  `ModAction` cross the IPC boundary. ✅
+- IPC: `refresh` scans the folder, fetches the catalog, and resolves; a catalog
+  failure degrades softly (installed mods still returned as orphans, surfaced via
+  `catalog.available`). ✅
+- Renderer: scrollable MUI list — name, status chip, release + installed
+  version, action buttons (rendered but disabled until Phase 4); loading / error
+  (with retry) / catalog-unavailable banner / empty ("no compatible mods")
+  states. ✅
 
 **Done when:** the list renders real data from a live release against a real
-`package` folder, with correct per-row status. Resolver has thorough unit tests.
+`package` folder, with correct per-row status. Resolver has thorough unit tests. ✅
+
+> Action buttons are intentionally **disabled** in Phase 3 — they reflect each
+> row's valid actions but are wired to mutations in Phase 4.
 
 ## Phase 4 — Install / update / delete ⬜
 

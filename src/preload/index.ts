@@ -4,7 +4,8 @@ import { IpcChannels, type FindiasApi } from '../shared/api'
 const api: FindiasApi = {
   getAppInfo: () => ipcRenderer.invoke(IpcChannels.getAppInfo),
   getSetupState: () => ipcRenderer.invoke(IpcChannels.getSetupState),
-  chooseGameFolder: () => ipcRenderer.invoke(IpcChannels.chooseGameFolder)
+  chooseGameFolder: () => ipcRenderer.invoke(IpcChannels.chooseGameFolder),
+  refresh: () => ipcRenderer.invoke(IpcChannels.refresh)
 }
 
 contextBridge.exposeInMainWorld('findias', api)
