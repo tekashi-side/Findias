@@ -84,20 +84,27 @@ unit tests for both providers (mock fetch + a temp fixture folder). ✅
 > Action buttons are intentionally **disabled** in Phase 3 — they reflect each
 > row's valid actions but are wired to mutations in Phase 4.
 
-## Phase 4 — Install / update / delete ⬜
+## Phase 4 — Install / update / delete ✅
 
 The core mutations, all written to operate via the providers + `ModStore`.
 
-- `Downloader`: stream `fetchBytes()` to a temp file with progress events;
-  atomic rename into place; clean up on failure/cancel.
-- `ModStore`: write/delete `.it` files in `package`.
-- `ModInstaller`: orchestrate **install**, **update** (write-new-then-delete-old
-  replace), and **delete**.
-- IPC: `installOrUpdate`, `deleteMod` returning fresh `ModListState`; download
-  progress surfaced in the UI.
+- `Downloader` (`src/main/downloader.ts`): streams `fetchBytes()` to a dotted
+  temp file with cumulative progress, atomically renames into place, and removes
+  the temp file on failure/cancel. ✅
+- `ModStore` (`src/main/modStore.ts`): `PackageModStore.removeManaged(modId,
+  except?)` deletes managed files from the package root + disabled, optionally
+  keeping one (replace). ✅
+- `ModInstaller` (`src/main/modInstaller.ts`): **install/update** with
+  write-new-then-delete-old replace semantics; **delete** is `removeManaged`. ✅
+- IPC: `installOrUpdate` (one catalog fetch reused for lookup + post-resolve) and
+  `deleteMod` return fresh `ModListState`; `onDownloadProgress` streams progress
+  events. Row buttons (install/update/delete) are wired in the UI with a
+  per-row progress bar. ✅
 
 **Done when:** a user can install, update (old version removed), and delete a mod
-end to end, with progress shown and no half-written files on failure.
+end to end, with progress shown and no half-written files on failure. ✅
+
+> Enable/disable buttons remain disabled until Phase 5.
 
 ## Phase 5 — Disable / enable ⬜
 

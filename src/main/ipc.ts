@@ -1,14 +1,18 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import {
   IpcChannels,
   type AppInfo,
   type ChooseFolderResult,
+  type DownloadProgress,
+  type GamePaths,
   type SetupState
 } from '../shared/api'
 import type { ModListState } from '../shared/modList'
 import { loadSettings, saveSettings } from './settingsStore'
 import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation'
 import { resolveModList } from './modResolver'
+import { installOrUpdateMod } from './modInstaller'
+import { createPackageModStore } from './modStore'
 import { CatalogError } from './providers/catalog'
 import { createGitHubReleaseCatalogProvider } from './providers/githubReleaseCatalog'
 import { createPackageFolderProvider } from './providers/packageFolder'
@@ -23,13 +27,8 @@ const computeSetupState = async (): Promise<SetupState> => {
   return { gameRootPath, valid: ok }
 }
 
-/**
- * Scan the package folder and fetch the catalog, then resolve them into the mod
- * list. A catalog failure (offline, rate-limited) degrades softly: installed
- * mods are still returned (as orphans) so the user can manage them, and the
- * failure is reported via `catalog.available`.
- */
-const refresh = async (): Promise<ModListState> => {
+/** Resolve the stored game paths, throwing a clear error if setup is invalid. */
+const requireGamePaths = async (): Promise<GamePaths> => {
   const { gameRootPath } = await loadSettings()
   const validation: ValidationResult = gameRootPath
     ? await validateGameRoot(gameRootPath)
@@ -38,10 +37,17 @@ const refresh = async (): Promise<ModListState> => {
   if (!gameRootPath || !validation.ok) {
     throw new Error(validation.error ?? 'No game folder is configured.')
   }
+  return resolveGamePaths(gameRootPath)
+}
 
-  const paths = resolveGamePaths(gameRootPath)
+/**
+ * Build the current mod list: scan the package folder + fetch the catalog, then
+ * resolve. A catalog failure (offline, rate-limited) degrades softly — installed
+ * mods are still returned (as orphans) so the user can manage them, and the
+ * failure is reported via `catalog.available`.
+ */
+const resolveCurrentState = async (paths: GamePaths): Promise<ModListState> => {
   const installed = await createPackageFolderProvider(paths).list()
-
   try {
     const catalog = await createGitHubReleaseCatalogProvider().getCatalog()
     return { rows: resolveModList(catalog, installed), catalog: { available: true } }
@@ -50,6 +56,46 @@ const refresh = async (): Promise<ModListState> => {
       error instanceof CatalogError ? error.message : 'Could not load the mod catalog.'
     return { rows: resolveModList([], installed), catalog: { available: false, error: message } }
   }
+}
+
+const refresh = async (): Promise<ModListState> => resolveCurrentState(await requireGamePaths())
+
+/**
+ * Install or replace a mod, then return the fresh mod list. The catalog is
+ * fetched once and reused for both the entry lookup and the post-mutation
+ * resolve, avoiding a second GitHub request. Download progress is streamed to
+ * the calling renderer over the progress channel.
+ */
+const installOrUpdate = async (
+  event: IpcMainInvokeEvent,
+  modId: string
+): Promise<ModListState> => {
+  const paths = await requireGamePaths()
+  const catalog = await createGitHubReleaseCatalogProvider().getCatalog()
+  const entry = catalog.find((candidate) => candidate.modId === modId)
+  if (!entry) {
+    throw new Error(`"${modId}" is not available in the latest release.`)
+  }
+
+  await installOrUpdateMod({
+    entry,
+    store: createPackageModStore(paths),
+    packageDir: paths.packageDir,
+    onProgress: (receivedBytes) => {
+      const progress: DownloadProgress = { modId, receivedBytes, totalBytes: entry.size ?? null }
+      event.sender.send(IpcChannels.downloadProgress, progress)
+    }
+  })
+
+  const installed = await createPackageFolderProvider(paths).list()
+  return { rows: resolveModList(catalog, installed), catalog: { available: true } }
+}
+
+/** Delete every managed file for a mod, then return the fresh mod list. */
+const deleteMod = async (modId: string): Promise<ModListState> => {
+  const paths = await requireGamePaths()
+  await createPackageModStore(paths).removeManaged(modId)
+  return resolveCurrentState(paths)
 }
 
 export const registerIpcHandlers = (): void => {
@@ -66,6 +112,12 @@ export const registerIpcHandlers = (): void => {
   ipcMain.handle(IpcChannels.getSetupState, () => computeSetupState())
 
   ipcMain.handle(IpcChannels.refresh, () => refresh())
+
+  ipcMain.handle(IpcChannels.installOrUpdate, (event, modId: string) =>
+    installOrUpdate(event, modId)
+  )
+
+  ipcMain.handle(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId))
 
   ipcMain.handle(IpcChannels.chooseGameFolder, async (event): Promise<ChooseFolderResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender)

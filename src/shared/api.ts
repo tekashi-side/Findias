@@ -39,6 +39,14 @@ export interface ChooseFolderResult {
   state?: SetupState
 }
 
+/** Progress event emitted while a mod is downloading. */
+export interface DownloadProgress {
+  modId: string
+  receivedBytes: number
+  /** Expected total from the release asset size, or null when unknown. */
+  totalBytes: number | null
+}
+
 /** The allow-listed surface exposed to the renderer via contextBridge. */
 export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>
@@ -46,6 +54,12 @@ export interface FindiasApi {
   chooseGameFolder(): Promise<ChooseFolderResult>
   /** Scan the package folder, fetch the catalog, and resolve the mod list. */
   refresh(): Promise<ModListState>
+  /** Install (or replace with) the latest release version of a mod. */
+  installOrUpdate(modId: string): Promise<ModListState>
+  /** Delete every managed file for a mod (package root + disabled). */
+  deleteMod(modId: string): Promise<ModListState>
+  /** Subscribe to download progress; returns an unsubscribe function. */
+  onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void
 }
 
 /** IPC channel names, kept in one place to avoid string drift across processes. */
@@ -53,5 +67,8 @@ export const IpcChannels = {
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
   chooseGameFolder: 'setup:chooseGameFolder',
-  refresh: 'mods:refresh'
+  refresh: 'mods:refresh',
+  installOrUpdate: 'mods:installOrUpdate',
+  deleteMod: 'mods:delete',
+  downloadProgress: 'mods:downloadProgress'
 } as const
