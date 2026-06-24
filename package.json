@@ -4,6 +4,7 @@
   "description": "Findias - a mod manager for Mabinogi",
   "author": "tekashi-side",
   "license": "MIT",
+  "private": true,
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -14,7 +15,9 @@
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:win": "electron-vite build && electron-builder --win"
+    "build:win": "electron-vite build && electron-builder --win",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
@@ -27,6 +30,7 @@
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "jsdom": "^29.1.1",
+    "prettier": "^3.8.4",
     "typescript": "^6.0.3",
     "vite": "^7.3.5",
     "vitest": "^4.1.9"
