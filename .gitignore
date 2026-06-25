@@ -8,5 +8,8 @@ release/
 .env.*
 coverage/
 
+# VSCode
+.vscode/
+
 # Editor / assistant config (not committed for now)
 .cursor/
