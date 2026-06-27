@@ -1,5 +1,4 @@
 import type { FC } from 'react';
-import List from '@mui/material/List';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModGroupRow } from '@shared/modList';
 import ModListItem from './ModListItem';
@@ -13,9 +12,10 @@ type ModListProps = {
   onAction: (action: ModAction, modId: string) => void;
 };
 
+/** Render mod groups as flat rows or expandable variant accordions. */
 const ModList: FC<ModListProps> = ({ groups, busyModId, progressByMod, outdated, onAction }) => {
   return (
-    <List disablePadding>
+    <div className="flex flex-col">
       {groups.map((group) =>
         group.hasVariants ? (
           <VariantGroupItem
@@ -38,7 +38,7 @@ const ModList: FC<ModListProps> = ({ groups, busyModId, progressByMod, outdated,
           />
         ),
       )}
-    </List>
+    </div>
   );
 };
 
