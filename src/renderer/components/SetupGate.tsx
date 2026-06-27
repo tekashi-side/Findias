@@ -1,12 +1,11 @@
 import type { FC } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import Container from '@mui/material/Container';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
+import { CircleAlert } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import type { ChooseFolderResult } from '@shared/api';
 
+/** First-run screen: pick and validate the Mabinogi game folder. */
 const SetupGate: FC = () => {
   const queryClient = useQueryClient();
 
@@ -23,31 +22,37 @@ const SetupGate: FC = () => {
   const validationError = result && !result.ok && !result.canceled ? result.error : undefined;
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4">Welcome to Findias</Typography>
-        <Typography variant="body1" color="text.secondary">
+    <div className="mx-auto max-w-xl p-6">
+      <div className="flex flex-col gap-4">
+        <h1 className="text-3xl font-semibold">Welcome to Findias</h1>
+        <p className="text-muted-foreground">
           To get started, choose your Mabinogi game folder. This is the <code>appdata</code> folder
           inside your Mabinogi install — it contains a <code>package</code> subfolder. Findias needs
           this before it can manage mods.
-        </Typography>
+        </p>
 
-        {validationError && <Alert severity="error">{validationError}</Alert>}
+        {validationError && (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
         {choose.isError && (
-          <Alert severity="error">Something went wrong opening the folder picker.</Alert>
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>Something went wrong opening the folder picker.</AlertDescription>
+          </Alert>
         )}
 
-        <Stack direction="row" spacing={1}>
-          <Button variant="contained" onClick={() => choose.mutate()} disabled={choose.isPending}>
+        <div className="flex gap-2">
+          <Button onClick={() => choose.mutate()} disabled={choose.isPending}>
             {choose.isPending ? 'Opening…' : 'Choose game folder'}
           </Button>
-        </Stack>
+        </div>
 
-        <Typography variant="caption" color="text.secondary">
-          Example: D:\Nexon\Library\mabinogi\appdata
-        </Typography>
-      </Stack>
-    </Container>
+        <p className="text-xs text-muted-foreground">Example: D:\Nexon\Library\mabinogi\appdata</p>
+      </div>
+    </div>
   );
 };
 
