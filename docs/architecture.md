@@ -33,7 +33,8 @@ These constraints drive every decision below:
 | App shell            | **Electron**                                               | Bundles Chromium + Node + app into one self-contained executable; gives the renderer DOM/UI and the main process full filesystem + network access.                                                                 |
 | Bootstrap / build    | **Vite** (via `electron-vite`)                             | Fast dev server + HMR for the renderer and a single, well-supported way to build all three Electron entry points (main, preload, renderer) with TypeScript. See note below.                                        |
 | UI framework         | **React**                                                  | Component model fits the scrollable mod list and setup/empty/error states; large ecosystem; first-class Vite support.                                                                                              |
-| Component library    | **MUI (Material UI)**                                      | Ready-made, accessible components (lists, buttons, dialogs, progress) so we build the UI quickly with a consistent look.                                                                                           |
+| Styling              | **Tailwind CSS v4**                                        | Utility-first CSS via the `@tailwindcss/vite` plugin on the renderer build; theme tokens live in CSS (`index.css`), not a `tailwind.config.js`.                                                                    |
+| Component library    | **shadcn/ui** (copied source)                              | Accessible, Tailwind-styled components checked into `src/renderer/components/ui/` — editable project code, not an opaque npm package. Built on Radix UI primitives.                                                |
 | Renderer async state | **TanStack Query (React Query)**                           | Manages loading/error/stale state, de-dupes requests, and invalidates after mutations. It wraps the IPC calls — it does **not** perform networking itself (see note).                                              |
 | Network              | **`fetch`** (in the main process)                          | Standard WHATWG API built into Node 18+; follows redirects; trivially mockable in Vitest. All network calls live in the main process, never the renderer.                                                          |
 | Validation           | **zod**                                                    | Validates all untrusted JSON at the boundary (settings file, GitHub release/manifest JSON). Schemas are the single source of truth — the TS types are derived via `z.infer`, never declared twice. See note below. |
@@ -45,8 +46,8 @@ These constraints drive every decision below:
 | App self-update      | **electron-updater** (GitHub provider)                     | Lets a running Findias check the `tekashi-side/Findias` releases feed and prompt the user to update — no manual re-download. See [App self-update](#app-self-update).                                              |
 
 > "No dependencies" applies to the **end user**. The build machine still uses
-> normal npm dev/runtime dependencies (Electron, Vite, React, MUI, TanStack
-> Query, electron-builder, electron-updater). These are compiled/bundled into the
+> normal npm dev/runtime dependencies (Electron, Vite, React, Tailwind, shadcn
+> UI stack, TanStack Query, electron-builder, electron-updater). These are compiled/bundled into the
 > shipped artifact and are invisible to users.
 
 ### Why Vite
@@ -87,6 +88,48 @@ useMutation({
 Because every mutating IPC call already returns the fresh `ModListState`, React
 Query can also seed the cache directly from the mutation result and skip a
 re-fetch.
+
+### Renderer UI (Tailwind + shadcn/ui)
+
+The renderer uses **Tailwind CSS v4** for layout and styling and **shadcn/ui**
+for interactive components. Unlike a traditional component library (e.g. the
+former MUI setup), shadcn does not ship as a single dependency — the CLI copies
+component source into the repo under `src/renderer/components/ui/`, and Findias
+feature components import from there.
+
+**Stack pieces:**
+
+| Piece         | Package / location                       | Role                                                                                                 |
+| ------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Tailwind      | `tailwindcss`, `@tailwindcss/vite` (dev) | Utility classes; wired into `electron.vite.config.ts` → `renderer.plugins`.                          |
+| Theme         | `src/renderer/index.css`                 | CSS variables (`:root` / `.dark`) + `@theme inline` token mapping. Dark-only: `<html class="dark">`. |
+| Primitives    | `radix-ui`                               | Unstyled, accessible behavior (dialog, switch, accordion, tooltip, etc.).                            |
+| Variants      | `class-variance-authority`               | Maps `variant` / `size` props to Tailwind class strings in ui components.                            |
+| Class merging | `clsx`, `tailwind-merge`                 | Combined in `cn()` (`src/renderer/lib/utils.ts`) for conditional + deduped classes.                  |
+| Icons         | `lucide-react`                           | Default icon set for alerts, spinners, accordion chevrons, toasts.                                   |
+| Animations    | `tw-animate-css`                         | Enter/exit transitions (dialogs, tooltips, accordions).                                              |
+| Toasts        | `sonner`                                 | Transient feedback for install/delete/errors (`toast.*` + `<Toaster />`).                            |
+
+**electron-vite specifics:**
+
+- Tailwind runs **only on the renderer** build — main and preload are unchanged.
+- Path aliases: `@renderer/*` and `@/*` → `src/renderer`; `@shared/*` →
+  `src/shared`. shadcn's `components.json` uses the `@/` form.
+- A root **`vite.config.ts` shim** mirrors the renderer Vite config so the
+  shadcn CLI can detect Vite + Tailwind (`electron.vite.config.ts` alone is
+  not enough).
+- Root **`tsconfig.json`** also declares `@/*` paths so the CLI resolves
+  aliases correctly (referenced tsconfigs alone are insufficient).
+- Add or update ui primitives with `npx shadcn@latest add <component>` from the
+  repo root.
+
+**Layering:**
+
+- `components/ui/*` — design-system primitives (treat as vendor-like; update via
+  CLI or deliberate edits).
+- `components/*` — Findias feature components (`ModListItem`, `MainView`, etc.)
+  compose ui primitives with domain logic.
+- Theme tweaks = edit CSS variables in `index.css`, not scattered class strings.
 
 ### Validation with zod
 
@@ -243,17 +286,23 @@ src/
 │  └─ index.d.ts             # ambient types for window.findias
 ├─ renderer/                 # Chromium UI (React); NO direct Node access
 │  ├─ index.html             # Vite entry HTML (the renderer's Vite root)
-│  ├─ main.tsx               # React bootstrap (QueryClient, theme)
+│  ├─ index.css              # Tailwind imports + theme CSS variables
+│  ├─ main.tsx               # React bootstrap (QueryClient, global CSS)
 │  ├─ env.d.ts               # vite/client types
-│  ├─ App.tsx                # top-level view orchestration
-│  ├─ components/            # UI components
-│  ├─ hooks/                 # (future) TanStack Query hooks over window.findias
-│  └─ theme.ts               # (future) extracted MUI theme
+│  ├─ App.tsx                # top-level view orchestration + Toaster/TooltipProvider
+│  ├─ lib/utils.ts           # cn() — clsx + tailwind-merge helper
+│  ├─ components/            # Findias feature UI
+│  │  └─ ui/                 # shadcn/ui primitives (button, alert, accordion, …)
+│  └─ hooks/                 # (future) TanStack Query hooks over window.findias
 └─ shared/                   # ONLY code that crosses the IPC boundary
    ├─ api.ts                 # FindiasApi contract, channel names, IPC DTOs
    ├─ modList.ts             # ModListState + ModGroupRow/ModVariantRow DTOs
    ├─ modFilename.ts         # filename grammar parser (installed scan) (+ .test.ts)
    └─ modFilename.test.ts
+
+components.json             # shadcn CLI config (aliases, css path, style)
+vite.config.ts              # shim for shadcn CLI (renderer Vite + Tailwind)
+electron.vite.config.ts     # actual Electron build (main, preload, renderer)
 ```
 
 Conventions that keep the tree stable:
@@ -279,7 +328,7 @@ Conventions that keep the tree stable:
 - **The renderer is not nested.** `src/renderer/` is itself the renderer's Vite
   root (it holds `index.html`), and React sources live directly inside it — there
   is no `src/renderer/src/`. The `@renderer` / `@shared` import aliases map to
-  `src/renderer` and `src/shared`.
+  `src/renderer` and `src/shared`. shadcn components import via `@/` (same root).
 
 ## IPC boundary
 
