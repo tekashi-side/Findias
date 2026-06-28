@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Info } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
 import { formatBytes } from '../format';
@@ -6,6 +7,15 @@ import StatusChip from './StatusChip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemTitle,
+} from '@/components/ui/item';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -78,12 +88,12 @@ const ModListItem: FC<ModListItemProps> = ({
   const showUpdateType = outdated && variant.updateType !== null;
 
   return (
-    <div className="flex flex-wrap items-start gap-2 border-b border-border py-3 last:border-b-0">
-      <div className="flex min-w-0 grow flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-medium break-words">{variant.name}</span>
+    <Item variant="outline" className="items-start">
+      <ItemContent>
+        <ItemTitle className="flex-wrap break-words">
+          <span className="break-words">{variant.name}</span>
           <StatusChip status={variant.status} />
-        </div>
+        </ItemTitle>
 
         {tags && tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
@@ -95,21 +105,40 @@ const ModListItem: FC<ModListItemProps> = ({
           </div>
         )}
 
-        <p className="text-sm text-muted-foreground">{versionSummary(variant)}</p>
+        <ItemDescription>{versionSummary(variant)}</ItemDescription>
 
         {showUpdateType && variant.updateType && (
           <div>
             <Badge
               variant="outline"
               className={cn(
+                'gap-1',
                 variant.updateType === 'volatile'
                   ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
                   : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
               )}
             >
-              {variant.updateType === 'volatile'
-                ? 'Volatile — likely affected by patches'
-                : 'Stable — usually survives patches'}
+              {variant.updateType === 'volatile' ? 'Volatile' : 'Stable'}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex cursor-help items-center opacity-70 hover:opacity-100"
+                    aria-label={
+                      variant.updateType === 'volatile'
+                        ? 'Volatile mods are likely affected by patches'
+                        : 'Stable mods usually survive patches'
+                    }
+                  >
+                    <Info className="size-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {variant.updateType === 'volatile'
+                    ? 'Likely affected by patches'
+                    : 'Usually survives patches'}
+                </TooltipContent>
+              </Tooltip>
             </Badge>
           </div>
         )}
@@ -120,9 +149,9 @@ const ModListItem: FC<ModListItemProps> = ({
             it to enable this mod.
           </p>
         )}
-      </div>
+      </ItemContent>
 
-      <div className="flex gap-2">
+      <ItemActions>
         {variant.actions.map((action) =>
           action === 'delete' ? (
             <AlertDialog key={action}>
@@ -161,10 +190,10 @@ const ModListItem: FC<ModListItemProps> = ({
             </Button>
           ),
         )}
-      </div>
+      </ItemActions>
 
       {busy && (
-        <div className="w-full">
+        <ItemFooter>
           {percent === null ? (
             <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
               <div className="h-full w-full animate-pulse rounded-full bg-primary/60" />
@@ -172,9 +201,9 @@ const ModListItem: FC<ModListItemProps> = ({
           ) : (
             <Progress value={percent} />
           )}
-        </div>
+        </ItemFooter>
       )}
-    </div>
+    </Item>
   );
 };
 

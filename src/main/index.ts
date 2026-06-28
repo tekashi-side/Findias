@@ -4,10 +4,12 @@ import { registerIpcHandlers } from './ipc';
 
 const createWindow = (): void => {
   const window = new BrowserWindow({
-    width: 720,
-    height: 560,
-    minWidth: 560,
-    minHeight: 420,
+    width: 1440,
+    height: 1080,
+    useContentSize: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     center: true,
     show: false,
     autoHideMenuBar: true,
