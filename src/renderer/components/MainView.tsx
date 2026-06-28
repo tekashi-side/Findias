@@ -116,27 +116,24 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     <div className="flex h-full">
       <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
         <div className="flex shrink-0 items-center gap-2">
-          <h1 className="grow font-heading text-3xl font-semibold">Findias</h1>
+          <span className="grow text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
           <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
             {isFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="include-prereleases"
-                size="sm"
-                checked={includePrereleases}
-                onCheckedChange={handlePrereleaseChange}
-                disabled={isFetching || busy}
-              />
-              <Label htmlFor="include-prereleases" className="font-normal text-muted-foreground">
-                Include prereleases
-              </Label>
-            </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              id="include-prereleases"
+              size="sm"
+              checked={includePrereleases}
+              onCheckedChange={handlePrereleaseChange}
+              disabled={isFetching || busy}
+            />
+            <Label htmlFor="include-prereleases" className="font-normal text-muted-foreground">
+              Include prereleases
+            </Label>
           </div>
 
           {isLoading && (
