@@ -3,14 +3,22 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ChooseFolderResult, SetupState } from '@shared/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item';
 
 type SettingsViewProps = {
   setup: SetupState;
 };
 
 /**
- * Dedicated settings screen that replaces the two-column mod view. For now it
+ * Dedicated settings screen that replaces the two-column mod view. Each setting
+ * category is wrapped in an {@link Item} (mirroring the mod list). For now it
  * offers a single option: re-selecting the Mabinogi game folder. A successful
  * change invalidates the setup state and mod list so both reflect the new path.
  */
@@ -34,31 +42,35 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
     <div className="flex h-full flex-col gap-6 p-6">
       <h1 className="font-heading text-3xl font-semibold">Settings</h1>
 
-      <div className="flex max-w-2xl flex-col gap-2">
-        <Label className="text-sm font-medium">Game folder</Label>
-        <p className="text-sm text-muted-foreground">
-          The Mabinogi <code className="rounded bg-muted px-1 py-0.5 text-xs">appdata</code> folder
-          Findias manages mods in.
-        </p>
-        <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
+      <ItemGroup className="max-w-2xl">
+        <Item variant="outline" className="items-start">
+          <ItemContent>
+            <ItemTitle>Game folder</ItemTitle>
+            <ItemDescription>
+              The Mabinogi <code className="rounded bg-muted px-1 py-0.5 text-xs">appdata</code>{' '}
+              folder Findias manages mods in.
+            </ItemDescription>
+            <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
 
-        {validationError && (
-          <Alert variant="destructive">
-            <AlertDescription>{validationError}</AlertDescription>
-          </Alert>
-        )}
-        {choose.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>Something went wrong opening the folder picker.</AlertDescription>
-          </Alert>
-        )}
+            {validationError && (
+              <Alert variant="destructive">
+                <AlertDescription>{validationError}</AlertDescription>
+              </Alert>
+            )}
+            {choose.isError && (
+              <Alert variant="destructive">
+                <AlertDescription>Something went wrong opening the folder picker.</AlertDescription>
+              </Alert>
+            )}
+          </ItemContent>
 
-        <div className="mt-1 flex gap-2">
-          <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
-            {choose.isPending ? 'Opening…' : 'Change game folder'}
-          </Button>
-        </div>
-      </div>
+          <ItemActions>
+            <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
+              {choose.isPending ? 'Opening…' : 'Change game folder'}
+            </Button>
+          </ItemActions>
+        </Item>
+      </ItemGroup>
     </div>
   );
 };
