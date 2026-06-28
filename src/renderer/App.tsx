@@ -1,12 +1,11 @@
 import type { FC } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Container from '@mui/material/Container';
-import Stack from '@mui/material/Stack';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert';
 import SetupGate from './components/SetupGate';
 import MainView from './components/MainView';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Spinner } from '@/components/ui/spinner';
 
+/** Root view: reads setup state, then routes to {@link SetupGate} or {@link MainView}. */
 const App: FC = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ['setupState'],
@@ -15,19 +14,19 @@ const App: FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="sm" sx={{ py: 4 }}>
-        <Stack sx={{ alignItems: 'center', py: 6 }}>
-          <CircularProgress />
-        </Stack>
-      </Container>
+      <div className="mx-auto flex max-w-md justify-center px-4 py-12">
+        <Spinner className="size-8" />
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <Container maxWidth="sm" sx={{ py: 4 }}>
-        <Alert severity="error">Failed to read application state.</Alert>
-      </Container>
+      <div className="mx-auto max-w-md px-4 py-8">
+        <Alert variant="destructive">
+          <AlertDescription>Failed to read application state.</AlertDescription>
+        </Alert>
+      </div>
     );
   }
 

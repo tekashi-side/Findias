@@ -15,7 +15,7 @@ dependency — later phases build on earlier ones.
 Validate the whole toolchain end to end before building features.
 
 - electron-vite (`react-ts`) with TypeScript across main/preload/renderer.
-- React + MUI + TanStack Query in the renderer; Vitest for tests.
+- React + Tailwind v4 + shadcn/ui + TanStack Query in the renderer; Vitest for tests.
 - electron-builder + electron-updater installed and configured.
 - Centered, non-fullscreen window with strict security defaults
   (`contextIsolation`, `sandbox`, no `nodeIntegration`).
@@ -73,7 +73,7 @@ unit tests for both providers (mock fetch + a temp fixture folder). ✅
 - IPC: `refresh` scans the folder, fetches the catalog, and resolves; a catalog
   failure degrades softly (installed mods still returned as orphans, surfaced via
   `catalog.available`). ✅
-- Renderer: scrollable MUI list — name, status chip, release + installed
+- Renderer: scrollable shadcn/Tailwind list — name, status chip, release + installed
   version, action buttons (rendered but disabled until Phase 4); loading / error
   (with retry) / catalog-unavailable banner / empty ("no compatible mods")
   states. ✅
