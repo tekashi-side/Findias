@@ -66,6 +66,10 @@ export interface FindiasApi {
   setIncludePrereleases(value: boolean): Promise<ModListState>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
+  /** Minimize the application window. */
+  minimizeWindow(): void;
+  /** Close the application window. */
+  closeWindow(): void;
 }
 
 /** IPC channel names, kept in one place to avoid string drift across processes. */
@@ -79,4 +83,6 @@ export const IpcChannels = {
   setDisabled: 'mods:setDisabled',
   setIncludePrereleases: 'settings:setIncludePrereleases',
   downloadProgress: 'mods:downloadProgress',
+  windowMinimize: 'window:minimize',
+  windowClose: 'window:close',
 } as const;

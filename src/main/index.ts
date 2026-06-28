@@ -14,6 +14,7 @@ const createWindow = (): void => {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
+    frame: false,
     center: true,
     show: false,
     autoHideMenuBar: true,
