@@ -1,17 +1,17 @@
 import { useEffect, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Container from '@mui/material/Container';
-import Stack from '@mui/material/Stack';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
+import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
+import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
+import { Toaster } from '@/components/ui/sonner';
 
 type MainViewProps = {
   setup: SetupState;
@@ -19,6 +19,15 @@ type MainViewProps = {
 
 const MOD_LIST_KEY = ['modList'] as const;
 
+/** Extract a user-facing message from an unknown thrown value, with a fallback. */
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'The action failed.';
+
+/**
+ * The primary screen once setup is valid: header with refresh, the prerelease
+ * toggle, load/error/catalog banners, the scrollable mod list, and toast
+ * notifications for failed install/update/delete/toggle actions.
+ */
 const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
@@ -35,6 +44,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     });
   }, []);
 
+  /** Drop the download-progress entry for a mod once its action settles. */
   const clearProgress = (modId: string): void =>
     setProgressByMod((prev) => {
       const next = { ...prev };
@@ -42,6 +52,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
       return next;
     });
 
+  /** Prime the cached mod list with the fresh state returned by a mutation. */
   const seedModList = (state: ModListState): void => {
     queryClient.setQueryData(MOD_LIST_KEY, state);
   };
@@ -49,30 +60,36 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const install = useMutation({
     mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
     onSettled: (_data, _error, modId) => clearProgress(modId),
   });
 
   const remove = useMutation({
     mutationFn: (modId: string) => window.findias.deleteMod(modId),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const toggle = useMutation({
     mutationFn: ({ modId, disabled }: { modId: string; disabled: boolean }) =>
       window.findias.setDisabled(modId, disabled),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const prerelease = useMutation({
     mutationFn: (value: boolean) => window.findias.setIncludePrereleases(value),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
+  /** Optimistically reflect the prerelease toggle, then persist it. */
   const handlePrereleaseChange = (value: boolean): void => {
     setIncludePrereleases(value);
     prerelease.mutate(value);
   };
 
+  /** Dispatch a row's action to the matching mutation. */
   const handleAction = (action: ModAction, modId: string): void => {
     if (action === 'delete') remove.mutate(modId);
     else if (action === 'enable') toggle.mutate({ modId, disabled: false });
@@ -89,94 +106,88 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         : undefined;
 
   const busy = Boolean(busyModId) || prerelease.isPending;
-  const mutationError = install.error ?? remove.error ?? toggle.error ?? prerelease.error;
   const groups = data?.groups ?? [];
   const outdated = data?.metadata?.outdated ?? false;
 
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ flexGrow: 1 }}>
-            Findias
-          </Typography>
-          <Button variant="outlined" onClick={() => void refetch()} disabled={isFetching || busy}>
-            {isFetching ? 'Refreshing…' : 'Refresh'}
-          </Button>
-        </Stack>
+    <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-8">
+      <div className="flex items-center gap-2">
+        <h1 className="grow font-heading text-3xl font-semibold">Findias</h1>
+        <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
+          {isFetching ? 'Refreshing…' : 'Refresh'}
+        </Button>
+      </div>
 
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-            {setup.gameRootPath}
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={includePrereleases}
-                onChange={(event) => handlePrereleaseChange(event.target.checked)}
-                disabled={isFetching || busy}
-              />
-            }
-            label="Include prereleases"
-            slotProps={{ typography: { variant: 'body2' } }}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
+        <div className="flex items-center gap-2">
+          <Switch
+            id="include-prereleases"
+            size="sm"
+            checked={includePrereleases}
+            onCheckedChange={handlePrereleaseChange}
+            disabled={isFetching || busy}
           />
-        </Stack>
+          <Label htmlFor="include-prereleases" className="font-normal text-muted-foreground">
+            Include prereleases
+          </Label>
+        </div>
+      </div>
 
-        {isLoading && (
-          <Stack sx={{ alignItems: 'center', py: 6 }}>
-            <CircularProgress />
-          </Stack>
-        )}
+      {isLoading && (
+        <div className="flex justify-center py-12">
+          <Spinner className="size-8" />
+        </div>
+      )}
 
-        {isError && (
-          <Alert
-            severity="error"
-            action={
-              <Button color="inherit" size="small" onClick={() => void refetch()}>
-                Retry
-              </Button>
-            }
-          >
+      {isError && (
+        <Alert variant="destructive">
+          <AlertDescription>
             {error instanceof Error ? error.message : 'Failed to load the mod list.'}
-          </Alert>
-        )}
+          </AlertDescription>
+          <AlertAction>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
 
-        {mutationError && (
-          <Alert severity="error">
-            {mutationError instanceof Error ? mutationError.message : 'The action failed.'}
-          </Alert>
-        )}
-
-        {data && outdated && (
-          <Alert severity="warning">
+      {data && outdated && (
+        <Alert className="border-amber-500/30 text-amber-700 dark:text-amber-400">
+          <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
             The mod catalog is verified for game version {data.metadata?.supportedGameVersion}, but
             the latest client is {data.metadata?.currentGameVersion}. Some mods may be out of date —
             consider disabling volatile mods until they are updated.
-          </Alert>
-        )}
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {data && !data.catalog.available && (
-          <Alert severity="warning">
+      {data && !data.catalog.available && (
+        <Alert className="border-amber-500/30 text-amber-700 dark:text-amber-400">
+          <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
             {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the mods
             already on disk.
-          </Alert>
-        )}
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {data && groups.length === 0 && (
-          <Alert severity="info">
-            {data.catalog.available
-              ? 'No compatible mods were found in the latest Uiscias release.'
-              : 'No managed mods are installed.'}
-          </Alert>
-        )}
+      {data && groups.length === 0 && (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No mods to show</EmptyTitle>
+            <EmptyDescription>
+              {data.catalog.available
+                ? 'No compatible mods were found in the latest Uiscias release.'
+                : 'No managed mods are installed.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
 
-        {groups.length > 0 && (
-          <Box sx={{ maxHeight: 420, overflowY: 'auto', pr: 1 }}>
+      {groups.length > 0 && (
+        <ScrollArea className="h-[420px]">
+          <div className="pr-3">
             <ModList
               groups={groups}
               busyModId={busyModId}
@@ -184,10 +195,12 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
               outdated={outdated}
               onAction={handleAction}
             />
-          </Box>
-        )}
-      </Stack>
-    </Container>
+          </div>
+        </ScrollArea>
+      )}
+
+      <Toaster />
+    </div>
   );
 };
 

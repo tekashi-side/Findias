@@ -1,15 +1,14 @@
 import type { FC } from 'react';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
-import List from '@mui/material/List';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModGroupRow } from '@shared/modList';
 import ModListItem from './ModListItem';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 
 type VariantGroupItemProps = {
   group: ModGroupRow;
@@ -35,49 +34,48 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
   const installed = group.variants.find((variant) => variant.modId === group.installedVariantId);
 
   return (
-    <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
-      <AccordionSummary expandIcon={<Box component="span">▾</Box>}>
-        <Stack sx={{ flexGrow: 1, minWidth: 0 }} spacing={0.5}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-            <Typography variant="subtitle1" sx={{ wordBreak: 'break-word' }}>
-              {group.name}
-            </Typography>
-            <Chip
-              size="small"
-              variant="outlined"
-              color="info"
-              label={`${group.variants.length} variants`}
-            />
-          </Stack>
+    <Accordion type="single" collapsible defaultValue={group.groupId} className="my-1.5">
+      <AccordionItem value={group.groupId}>
+        <AccordionTrigger>
+          <div className="flex min-w-0 grow flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-base font-medium break-words">{group.name}</span>
+              <Badge variant="outline" className="border-sky-500/30 text-sky-700 dark:text-sky-400">
+                {group.variants.length} variants
+              </Badge>
+            </div>
 
-          {group.tags.length > 0 && (
-            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-              {group.tags.map((tag) => (
-                <Chip key={tag} size="small" variant="outlined" label={tag} />
-              ))}
-            </Stack>
-          )}
+            {group.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {group.tags.map((tag) => (
+                  <Badge key={tag} variant="outline">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
 
-          <Typography variant="body2" color="text.secondary">
-            {installed ? `Installed: ${installed.name}` : 'Pick one variant to install'}
-          </Typography>
-        </Stack>
-      </AccordionSummary>
+            <p className="text-sm font-normal text-muted-foreground">
+              {installed ? `Installed: ${installed.name}` : 'Pick one variant to install'}
+            </p>
+          </div>
+        </AccordionTrigger>
 
-      <AccordionDetails sx={{ pt: 0 }}>
-        <List disablePadding>
-          {group.variants.map((variant) => (
-            <ModListItem
-              key={variant.modId}
-              variant={variant}
-              busy={variant.modId === busyModId}
-              progress={progressByMod[variant.modId]}
-              outdated={outdated}
-              onAction={onAction}
-            />
-          ))}
-        </List>
-      </AccordionDetails>
+        <AccordionContent>
+          <div className="flex flex-col">
+            {group.variants.map((variant) => (
+              <ModListItem
+                key={variant.modId}
+                variant={variant}
+                busy={variant.modId === busyModId}
+                progress={progressByMod[variant.modId]}
+                outdated={outdated}
+                onAction={onAction}
+              />
+            ))}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
     </Accordion>
   );
 };
