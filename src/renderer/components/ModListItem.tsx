@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { Info } from 'lucide-react';
+import { Info, Trash2 } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
 import { formatBytes } from '../format';
@@ -112,7 +112,7 @@ const ModListItem: FC<ModListItemProps> = ({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex cursor-help items-center opacity-70 hover:opacity-100"
+                      className="inline-flex cursor-default items-center"
                       aria-label={
                         variant.updateType === 'volatile'
                           ? 'Volatile mods are likely affected by patches'
@@ -153,8 +153,13 @@ const ModListItem: FC<ModListItemProps> = ({
           action === 'delete' ? (
             <AlertDialog key={action}>
               <AlertDialogTrigger asChild>
-                <Button size="sm" variant="destructive" disabled={busy}>
-                  {ACTION_LABEL[action]}
+                <Button
+                  size="icon-sm"
+                  variant="destructive"
+                  disabled={busy}
+                  aria-label={ACTION_LABEL[action]}
+                >
+                  <Trash2 className="size-4" />
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>

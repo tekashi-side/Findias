@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
+import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -37,6 +38,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const [includePrereleases, setIncludePrereleases] = useState(setup.includePrereleases);
   const [outdatedDismissed, setOutdatedDismissed] = useState(false);
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<ModTab>('all');
   const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
@@ -116,14 +118,15 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const outdated = data?.metadata?.outdated ?? false;
 
   const filteredGroups = useMemo(() => {
+    const byTab = groups.filter((g) => groupMatchesTab(g, tab));
     const q = deferredSearch.trim().toLowerCase();
-    if (!q) return groups;
-    return groups.filter(
+    if (!q) return byTab;
+    return byTab.filter(
       (g) =>
         g.name.toLowerCase().includes(q) ||
         g.variants.some((v) => v.name.toLowerCase().includes(q)),
     );
-  }, [groups, deferredSearch]);
+  }, [groups, deferredSearch, tab]);
 
   return (
     <div className="flex h-full">
@@ -153,6 +156,8 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
               Include prereleases
             </Label>
           </div>
+
+          <ModTabs value={tab} onValueChange={setTab} groups={groups} />
 
           {isLoading && (
             <div className="flex shrink-0 justify-center py-12">
@@ -219,7 +224,11 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
               <EmptyHeader>
                 <EmptyTitle>No matches</EmptyTitle>
                 <EmptyDescription>
-                  No mods match &ldquo;{deferredSearch.trim()}&rdquo;.
+                  {deferredSearch.trim() ? (
+                    <>No mods match &ldquo;{deferredSearch.trim()}&rdquo; in this view.</>
+                  ) : (
+                    'No mods match the current filters.'
+                  )}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
