@@ -14,6 +14,7 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "paths": {
+      "@/*": ["./src/renderer/*"],
       "@renderer/*": ["./src/renderer/*"],
       "@shared/*": ["./src/shared/*"]
     }

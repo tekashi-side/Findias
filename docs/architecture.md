@@ -27,25 +27,25 @@ These constraints drive every decision below:
 
 ## Technology stack
 
-| Concern              | Choice                                                     | Rationale                                                                                                                                                                                                          |
-| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Language             | **TypeScript** everywhere possible                         | One typed language across main, preload, and renderer; shared types for the IPC contract and data models prevent drift between processes.                                                                          |
-| App shell            | **Electron**                                               | Bundles Chromium + Node + app into one self-contained executable; gives the renderer DOM/UI and the main process full filesystem + network access.                                                                 |
-| Bootstrap / build    | **Vite** (via `electron-vite`)                             | Fast dev server + HMR for the renderer and a single, well-supported way to build all three Electron entry points (main, preload, renderer) with TypeScript. See note below.                                        |
-| UI framework         | **React**                                                  | Component model fits the scrollable mod list and setup/empty/error states; large ecosystem; first-class Vite support.                                                                                              |
-| Component library    | **MUI (Material UI)**                                      | Ready-made, accessible components (lists, buttons, dialogs, progress) so we build the UI quickly with a consistent look.                                                                                           |
-| Renderer async state | **TanStack Query (React Query)**                           | Manages loading/error/stale state, de-dupes requests, and invalidates after mutations. It wraps the IPC calls — it does **not** perform networking itself (see note).                                              |
-| Network              | **`fetch`** (in the main process)                          | Standard WHATWG API built into Node 18+; follows redirects; trivially mockable in Vitest. All network calls live in the main process, never the renderer.                                                          |
-| Validation           | **zod**                                                    | Validates all untrusted JSON at the boundary (settings file, GitHub release/manifest JSON). Schemas are the single source of truth — the TS types are derived via `z.infer`, never declared twice. See note below. |
-| Filesystem           | Node `fs` / `fs/promises`, `path`                          | Built in; all package-folder operations.                                                                                                                                                                           |
-| Folder picker        | Electron `dialog.showOpenDialog`                           | Built in; native directory chooser.                                                                                                                                                                                |
-| Settings store       | JSON file in `app.getPath('userData')`, validated with zod | Built in; no `electron-store` strictly required.                                                                                                                                                                   |
-| Tests                | **Vitest**                                                 | Pairs with Vite (shares config/transform), fast, Jest-compatible API; used for unit tests of parsers, providers, resolver, and flows.                                                                              |
-| Packaging            | **electron-builder** (dev-only dependency)                 | Produces a Windows installer / portable `.exe` to attach to the Findias Releases page.                                                                                                                             |
-| App self-update      | **electron-updater** (GitHub provider)                     | Lets a running Findias check the `tekashi-side/Findias` releases feed and prompt the user to update — no manual re-download. See [App self-update](#app-self-update).                                              |
+| Concern              | Choice                                                     | Rationale                                                                                                                                                                                                                                                     |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language             | **TypeScript** everywhere possible                         | One typed language across main, preload, and renderer; shared types for the IPC contract and data models prevent drift between processes.                                                                                                                     |
+| App shell            | **Electron**                                               | Bundles Chromium + Node + app into one self-contained executable; gives the renderer DOM/UI and the main process full filesystem + network access.                                                                                                            |
+| Bootstrap / build    | **Vite** (via `electron-vite`)                             | Fast dev server + HMR for the renderer and a single, well-supported way to build all three Electron entry points (main, preload, renderer) with TypeScript. See note below.                                                                                   |
+| UI framework         | **React**                                                  | Component model fits the scrollable mod list and setup/empty/error states; large ecosystem; first-class Vite support.                                                                                                                                         |
+| Component library    | **Tailwind CSS v4 + shadcn/ui (Radix, Luma style)**        | Accessible Radix primitives whose source we own and edit in-repo (`components/ui/`), styled with utility classes; Lucide icons; the theme is preset-driven (see [Theming](#theming)) so the look stays consistent and tweakable without a runtime UI library. |
+| Renderer async state | **TanStack Query (React Query)**                           | Manages loading/error/stale state, de-dupes requests, and invalidates after mutations. It wraps the IPC calls — it does **not** perform networking itself (see note).                                                                                         |
+| Network              | **`fetch`** (in the main process)                          | Standard WHATWG API built into Node 18+; follows redirects; trivially mockable in Vitest. All network calls live in the main process, never the renderer.                                                                                                     |
+| Validation           | **zod**                                                    | Validates all untrusted JSON at the boundary (settings file, GitHub release/manifest JSON). Schemas are the single source of truth — the TS types are derived via `z.infer`, never declared twice. See note below.                                            |
+| Filesystem           | Node `fs` / `fs/promises`, `path`                          | Built in; all package-folder operations.                                                                                                                                                                                                                      |
+| Folder picker        | Electron `dialog.showOpenDialog`                           | Built in; native directory chooser.                                                                                                                                                                                                                           |
+| Settings store       | JSON file in `app.getPath('userData')`, validated with zod | Built in; no `electron-store` strictly required.                                                                                                                                                                                                              |
+| Tests                | **Vitest**                                                 | Pairs with Vite (shares config/transform), fast, Jest-compatible API; used for unit tests of parsers, providers, resolver, and flows.                                                                                                                         |
+| Packaging            | **electron-builder** (dev-only dependency)                 | Produces a Windows installer / portable `.exe` to attach to the Findias Releases page.                                                                                                                                                                        |
+| App self-update      | **electron-updater** (GitHub provider)                     | Lets a running Findias check the `tekashi-side/Findias` releases feed and prompt the user to update — no manual re-download. See [App self-update](#app-self-update).                                                                                         |
 
 > "No dependencies" applies to the **end user**. The build machine still uses
-> normal npm dev/runtime dependencies (Electron, Vite, React, MUI, TanStack
+> normal npm dev/runtime dependencies (Electron, Vite, React, Tailwind/shadcn, TanStack
 > Query, electron-builder, electron-updater). These are compiled/bundled into the
 > shipped artifact and are invisible to users.
 
@@ -57,6 +57,33 @@ use **`electron-vite`**, a thin wrapper that builds all three entry points (main
 preload, renderer) from one Vite config and wires up HMR for the renderer during
 development. Choosing Vite also makes **Vitest** the natural test runner since it
 reuses the same transform pipeline and config.
+
+### Theming
+
+The renderer is styled with **Tailwind CSS v4** (CSS-first, no `tailwind.config.js`)
+and **shadcn/ui** components built on Radix primitives. The design system is
+generated from a single [shadcn/create](https://ui.shadcn.com/create) preset
+(`b1Vn0UwC`): **Luma** style, **neutral** base color, **cyan** theme, **Lucide**
+icons, **Noto Sans** font, default radius. The preset is the source of truth and
+is decodable/reproducible via `npx shadcn@latest preset decode b1Vn0UwC`.
+
+- All tokens live in [src/renderer/index.css](../src/renderer/index.css): the
+  `@theme inline` mapping plus the `:root` (light) and `.dark` token blocks. The
+  app is **dark-only** — `<html class="dark">` in
+  [index.html](../src/renderer/index.html); there is no theme toggle.
+- The Luma component geometry/spacing comes from `@import "shadcn/tailwind.css"`,
+  and **Noto Sans is self-hosted** via `@fontsource-variable/noto-sans` (bundled
+  woff2, so it works offline and within the renderer's strict CSP — no Google
+  Fonts request).
+- shadcn primitives are **vendored** under `components/ui/` and edited in-repo
+  (e.g. `sonner.tsx` was trimmed to drop `next-themes` since we are dark-only).
+  Add more with `npx shadcn@latest add <component>`; re-theme later with
+  `npx shadcn@latest apply <preset>`.
+
+> CLI/tooling note: the shadcn CLI only detects a root `vite.config.*`, but the
+> app builds via `electron.vite.config.ts`. A tiny root `vite.config.ts` shim
+> exists solely so the CLI can resolve Vite + Tailwind + the `@` alias; nothing
+> (build, dev, or Vitest) actually uses it.
 
 ### `fetch` vs Electron `net`
 
@@ -243,12 +270,14 @@ src/
 │  └─ index.d.ts             # ambient types for window.findias
 ├─ renderer/                 # Chromium UI (React); NO direct Node access
 │  ├─ index.html             # Vite entry HTML (the renderer's Vite root)
-│  ├─ main.tsx               # React bootstrap (QueryClient, theme)
+│  ├─ main.tsx               # React bootstrap (QueryClient, global CSS)
+│  ├─ index.css              # Tailwind v4 entry + theme tokens (@theme / :root / .dark)
 │  ├─ env.d.ts               # vite/client types
 │  ├─ App.tsx                # top-level view orchestration
-│  ├─ components/            # UI components
-│  ├─ hooks/                 # (future) TanStack Query hooks over window.findias
-│  └─ theme.ts               # (future) extracted MUI theme
+│  ├─ components/            # app UI components
+│  │  └─ ui/                 # shadcn/ui primitives (generated, editable in-repo)
+│  ├─ lib/                   # cn() class-name helper (utils.ts)
+│  └─ hooks/                 # (future) TanStack Query hooks over window.findias
 └─ shared/                   # ONLY code that crosses the IPC boundary
    ├─ api.ts                 # FindiasApi contract, channel names, IPC DTOs
    ├─ modList.ts             # ModListState + ModGroupRow/ModVariantRow DTOs
