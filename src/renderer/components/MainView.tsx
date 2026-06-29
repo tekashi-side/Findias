@@ -1,17 +1,21 @@
-import { useEffect, useState, type FC } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Container from '@mui/material/Container';
-import Stack from '@mui/material/Stack';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
+import { X } from 'lucide-react';
+import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
+import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
+import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
+import { Toaster } from '@/components/ui/sonner';
 
 type MainViewProps = {
   setup: SetupState;
@@ -19,10 +23,23 @@ type MainViewProps = {
 
 const MOD_LIST_KEY = ['modList'] as const;
 
+/** Extract a user-facing message from an unknown thrown value, with a fallback. */
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'The action failed.';
+
+/**
+ * The primary screen once setup is valid: header with refresh, the prerelease
+ * toggle, load/error/catalog banners, the scrollable mod list, and toast
+ * notifications for failed install/update/delete/toggle actions.
+ */
 const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
   const [includePrereleases, setIncludePrereleases] = useState(setup.includePrereleases);
+  const [outdatedDismissed, setOutdatedDismissed] = useState(false);
+  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<ModTab>('all');
+  const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
     queryKey: MOD_LIST_KEY,
@@ -35,6 +52,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     });
   }, []);
 
+  /** Drop the download-progress entry for a mod once its action settles. */
   const clearProgress = (modId: string): void =>
     setProgressByMod((prev) => {
       const next = { ...prev };
@@ -42,6 +60,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
       return next;
     });
 
+  /** Prime the cached mod list with the fresh state returned by a mutation. */
   const seedModList = (state: ModListState): void => {
     queryClient.setQueryData(MOD_LIST_KEY, state);
   };
@@ -49,30 +68,36 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const install = useMutation({
     mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
     onSettled: (_data, _error, modId) => clearProgress(modId),
   });
 
   const remove = useMutation({
     mutationFn: (modId: string) => window.findias.deleteMod(modId),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const toggle = useMutation({
     mutationFn: ({ modId, disabled }: { modId: string; disabled: boolean }) =>
       window.findias.setDisabled(modId, disabled),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const prerelease = useMutation({
     mutationFn: (value: boolean) => window.findias.setIncludePrereleases(value),
     onSuccess: seedModList,
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
+  /** Optimistically reflect the prerelease toggle, then persist it. */
   const handlePrereleaseChange = (value: boolean): void => {
     setIncludePrereleases(value);
     prerelease.mutate(value);
   };
 
+  /** Dispatch a row's action to the matching mutation. */
   const handleAction = (action: ModAction, modId: string): void => {
     if (action === 'delete') remove.mutate(modId);
     else if (action === 'enable') toggle.mutate({ modId, disabled: false });
@@ -89,105 +114,155 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         : undefined;
 
   const busy = Boolean(busyModId) || prerelease.isPending;
-  const mutationError = install.error ?? remove.error ?? toggle.error ?? prerelease.error;
   const groups = data?.groups ?? [];
   const outdated = data?.metadata?.outdated ?? false;
 
+  const filteredGroups = useMemo(() => {
+    const byTab = groups.filter((g) => groupMatchesTab(g, tab));
+    const q = deferredSearch.trim().toLowerCase();
+    if (!q) return byTab;
+    return byTab.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        g.variants.some((v) => v.name.toLowerCase().includes(q)),
+    );
+  }, [groups, deferredSearch, tab]);
+
   return (
-    <Container maxWidth="sm" sx={{ py: 4 }}>
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ flexGrow: 1 }}>
-            Findias
-          </Typography>
-          <Button variant="outlined" onClick={() => void refetch()} disabled={isFetching || busy}>
+    <div className="flex h-full">
+      <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
+        <div className="flex shrink-0 items-center gap-2">
+          <Input
+            className="grow"
+            placeholder="Search for mods"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
             {isFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
-        </Stack>
+        </div>
 
-        <Stack
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}
-        >
-          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-            {setup.gameRootPath}
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={includePrereleases}
-                onChange={(event) => handlePrereleaseChange(event.target.checked)}
-                disabled={isFetching || busy}
-              />
-            }
-            label="Include prereleases"
-            slotProps={{ typography: { variant: 'body2' } }}
-          />
-        </Stack>
-
-        {isLoading && (
-          <Stack sx={{ alignItems: 'center', py: 6 }}>
-            <CircularProgress />
-          </Stack>
-        )}
-
-        {isError && (
-          <Alert
-            severity="error"
-            action={
-              <Button color="inherit" size="small" onClick={() => void refetch()}>
-                Retry
-              </Button>
-            }
-          >
-            {error instanceof Error ? error.message : 'Failed to load the mod list.'}
-          </Alert>
-        )}
-
-        {mutationError && (
-          <Alert severity="error">
-            {mutationError instanceof Error ? mutationError.message : 'The action failed.'}
-          </Alert>
-        )}
-
-        {data && outdated && (
-          <Alert severity="warning">
-            The mod catalog is verified for game version {data.metadata?.supportedGameVersion}, but
-            the latest client is {data.metadata?.currentGameVersion}. Some mods may be out of date —
-            consider disabling volatile mods until they are updated.
-          </Alert>
-        )}
-
-        {data && !data.catalog.available && (
-          <Alert severity="warning">
-            {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the mods
-            already on disk.
-          </Alert>
-        )}
-
-        {data && groups.length === 0 && (
-          <Alert severity="info">
-            {data.catalog.available
-              ? 'No compatible mods were found in the latest Uiscias release.'
-              : 'No managed mods are installed.'}
-          </Alert>
-        )}
-
-        {groups.length > 0 && (
-          <Box sx={{ maxHeight: 420, overflowY: 'auto', pr: 1 }}>
-            <ModList
-              groups={groups}
-              busyModId={busyModId}
-              progressByMod={progressByMod}
-              outdated={outdated}
-              onAction={handleAction}
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <div className="flex shrink-0 items-center gap-2">
+            <Switch
+              id="include-prereleases"
+              size="sm"
+              checked={includePrereleases}
+              onCheckedChange={handlePrereleaseChange}
+              disabled={isFetching || busy}
             />
-          </Box>
-        )}
-      </Stack>
-    </Container>
+            <Label htmlFor="include-prereleases" className="font-normal text-muted-foreground">
+              Include prereleases
+            </Label>
+          </div>
+
+          <ModTabs value={tab} onValueChange={setTab} groups={groups} />
+
+          {isLoading && (
+            <div className="flex shrink-0 justify-center py-12">
+              <Spinner className="size-8" />
+            </div>
+          )}
+
+          {isError && (
+            <Alert variant="destructive" className="shrink-0">
+              <AlertDescription>
+                {error instanceof Error ? error.message : 'Failed to load the mod list.'}
+              </AlertDescription>
+              <AlertAction>
+                <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                  Retry
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
+
+          {data && outdated && !outdatedDismissed && (
+            <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
+              <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+                New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
+                  aria-label="Dismiss"
+                  onClick={() => setOutdatedDismissed(true)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
+
+          {data && !data.catalog.available && (
+            <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
+              <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+                {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the mods
+                already on disk.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {data && groups.length === 0 && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No mods to show</EmptyTitle>
+                <EmptyDescription>
+                  {data.catalog.available
+                    ? 'No compatible mods were found in the latest Uiscias release.'
+                    : 'No managed mods are installed.'}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {data && groups.length > 0 && filteredGroups.length === 0 && (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No matches</EmptyTitle>
+                <EmptyDescription>
+                  {deferredSearch.trim() ? (
+                    <>No mods match &ldquo;{deferredSearch.trim()}&rdquo; in this view.</>
+                  ) : (
+                    'No mods match the current filters.'
+                  )}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
+
+          {filteredGroups.length > 0 && (
+            <ScrollArea className="-mr-3 min-h-0 flex-1">
+              <div className="pr-3">
+                <ModList
+                  groups={filteredGroups}
+                  busyModId={busyModId}
+                  progressByMod={progressByMod}
+                  outdated={outdated}
+                  onAction={handleAction}
+                />
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+      </div>
+
+      <Separator orientation="vertical" />
+
+      <div className="flex h-full w-[35%] min-w-0 items-center justify-center p-6">
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No mod selected</EmptyTitle>
+            <EmptyDescription>Select a mod to view its contents.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+
+      <Toaster />
+    </div>
   );
 };
 

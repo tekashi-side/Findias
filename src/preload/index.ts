@@ -16,6 +16,8 @@ const api: FindiasApi = {
     ipcRenderer.on(IpcChannels.downloadProgress, listener);
     return () => ipcRenderer.removeListener(IpcChannels.downloadProgress, listener);
   },
+  minimizeWindow: () => ipcRenderer.send(IpcChannels.windowMinimize),
+  closeWindow: () => ipcRenderer.send(IpcChannels.windowClose),
 };
 
 contextBridge.exposeInMainWorld('findias', api);

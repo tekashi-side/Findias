@@ -1,15 +1,33 @@
 import type { FC } from 'react';
-import Box from '@mui/material/Box';
-import Button, { type ButtonProps } from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
-import LinearProgress from '@mui/material/LinearProgress';
-import ListItem from '@mui/material/ListItem';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+import { Info, Trash2 } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
 import { formatBytes } from '../format';
 import StatusChip from './StatusChip';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemFooter,
+  ItemTitle,
+} from '@/components/ui/item';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 type ModListItemProps = {
   variant: ModVariantRow;
@@ -30,14 +48,16 @@ const ACTION_LABEL: Record<ModAction, string> = {
   delete: 'Delete',
 };
 
-const actionStyle = (action: ModAction): Pick<ButtonProps, 'variant' | 'color'> => {
-  if (action === 'delete') return { variant: 'outlined', color: 'error' };
-  if (action === 'install' || action === 'update' || action === 'enable') {
-    return { variant: 'contained', color: 'primary' };
-  }
-  return { variant: 'outlined', color: 'inherit' };
+type ButtonVariant = 'default' | 'outline' | 'destructive';
+
+/** Map a mod action to the shadcn button variant that conveys its intent. */
+const actionVariant = (action: ModAction): ButtonVariant => {
+  if (action === 'delete') return 'destructive';
+  if (action === 'install' || action === 'update' || action === 'enable') return 'default';
+  return 'outline';
 };
 
+/** Build the one-line "release vX • installed vY • size" summary for a variant. */
 const versionSummary = (variant: ModVariantRow): string => {
   const release =
     variant.releaseVersion === null ? 'not in release' : `release v${variant.releaseVersion}`;
@@ -47,6 +67,11 @@ const versionSummary = (variant: ModVariantRow): string => {
   return `${release} • ${installed}${size}`;
 };
 
+/**
+ * A single mod/variant row: name, status, version summary, optional tags and
+ * conflict notes, action buttons (Delete behind an {@link AlertDialog} confirm),
+ * and a determinate/indeterminate progress bar while an action is in flight.
+ */
 const ModListItem: FC<ModListItemProps> = ({
   variant,
   tags,
@@ -63,74 +88,124 @@ const ModListItem: FC<ModListItemProps> = ({
   const showUpdateType = outdated && variant.updateType !== null;
 
   return (
-    <ListItem divider sx={{ flexWrap: 'wrap', gap: 1, py: 1.5 }}>
-      <Stack sx={{ flexGrow: 1, minWidth: 0 }} spacing={0.5}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Typography variant="subtitle1" sx={{ wordBreak: 'break-word' }}>
-            {variant.name}
-          </Typography>
+    <Item variant="outline" className="items-start">
+      <ItemContent>
+        <ItemTitle className="flex-wrap break-words">
+          <span className="break-words">{variant.name}</span>
           <StatusChip status={variant.status} />
-        </Stack>
+        </ItemTitle>
 
-        {tags && tags.length > 0 && (
-          <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-            {tags.map((tag) => (
-              <Chip key={tag} size="small" variant="outlined" label={tag} />
+        {((showUpdateType && variant.updateType) || (tags && tags.length > 0)) && (
+          <div className="flex flex-wrap gap-1">
+            {showUpdateType && variant.updateType && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'gap-1',
+                  variant.updateType === 'volatile'
+                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                )}
+              >
+                {variant.updateType === 'volatile' ? 'Volatile' : 'Stable'}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex cursor-default items-center"
+                      aria-label={
+                        variant.updateType === 'volatile'
+                          ? 'Volatile mods are likely affected by patches'
+                          : 'Stable mods usually survive patches'
+                      }
+                    >
+                      <Info className="size-3" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {variant.updateType === 'volatile'
+                      ? 'Likely affected by patches'
+                      : 'Usually survives patches'}
+                  </TooltipContent>
+                </Tooltip>
+              </Badge>
+            )}
+            {tags?.map((tag) => (
+              <Badge key={tag} variant="outline">
+                {tag}
+              </Badge>
             ))}
-          </Stack>
+          </div>
         )}
 
-        <Typography variant="body2" color="text.secondary">
-          {versionSummary(variant)}
-        </Typography>
-
-        {showUpdateType && variant.updateType && (
-          <Box>
-            <Chip
-              size="small"
-              color={variant.updateType === 'volatile' ? 'warning' : 'success'}
-              variant="filled"
-              label={
-                variant.updateType === 'volatile'
-                  ? 'Volatile — likely affected by patches'
-                  : 'Stable — usually survives patches'
-              }
-            />
-          </Box>
-        )}
+        <ItemDescription>{versionSummary(variant)}</ItemDescription>
 
         {variant.conflicts.length > 0 && (
-          <Typography variant="body2" color="warning.main">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
             Conflicts with {variant.conflicts.map((c) => c.modName).join(', ')}. Disable or delete
             it to enable this mod.
-          </Typography>
+          </p>
         )}
-      </Stack>
+      </ItemContent>
 
-      <Stack direction="row" spacing={1}>
-        {variant.actions.map((action) => (
-          <Button
-            key={action}
-            size="small"
-            disabled={busy}
-            onClick={() => onAction(action, variant.modId)}
-            {...actionStyle(action)}
-          >
-            {ACTION_LABEL[action]}
-          </Button>
-        ))}
-      </Stack>
+      <ItemActions>
+        {variant.actions.map((action) =>
+          action === 'delete' ? (
+            <AlertDialog key={action}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="destructive"
+                  disabled={busy}
+                  aria-label={ACTION_LABEL[action]}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {variant.name}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This removes the mod file from your package folder. You can reinstall it later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={() => onAction('delete', variant.modId)}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              key={action}
+              size="sm"
+              variant={actionVariant(action)}
+              disabled={busy}
+              onClick={() => onAction(action, variant.modId)}
+            >
+              {ACTION_LABEL[action]}
+            </Button>
+          ),
+        )}
+      </ItemActions>
 
       {busy && (
-        <Box sx={{ width: '100%' }}>
+        <ItemFooter>
           {percent === null ? (
-            <LinearProgress />
+            <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full w-full animate-pulse rounded-full bg-primary/60" />
+            </div>
           ) : (
-            <LinearProgress variant="determinate" value={percent} />
+            <Progress value={percent} />
           )}
-        </Box>
+        </ItemFooter>
       )}
-    </ListItem>
+    </Item>
   );
 };
 
