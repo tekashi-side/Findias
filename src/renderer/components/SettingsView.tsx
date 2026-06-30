@@ -1,6 +1,8 @@
 import type { FC } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import type { ChooseFolderResult, SetupState } from '@shared/api';
+import { isTheme, THEMES, useTheme, type Theme } from '@/components/theme-provider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,10 +13,15 @@ import {
   ItemGroup,
   ItemTitle,
 } from '@/components/ui/item';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type SettingsViewProps = {
   setup: SetupState;
 };
+
+/** Presentation for each theme value; the value set itself comes from {@link THEMES}. */
+const THEME_LABELS: Record<Theme, string> = { system: 'System', light: 'Light', dark: 'Dark' };
+const THEME_ICONS: Record<Theme, LucideIcon> = { system: Monitor, light: Sun, dark: Moon };
 
 /**
  * Dedicated settings screen that replaces the two-column mod view. Each setting
@@ -24,6 +31,7 @@ type SettingsViewProps = {
  */
 const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
 
   const choose = useMutation<ChooseFolderResult>({
     mutationFn: () => window.findias.chooseGameFolder(),
@@ -68,6 +76,36 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
             <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
               {choose.isPending ? 'Opening…' : 'Change game folder'}
             </Button>
+          </ItemActions>
+        </Item>
+
+        <Item variant="outline" className="items-start">
+          <ItemContent>
+            <ItemTitle>Appearance</ItemTitle>
+            <ItemDescription>
+              Choose a color theme, or follow your operating system setting.
+            </ItemDescription>
+          </ItemContent>
+
+          <ItemActions>
+            <Tabs
+              value={theme}
+              onValueChange={(next) => {
+                if (isTheme(next)) setTheme(next);
+              }}
+            >
+              <TabsList>
+                {THEMES.map((value) => {
+                  const Icon = THEME_ICONS[value];
+                  return (
+                    <TabsTrigger key={value} value={value}>
+                      <Icon className="size-4" />
+                      {THEME_LABELS[value]}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </Tabs>
           </ItemActions>
         </Item>
       </ItemGroup>
