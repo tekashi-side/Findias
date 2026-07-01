@@ -4,12 +4,16 @@ import SetupGate from './components/SetupGate';
 import MainView from './components/MainView';
 import SettingsView from './components/SettingsView';
 import TitleBar from './components/TitleBar';
+import { useAppUpdate } from './hooks/useAppUpdate';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
+import { Toaster } from '@/components/ui/sonner';
 
 /** Root view: reads setup state, then routes to {@link SetupGate}, {@link MainView}, or {@link SettingsView}. */
 const App: FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useAppUpdate();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['setupState'],
@@ -27,6 +31,7 @@ const App: FC = () => {
         onToggleSettings={() => setSettingsOpen((open) => !open)}
       />
       <div className="min-h-0 flex-1">{content}</div>
+      <Toaster />
     </div>
   );
 
