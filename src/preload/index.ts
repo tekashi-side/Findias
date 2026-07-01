@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import { IpcChannels, type DownloadProgress, type FindiasApi } from '../shared/api';
+import {
+  IpcChannels,
+  type DownloadProgress,
+  type FindiasApi,
+  type UpdateStatus,
+} from '../shared/api';
 
 const api: FindiasApi = {
   getAppInfo: () => ipcRenderer.invoke(IpcChannels.getAppInfo),
@@ -16,6 +21,12 @@ const api: FindiasApi = {
     ipcRenderer.on(IpcChannels.downloadProgress, listener);
     return () => ipcRenderer.removeListener(IpcChannels.downloadProgress, listener);
   },
+  onUpdateStatus: (callback) => {
+    const listener = (_event: IpcRendererEvent, status: UpdateStatus): void => callback(status);
+    ipcRenderer.on(IpcChannels.updateStatus, listener);
+    return () => ipcRenderer.removeListener(IpcChannels.updateStatus, listener);
+  },
+  installUpdate: () => ipcRenderer.send(IpcChannels.installUpdate),
   minimizeWindow: () => ipcRenderer.send(IpcChannels.windowMinimize),
   closeWindow: () => ipcRenderer.send(IpcChannels.windowClose),
 };
