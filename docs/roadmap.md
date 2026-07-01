@@ -117,16 +117,36 @@ end to end, with progress shown and no half-written files on failure. ✅
 **Done when:** mods can be toggled disabled/enabled without deletion, and the
 game-relevant root of `package` reflects the change. ✅
 
-## Phase 6 — App self-update & release pipeline ⬜
+## Phase 6 — App self-update & release pipeline ✅
 
-- `Updater`: electron-updater (GitHub provider → `tekashi-side/Findias`); check
-  on launch, surface `update-available` / `update-downloaded` over IPC; UI
-  "restart to install" prompt.
-- electron-builder NSIS target; document the publish flow (and the unsigned
-  SmartScreen caveat).
+- `Updater` (`src/main/updater.ts`): electron-updater (GitHub provider →
+  `tekashi-side/Findias`); checks once on launch (guarded by `app.isPackaged`),
+  auto-downloads, and forwards `checking`/`available`/`progress`/`downloaded`/
+  `error` as an `UpdateStatus` over IPC. `autoInstallOnAppQuit` is left on, so an
+  ignored-but-downloaded update installs on the next normal quit. ✅
+- Renderer: a `useAppUpdate` hook shows a persistent sonner toast with a
+  "Restart & install" action (`installUpdate` → `quitAndInstall`) once an update
+  downloads; the `<Toaster />` moved to the `App` shell so it renders in every
+  view. ✅
+- electron-builder NSIS target (one-click, per-user) configured in the
+  `package.json` `build` key with a GitHub `publish` provider, so `latest.yml` is
+  generated for electron-updater. ✅
+- Release pipeline (`.github/workflows/release.yml`), mirroring Uiscias:
+  release-please (GitHub App token) opens/merges a release PR and cuts the tag; a
+  `windows-latest` build job runs `electron-builder --win --publish never` and
+  `gh release upload`s the `.exe` + `latest.yml` + `.blockmap`; a final job flips
+  the release to prerelease when the release PR carried the `prerelease` label. ✅
+- Prereleases are manual-only: electron-updater ignores them by default
+  (`allowPrerelease` stays false), so a `prerelease`-labeled build is a
+  tester/manual download and not auto-delivered.
+
+> Setup note: requires a GitHub App installed on `tekashi-side/Findias`
+> (Contents + Pull requests + Issues, read/write) with repo secrets
+> `RELEASE_PLEASE_APP_ID` and `RELEASE_PLEASE_APP_PRIVATE_KEY`. Unsigned builds
+> still auto-update but trigger a SmartScreen warning on first install.
 
 **Done when:** publishing a new GitHub release causes a running app to detect,
-download, and offer to install the update; a Windows installer is produced.
+download, and offer to install the update; a Windows installer is produced. ✅
 
 ## Phase 7 — manifestCatalog.json integration ✅
 

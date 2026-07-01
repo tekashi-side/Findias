@@ -12,6 +12,7 @@ import { loadSettings, saveSettings } from './settingsStore';
 import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation';
 import { resolveModList } from './modResolver';
 import { installOrUpdateMod } from './modInstaller';
+import { quitAndInstallUpdate } from './updater';
 import { createPackageModStore } from './modStore';
 import { CatalogError, type Catalog } from './providers/catalog';
 import { createManifestCatalogProvider } from './providers/manifestCatalog';
@@ -196,6 +197,8 @@ export const registerIpcHandlers = (): void => {
   ipcMain.handle(IpcChannels.setIncludePrereleases, (_event, value: boolean) =>
     setIncludePrereleases(value),
   );
+
+  ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());
 
   ipcMain.on(IpcChannels.windowMinimize, (event) =>
     BrowserWindow.fromWebContents(event.sender)?.minimize(),
