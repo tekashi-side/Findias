@@ -49,6 +49,20 @@ export interface DownloadProgress {
   totalBytes: number | null;
 }
 
+/**
+ * App self-update lifecycle event forwarded from electron-updater in the main
+ * process. Drives the renderer's "restart to install" prompt.
+ */
+export interface UpdateStatus {
+  state: 'checking' | 'available' | 'not-available' | 'progress' | 'downloaded' | 'error';
+  /** The available/downloaded release version (when known). */
+  version?: string;
+  /** Download completion percent (0-100), present only on `progress`. */
+  percent?: number;
+  /** Human-readable message, present on `error`. */
+  message?: string;
+}
+
 /** The allow-listed surface exposed to the renderer via contextBridge. */
 export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>;
@@ -66,6 +80,10 @@ export interface FindiasApi {
   setIncludePrereleases(value: boolean): Promise<ModListState>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
+  /** Subscribe to app self-update status events; returns an unsubscribe function. */
+  onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
+  /** Quit and install a downloaded app update (restarts into the new version). */
+  installUpdate(): void;
   /** Minimize the application window. */
   minimizeWindow(): void;
   /** Close the application window. */
@@ -83,6 +101,8 @@ export const IpcChannels = {
   setDisabled: 'mods:setDisabled',
   setIncludePrereleases: 'settings:setIncludePrereleases',
   downloadProgress: 'mods:downloadProgress',
+  updateStatus: 'update:status',
+  installUpdate: 'update:install',
   windowMinimize: 'window:minimize',
   windowClose: 'window:close',
 } as const;

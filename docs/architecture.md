@@ -187,6 +187,13 @@ Flow:
    "Update ready — restart to install" prompt.
 4. On user confirmation, `autoUpdater.quitAndInstall()` swaps in the new version.
 
+Publish flow: **release-please owns the release**; electron-builder only builds.
+The Windows job runs `electron-builder --win --publish never` (which still emits
+`latest.yml` because the `publish` config is present) and then `gh release
+upload`s the `.exe`, `latest.yml`, and `.blockmap` onto the release-please tag.
+This mirrors the Uiscias asset-upload pattern and avoids electron-builder's own
+publisher competing with release-please for release ownership.
+
 Notes and caveats:
 
 - This is **app** self-update (the Findias program), distinct from **mod**
@@ -828,7 +835,10 @@ interface AppState {
 ```
 
 - **Persisted:** only `Settings` (a small JSON file under
-  `app.getPath('userData')`). No mod catalog is ever written to disk.
+  `app.getPath('userData')`). No mod catalog is ever written to disk. In
+  development the main process overrides `userData` to a separate `findias-dev`
+  folder (packaged builds use `Findias`), so dev never shares settings/caches
+  with an installed app — see [settings-storage.md](./settings-storage.md).
 - **Ephemeral:** `release`, `installed`, and the derived `modList` exist only
   while the app is open and are rebuilt from the two sources on every refresh.
 

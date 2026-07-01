@@ -8,36 +8,50 @@ Findias writes a single JSON file, `findias-settings.json`, to Electron's
 per-user **`userData`** directory (`app.getPath('userData')`). On Windows this
 resolves to `%APPDATA%\<app name>\`.
 
-The app name comes from `package.json`'s `"name"` field during development, and
-from `electron-builder.yml`'s `productName` in a packaged build — so the folder
-differs between the two:
+The app name comes from `package.json`'s `"name"` field (`findias`) during
+development, and from the `build.productName` field (`Findias`) in a packaged
+build. **On Windows those would collide:** the filesystem is case-insensitive, so
+`%APPDATA%\findias` and `%APPDATA%\Findias` are the _same_ folder. To keep dev
+runs from sharing settings and caches with the installed app, the main process
+overrides `userData` to a distinct `findias-dev` folder in development only:
 
-| Context      | Command / build | Folder                                                       |
-| ------------ | --------------- | ------------------------------------------------------------ |
-| Development  | `npm run dev`   | `%APPDATA%\findias\` (lowercase, from `package.json` `name`) |
-| Packaged app | installed build | `%APPDATA%\Findias\` (capital F, from `productName`)         |
+```ts
+// src/main/index.ts — runs before anything reads userData
+if (!app.isPackaged) {
+  app.setPath('userData', join(app.getPath('appData'), 'findias-dev'));
+}
+```
+
+The result is two genuinely separate folders:
+
+| Context      | Command / build | Folder                                                 |
+| ------------ | --------------- | ------------------------------------------------------ |
+| Development  | `npm run dev`   | `%APPDATA%\findias-dev\` (dev-only `setPath` override) |
+| Packaged app | installed build | `%APPDATA%\Findias\` (from `build.productName`)        |
 
 Example (development, on this machine):
 
 ```
-C:\Users\<user>\AppData\Roaming\findias\findias-settings.json
+C:\Users\<user>\AppData\Roaming\findias-dev\findias-settings.json
 ```
 
 Example contents:
 
 ```json
 {
-  "gameRootPath": "D:\\Nexon\\Library\\mabinogi\\appdata"
+  "gameRootPath": "D:\\Nexon\\Library\\mabinogi\\appdata",
+  "includePrereleases": true
 }
 ```
 
-> Because dev and packaged builds use different folders, they keep **independent**
-> settings. Choosing a game folder in `npm run dev` will not carry over to the
-> installed app, and vice versa. This is expected.
+> Because dev and packaged builds now use different folders, they keep
+> **independent** settings. Choosing a game folder in `npm run dev` will not
+> carry over to the installed app, and vice versa. This is intentional.
 
-That `userData` folder also contains Chromium-managed directories Electron
+Each `userData` folder also contains Chromium-managed directories Electron
 creates automatically (`Cache`, `Code Cache`, `blob_storage`, etc.) — those are
-not ours and can be ignored.
+not ours and can be ignored. `setPath('userData', ...)` relocates those caches
+too, so the dev profile is fully self-contained.
 
 ## Why it lives here (not in the repo)
 
@@ -49,9 +63,7 @@ not ours and can be ignored.
 The write logic is in [`src/main/settingsStore.ts`](../src/main/settingsStore.ts):
 
 ```ts
-function settingsPath(): string {
-  return join(app.getPath('userData'), SETTINGS_FILE);
-}
+const settingsPath = (): string => join(app.getPath('userData'), SETTINGS_FILE);
 ```
 
 If the file is missing or corrupt, `loadSettings()` returns defaults, so a

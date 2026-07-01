@@ -1,11 +1,45 @@
 {
   "name": "findias",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Findias - a mod manager for Mabinogi",
   "author": "tekashi-side",
   "license": "MIT",
   "private": true,
   "main": "./out/main/index.js",
+  "build": {
+    "appId": "side.tekashi.findias",
+    "productName": "Findias",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "!**/.vscode/*",
+      "!src/*",
+      "!docs/*",
+      "!electron.vite.config.{js,ts,mjs,cjs}",
+      "!vite.config.{js,ts,mjs,cjs}",
+      "!{.eslintignore,.prettierignore,.prettierrc,.editorconfig,dev-app-update.yml,CHANGELOG.md,README.md}",
+      "!{.env,.env.*,.npmrc}",
+      "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}",
+      "!{release-please-config.json,.release-please-manifest.json,.node-version}"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "tekashi-side",
+      "repo": "Findias"
+    }
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",

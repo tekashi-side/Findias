@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import { Toaster } from '@/components/ui/sonner';
 
 const MOD_LIST_KEY = ['modList'] as const;
 
@@ -38,8 +37,6 @@ const MainView: FC = () => {
     queryKey: MOD_LIST_KEY,
     queryFn: () => window.findias.refresh(),
   });
-
-  console.log(data);
 
   useEffect(() => {
     return window.findias.onDownloadProgress((progress) => {
@@ -230,8 +227,6 @@ const MainView: FC = () => {
           </EmptyHeader>
         </Empty>
       </div>
-
-      <Toaster />
     </div>
   );
 };
