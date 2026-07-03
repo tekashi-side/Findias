@@ -18,18 +18,19 @@ export const settingsSchema = z.object({
   gameRootPath: z.string().nullable().catch(null),
   /**
    * Whether prerelease GitHub releases are eligible when selecting the newest
-   * Uiscias release. Defaults to true because the manifest currently ships only
-   * on prereleases. The `.catch` keeps older settings files (missing the field)
-   * valid by falling back to the default.
+   * Uiscias release. Defaults to false: the manifest now ships on both stable
+   * and prerelease builds, and opting into prereleases is a dev-only feature
+   * (see `featureFlags.ts`). The `.catch` keeps older settings files (missing
+   * the field) valid by falling back to the default.
    */
-  includePrereleases: z.boolean().catch(true),
+  shouldIncludePrereleases: z.boolean().catch(false),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
 
 export const DEFAULT_SETTINGS: Settings = {
   gameRootPath: null,
-  includePrereleases: true,
+  shouldIncludePrereleases: false,
 };
 
 /**

@@ -21,7 +21,7 @@ absent from **the single catalog we currently fetched**:
   delete-only orphan groups (`buildOrphanGroup`).
 - `src/main/providers/githubReleases.ts` — `fetchLatestReleaseAssets` selects
   exactly **one** release (newest eligible), gated by the persisted
-  `includePrereleases` toggle.
+  `shouldIncludePrereleases` toggle.
 - `src/main/ipc.ts` — `resolveCurrentState` fetches that one catalog per the
   current toggle and resolves against it.
 
@@ -52,7 +52,7 @@ persisted mod catalog" design goal in [`architecture.md`](./architecture.md)).
   cost — the CDN does not count against the API limit).
 - **Classify** installed mods against the **union (superset)** of both catalogs.
   A mod found in either is recognized — never an orphan.
-- **Offer / version** against the **selected** channel (per `includePrereleases`):
+- **Offer / version** against the **selected** channel (per `shouldIncludePrereleases`):
   install actions, "Not installed" availability, and the primary version shown
   follow the channel the user is viewing.
 - A mod in **neither** catalog is a **true orphan** (delete-only) — this is the

@@ -9,6 +9,7 @@ import {
 } from '../shared/api';
 import type { ModListState } from '../shared/modList';
 import { loadSettings, saveSettings } from './settingsStore';
+import { getFeatureFlags, isFeatureEnabled } from './featureFlags';
 import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation';
 import { resolveModList } from './modResolver';
 import { installOrUpdateMod } from './modInstaller';
@@ -42,14 +43,25 @@ const catalogProvider = createManifestCatalogProvider(
   loggingFetch ? { fetchFn: loggingFetch } : {},
 );
 
+/**
+ * Whether prerelease Uiscias releases should be considered: the persisted opt-in
+ * AND-ed with the `prereleases` feature flag. In a packaged build the flag is
+ * off, so this is always false no matter what `findias-settings.json` says.
+ */
+export const arePrereleasesEligible = async (): Promise<boolean> => {
+  const { shouldIncludePrereleases } = await loadSettings();
+  return shouldIncludePrereleases && isFeatureEnabled('prereleases');
+};
+
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const { gameRootPath, includePrereleases } = await loadSettings();
+  const { gameRootPath } = await loadSettings();
+  const shouldIncludePrereleases = await arePrereleasesEligible();
   if (!gameRootPath) {
-    return { gameRootPath: null, valid: false, includePrereleases };
+    return { gameRootPath: null, valid: false, shouldIncludePrereleases };
   }
   const { ok } = await validateGameRoot(gameRootPath);
-  return { gameRootPath, valid: ok, includePrereleases };
+  return { gameRootPath, valid: ok, shouldIncludePrereleases };
 };
 
 /** Resolve the stored game paths, throwing a clear error if setup is invalid. */
@@ -75,10 +87,12 @@ const resolveCurrentState = async (
   paths: GamePaths,
   options: { force?: boolean } = {},
 ): Promise<ModListState> => {
-  const { includePrereleases } = await loadSettings();
+  const shouldIncludePrereleases = await arePrereleasesEligible();
   const installed = await createPackageFolderProvider(paths).list();
   try {
-    const catalog = await catalogProvider.getCatalog(includePrereleases, { force: options.force });
+    const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases, {
+      force: options.force,
+    });
     const { groups, metadata } = resolveModList(catalog, installed);
     return { groups, catalog: { available: true }, metadata };
   } catch (error) {
@@ -118,8 +132,8 @@ const findVariant = (
  */
 const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promise<ModListState> => {
   const paths = await requireGamePaths();
-  const { includePrereleases } = await loadSettings();
-  const catalog = await catalogProvider.getCatalog(includePrereleases);
+  const shouldIncludePrereleases = await arePrereleasesEligible();
+  const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases);
   const found = findVariant(catalog, modId);
   if (!found) {
     throw new Error(`"${modId}" is not available in the latest release.`);
@@ -162,14 +176,26 @@ const setDisabled = async (modId: string, disabled: boolean): Promise<ModListSta
   return resolveCurrentState(paths);
 };
 
-/** Persist the prerelease preference, then re-resolve against the new filter. */
-const setIncludePrereleases = async (value: boolean): Promise<ModListState> => {
-  const settings = await loadSettings();
-  await saveSettings({ ...settings, includePrereleases: value });
+/**
+ * Persist the prerelease preference, then re-resolve against the new filter.
+ * When the `prereleases` feature is inactive the control is hidden in the UI, so
+ * this is a defensive guard: a request to enable is ignored (never persisted)
+ * and the settings are left untouched.
+ */
+const setShouldIncludePrereleases = async (value: boolean): Promise<ModListState> => {
+  if (isFeatureEnabled('prereleases')) {
+    const settings = await loadSettings();
+    await saveSettings({ ...settings, shouldIncludePrereleases: value });
+  }
   return resolveCurrentState(await requireGamePaths());
 };
 
 export const registerIpcHandlers = (): void => {
+  // Synchronous so the preload can resolve the flags as a constant at load time.
+  ipcMain.on(IpcChannels.getFeatureFlags, (event) => {
+    event.returnValue = getFeatureFlags();
+  });
+
   ipcMain.handle(
     IpcChannels.getAppInfo,
     (): AppInfo => ({
@@ -194,8 +220,8 @@ export const registerIpcHandlers = (): void => {
     setDisabled(modId, disabled),
   );
 
-  ipcMain.handle(IpcChannels.setIncludePrereleases, (_event, value: boolean) =>
-    setIncludePrereleases(value),
+  ipcMain.handle(IpcChannels.setShouldIncludePrereleases, (_event, value: boolean) =>
+    setShouldIncludePrereleases(value),
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());
@@ -233,7 +259,11 @@ export const registerIpcHandlers = (): void => {
     await saveSettings({ ...settings, gameRootPath: chosen });
     return {
       ok: true,
-      state: { gameRootPath: chosen, valid: true, includePrereleases: settings.includePrereleases },
+      state: {
+        gameRootPath: chosen,
+        valid: true,
+        shouldIncludePrereleases: await arePrereleasesEligible(),
+      },
     };
   });
 };

@@ -109,7 +109,7 @@ const fetchReleases = async (
  */
 export const fetchLatestReleaseAssets = async (
   options: ResolvedReleaseOptions,
-  includePrereleases: boolean,
+  shouldIncludePrereleases: boolean,
   etag: string | null = null,
 ): Promise<ReleasesResult> => {
   const response = await fetchReleases(options, etag);
@@ -152,7 +152,7 @@ export const fetchLatestReleaseAssets = async (
   // when prereleases are excluded).
   const release = parsed.data.find((entry) => {
     if (entry.draft === true) return false;
-    if (!includePrereleases && entry.prerelease === true) return false;
+    if (!shouldIncludePrereleases && entry.prerelease === true) return false;
     return true;
   });
   if (!release) return { status: 'ok', assets: null, etag: responseEtag };

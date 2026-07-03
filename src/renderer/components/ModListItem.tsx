@@ -64,9 +64,9 @@ const actionVariant = (action: ModAction): ButtonVariant => {
 /** Build the one-line "release vX • installed vY • size" summary for a variant. */
 const versionSummary = (variant: ModVariantRow): string => {
   const release =
-    variant.releaseVersion === null ? 'not in release' : `release v${variant.releaseVersion}`;
+    variant.releaseVersion === null ? 'Not in release' : `Release v${variant.releaseVersion}`;
   const installed =
-    variant.installedVersion === null ? 'not installed' : `installed v${variant.installedVersion}`;
+    variant.installedVersion === null ? 'Not installed' : `Installed v${variant.installedVersion}`;
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
   return `${release} • ${installed}${size}`;
 };

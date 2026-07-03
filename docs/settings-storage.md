@@ -40,9 +40,14 @@ Example contents:
 ```json
 {
   "gameRootPath": "D:\\Nexon\\Library\\mabinogi\\appdata",
-  "includePrereleases": true
+  "shouldIncludePrereleases": false
 }
 ```
+
+> `shouldIncludePrereleases` defaults to `false`. Opting in is a **dev-only feature
+> flag** (`prereleases`, see [`src/main/featureFlags.ts`](../src/main/featureFlags.ts)):
+> in a packaged build the flag is off, so the toggle is hidden and the effective
+> value is forced to `false` no matter what this file contains.
 
 > Because dev and packaged builds now use different folders, they keep
 > **independent** settings. Choosing a game folder in `npm run dev` will not
