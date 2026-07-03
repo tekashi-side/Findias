@@ -162,7 +162,7 @@ const CACHE_TTL_MS = 5 * 60_000;
  * manifest's grouped shape is preserved 1:1 (no flatten/regroup), and each
  * variant's `.it` download URL is resolved from the release's assets.
  *
- * The parsed catalog is cached in memory (never on disk) per `includePrereleases`
+ * The parsed catalog is cached in memory (never on disk) per `shouldIncludePrereleases`
  * and revalidated with the release feed's `ETag`, so repeated calls across IPC
  * handlers reuse one fetch: within the TTL nothing is requested; beyond it (or on
  * `force`) a conditional request either returns a free `304` (cache reused) or a
@@ -175,17 +175,21 @@ export const createManifestCatalogProvider = (
   const cache = new Map<boolean, CacheEntry>();
 
   const getCatalog = async (
-    includePrereleases: boolean,
+    shouldIncludePrereleases: boolean,
     { force = false }: GetCatalogOptions = {},
   ): Promise<Catalog> => {
-    const cached = cache.get(includePrereleases);
+    const cached = cache.get(shouldIncludePrereleases);
     if (cached && !force && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
       return cached.catalog;
     }
 
     let result;
     try {
-      result = await fetchLatestReleaseAssets(resolved, includePrereleases, cached?.etag ?? null);
+      result = await fetchLatestReleaseAssets(
+        resolved,
+        shouldIncludePrereleases,
+        cached?.etag ?? null,
+      );
     } catch (error) {
       // Graceful degradation: a transient failure to revalidate should not drop
       // a catalog we already have. Reuse the cache on network / rate-limit errors.
@@ -211,7 +215,7 @@ export const createManifestCatalogProvider = (
     if (!result.assets) {
       throw new CatalogError(
         'not-found',
-        includePrereleases
+        shouldIncludePrereleases
           ? 'No Uiscias release was found.'
           : 'No stable Uiscias release was found. Turn on "Include prereleases" to see the latest mods.',
       );
@@ -219,7 +223,7 @@ export const createManifestCatalogProvider = (
 
     // Possible future micro-opt: skip this manifest re-download when the selected release tag is unchanged (a 200 is often just download_count churn); it's free CDN bandwidth, so not done here.
     const catalog = await buildCatalog(resolved, result.assets);
-    cache.set(includePrereleases, { etag: result.etag, catalog, fetchedAt: Date.now() });
+    cache.set(shouldIncludePrereleases, { etag: result.etag, catalog, fetchedAt: Date.now() });
     return catalog;
   };
 

@@ -23,28 +23,28 @@ describe('parseSettings', () => {
   it('accepts a valid string path', () => {
     expect(parseSettings({ gameRootPath: 'D:/Nexon/mabinogi/appdata' })).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
-      includePrereleases: true,
+      shouldIncludePrereleases: false,
     });
   });
 
   it('accepts an explicit null path', () => {
     expect(parseSettings({ gameRootPath: null })).toEqual({
       gameRootPath: null,
-      includePrereleases: true,
+      shouldIncludePrereleases: false,
     });
   });
 
-  it('reads an explicit includePrereleases value', () => {
-    expect(parseSettings({ gameRootPath: null, includePrereleases: false })).toEqual({
+  it('reads an explicit shouldIncludePrereleases value', () => {
+    expect(parseSettings({ gameRootPath: null, shouldIncludePrereleases: true })).toEqual({
       gameRootPath: null,
-      includePrereleases: false,
+      shouldIncludePrereleases: true,
     });
   });
 
   it('resets a wrong-typed field to the default', () => {
     expect(parseSettings({ gameRootPath: 42 })).toEqual(DEFAULT_SETTINGS);
     expect(parseSettings({ gameRootPath: ['a', 'b'] })).toEqual(DEFAULT_SETTINGS);
-    expect(parseSettings({ gameRootPath: null, includePrereleases: 'yes' })).toEqual(
+    expect(parseSettings({ gameRootPath: null, shouldIncludePrereleases: 'yes' })).toEqual(
       DEFAULT_SETTINGS,
     );
   });
@@ -80,16 +80,19 @@ describe('loadSettings / saveSettings', () => {
   });
 
   it('round-trips saved settings', async () => {
-    await saveSettings({ gameRootPath: 'D:/Nexon/mabinogi/appdata', includePrereleases: false });
+    await saveSettings({
+      gameRootPath: 'D:/Nexon/mabinogi/appdata',
+      shouldIncludePrereleases: true,
+    });
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
-      includePrereleases: false,
+      shouldIncludePrereleases: true,
     });
   });
 
-  it('defaults includePrereleases to true for an older file missing the field', async () => {
+  it('defaults shouldIncludePrereleases to false for an older file missing the field', async () => {
     await fs.writeFile(settingsFile, JSON.stringify({ gameRootPath: 'D:/x' }), 'utf-8');
-    expect(await loadSettings()).toEqual({ gameRootPath: 'D:/x', includePrereleases: true });
+    expect(await loadSettings()).toEqual({ gameRootPath: 'D:/x', shouldIncludePrereleases: false });
   });
 
   it('returns defaults when the file is corrupt JSON', async () => {

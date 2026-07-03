@@ -5,6 +5,12 @@
 
 import type { ModListState } from './modList';
 
+/** Known feature-flag keys. Add new gated capabilities here. */
+export type FeatureFlag = 'prereleases';
+
+/** Active state of every feature flag, resolved in the main process. */
+export type FeatureFlags = Record<FeatureFlag, boolean>;
+
 export interface AppInfo {
   appVersion: string;
   electronVersion: string;
@@ -26,8 +32,14 @@ export interface GamePaths {
 export interface SetupState {
   gameRootPath: string | null;
   valid: boolean;
-  /** Whether prerelease Uiscias releases are considered when fetching the catalog. */
-  includePrereleases: boolean;
+  /**
+   * Effective (feature-flag-gated) value of whether prerelease Uiscias releases
+   * are considered when fetching the catalog. Always false when the
+   * `prereleases` feature is inactive, regardless of the persisted setting.
+   */
+  shouldIncludePrereleases: boolean;
+  /** Active state of the app's feature flags. */
+  features: FeatureFlags;
 }
 
 /** Result of prompting the user to choose a game folder. */
@@ -77,7 +89,7 @@ export interface FindiasApi {
   /** Move a mod between the package root and `package/disabled`. */
   setDisabled(modId: string, disabled: boolean): Promise<ModListState>;
   /** Persist whether prereleases are eligible, then re-resolve the mod list. */
-  setIncludePrereleases(value: boolean): Promise<ModListState>;
+  setShouldIncludePrereleases(value: boolean): Promise<ModListState>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
   /** Subscribe to app self-update status events; returns an unsubscribe function. */
@@ -99,7 +111,7 @@ export const IpcChannels = {
   installOrUpdate: 'mods:installOrUpdate',
   deleteMod: 'mods:delete',
   setDisabled: 'mods:setDisabled',
-  setIncludePrereleases: 'settings:setIncludePrereleases',
+  setShouldIncludePrereleases: 'settings:setShouldIncludePrereleases',
   downloadProgress: 'mods:downloadProgress',
   updateStatus: 'update:status',
   installUpdate: 'update:install',

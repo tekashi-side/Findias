@@ -138,7 +138,7 @@ Example — the settings schema is the source for both validation and the type:
 ```ts
 export const settingsSchema = z.object({
   gameRootPath: z.string().nullable().catch(null),
-  includePrereleases: z.boolean().catch(true),
+  shouldIncludePrereleases: z.boolean().catch(false),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 ```
@@ -166,8 +166,10 @@ tekashi-side/Findias (GitHub)        Root50199/Uiscias (GitHub)
   **`Root50199/Uiscias`** releases. Findias never re-hosts them; the user
   downloads them straight from GitHub's CDN.
 - Findias selects the **newest** eligible release. Whether **prereleases** count
-  as eligible is a persisted user setting (`includePrereleases`), needed because
-  the manifest currently ships only on prereleases.
+  as eligible is a persisted user setting (`shouldIncludePrereleases`, default `false`)
+  gated behind the dev-only `prereleases` feature flag (see
+  [feature flags](#feature-flags)). In a packaged build the effective value is
+  always `false`, so only stable releases are eligible.
 
 ## App self-update
 
@@ -205,6 +207,22 @@ Notes and caveats:
   does not change the architecture.
 - Update checks hit the GitHub releases feed for `tekashi-side/Findias` — a
   separate, infrequent request from the Uiscias mod-catalog fetch.
+
+## Feature flags
+
+Feature flags gate capabilities behind a runtime condition, resolved
+authoritatively in the **main** process ([`src/main/featureFlags.ts`](../src/main/featureFlags.ts))
+so a flag can never be flipped from the renderer.
+
+- Each flag maps to a resolver in `FLAG_RESOLVERS`. The keys live in the shared
+  layer (`FeatureFlag` / `FeatureFlags` in [`src/shared/api.ts`](../src/shared/api.ts)).
+- `getFeatureFlags()` snapshots every flag onto `SetupState.features`, so the
+  renderer can hide UI for inactive flags.
+- **`prereleases`** — active only in dev (`!app.isPackaged`). The effective
+  value is the persisted `shouldIncludePrereleases` setting AND-ed with this flag (see
+  `effectiveIncludePrereleases` in [`src/main/ipc.ts`](../src/main/ipc.ts)), so a
+  packaged build always resolves to `false`, hides the Settings toggle, and
+  ignores any attempt to persist an opt-in.
 
 ## Process model
 
@@ -330,9 +348,9 @@ All renderer↔main communication goes through a single typed API exposed on
 // Shape exposed by the preload (illustrative, not final)
 interface FindiasApi {
   // settings & setup
-  getSetupState(): Promise<SetupState>; // { gameRootPath, valid, includePrereleases }
+  getSetupState(): Promise<SetupState>; // { gameRootPath, valid, shouldIncludePrereleases, features }
   chooseGameFolder(): Promise<ChooseFolderResult>;
-  setIncludePrereleases(value: boolean): Promise<ModListState>; // persist + re-resolve
+  setShouldIncludePrereleases(value: boolean): Promise<ModListState>; // persist + re-resolve
 
   // catalog
   refresh(): Promise<ModListState>; // scan disk + fetch manifest + resolve
@@ -381,7 +399,7 @@ manifest is validated.
 ```ts
 // Remote: "what mods exist (grouped, with variants), and how to obtain the bytes"
 interface ModCatalogProvider {
-  getCatalog(includePrereleases: boolean): Promise<Catalog>;
+  getCatalog(shouldIncludePrereleases: boolean): Promise<Catalog>;
 }
 
 interface Catalog {
@@ -497,7 +515,7 @@ deliberately **lenient** so an older Findias can read a newer manifest:
 
 - **Endpoint:** `GET https://api.github.com/repos/Root50199/Uiscias/releases`
 - **Selection:** take the newest **non-draft** entry. Whether prereleases are
-  eligible depends on the persisted `includePrereleases` setting; we use the
+  eligible depends on the persisted `shouldIncludePrereleases` setting; we use the
   _list_ endpoint (not `/releases/latest`, which always excludes prereleases) so
   prerelease-flagged builds can be surfaced when the user opts in. This selection
   logic lives in `providers/githubReleases.ts`.
@@ -551,7 +569,7 @@ Unauthenticated GitHub API requests are limited to **60 per hour per IP**
 that counts against this budget; the manifest and mod downloads hit the CDN
 (`browser_download_url`), not the API. Findias keeps well within budget by:
 
-- **Caching the parsed catalog in memory** (per `includePrereleases`) in
+- **Caching the parsed catalog in memory** (per `shouldIncludePrereleases`) in
   `ManifestCatalogProvider`, so a burst of IPC handlers (install/delete/disable)
   reuses one fetch instead of one call each. A short TTL serves repeat calls with
   no request at all; the catalog is never written to disk (see design goal #4).
@@ -748,8 +766,8 @@ app ready
   → valid game path? ──no──► show setup gate (chooseGameFolder)
         │ yes
         ▼
-  InstalledModsProvider.list()                       ┐ (folder scan)
-  ModCatalogProvider.getCatalog(includePrereleases)  ┘ (manifest of newest release)
+  InstalledModsProvider.list()                             ┐ (folder scan)
+  ModCatalogProvider.getCatalog(shouldIncludePrereleases)  ┘ (manifest of newest release)
   → resolveModList(catalog, installed) → { groups, metadata }
   → ModListState { groups, catalog, metadata }
   → renderer renders grouped list + freshness banner (or empty/error state)
@@ -821,7 +839,7 @@ by Findias.
 ```ts
 interface Settings {
   gameRootPath: string | null; // the appdata folder
-  includePrereleases: boolean; // whether prereleases are eligible (default true)
+  shouldIncludePrereleases: boolean; // whether prereleases are eligible (default false, dev-only)
   // future: UI prefs, last-used filters, etc.
 }
 

@@ -171,9 +171,9 @@ This **evolves Phases 2–3** (the catalog provider, the DTOs, and the resolver/
 - **Renderer:** variant-group dropdown, tags/size/version display, a dedicated
   `updateType` indicator shown only while the freshness banner is active, conflict
   messaging, and the catalog-wide freshness banner. ✅
-- **Prerelease toggle:** persisted `includePrereleases` setting + IPC + a UI switch
-  that re-filters release selection (default on, since the manifest currently ships
-  only on prereleases). ✅
+- **Prerelease toggle:** persisted `shouldIncludePrereleases` setting + IPC + a UI switch
+  that re-filters release selection (default off; gated behind the dev-only
+  `prereleases` feature flag, so it is hidden and forced off in packaged builds). ✅
 
 **Done when:** the list renders from a live release's `manifestCatalog.json` with
 variants grouped, conflicting installs prevented (naming the blocker), richer

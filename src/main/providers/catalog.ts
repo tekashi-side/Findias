@@ -73,11 +73,11 @@ export interface GetCatalogOptions {
 
 /**
  * Source-agnostic remote catalog. Kept as a one-implementation interface purely
- * so tests can inject a stubbed `fetch`. `includePrereleases` controls whether
- * prerelease GitHub releases are eligible when selecting the newest one.
+ * so tests can inject a stubbed `fetch`. `shouldIncludePrereleases` controls
+ * whether prerelease GitHub releases are eligible when selecting the newest one.
  */
 export interface ModCatalogProvider {
-  getCatalog(includePrereleases: boolean, options?: GetCatalogOptions): Promise<Catalog>;
+  getCatalog(shouldIncludePrereleases: boolean, options?: GetCatalogOptions): Promise<Catalog>;
 }
 
 export type CatalogErrorCode = 'network' | 'rate-limited' | 'http' | 'parse' | 'not-found';

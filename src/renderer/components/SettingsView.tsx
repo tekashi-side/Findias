@@ -39,11 +39,13 @@ const errorMessage = (error: unknown): string =>
 const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
-  const [includePrereleases, setIncludePrereleases] = useState(setup.includePrereleases);
+  const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
+    setup.shouldIncludePrereleases,
+  );
 
   useEffect(() => {
-    setIncludePrereleases(setup.includePrereleases);
-  }, [setup.includePrereleases]);
+    setShouldIncludePrereleases(setup.shouldIncludePrereleases);
+  }, [setup.shouldIncludePrereleases]);
 
   const choose = useMutation<ChooseFolderResult>({
     mutationFn: () => window.findias.chooseGameFolder(),
@@ -56,7 +58,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   });
 
   const prerelease = useMutation({
-    mutationFn: (value: boolean) => window.findias.setIncludePrereleases(value),
+    mutationFn: (value: boolean) => window.findias.setShouldIncludePrereleases(value),
     onSuccess: (state: ModListState) => {
       queryClient.setQueryData(['modList'], state);
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
@@ -66,7 +68,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
 
   /** Optimistically reflect the prerelease toggle, then persist it. */
   const handlePrereleaseChange = (value: boolean): void => {
-    setIncludePrereleases(value);
+    setShouldIncludePrereleases(value);
     prerelease.mutate(value);
   };
 
@@ -136,25 +138,27 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
           </ItemActions>
         </Item>
 
-        <Item variant="outline" className="items-start">
-          <ItemContent>
-            <ItemTitle>Include prereleases</ItemTitle>
-            <ItemDescription>
-              When fetching the mod catalog from GitHub, count prerelease Uiscias builds as well as
-              stable ones. New manifests are often published on prereleases first, so this is
-              usually required to see the latest mods.
-            </ItemDescription>
-          </ItemContent>
+        {setup.features.prereleases && (
+          <Item variant="outline" className="items-start">
+            <ItemContent>
+              <ItemTitle>Include prereleases</ItemTitle>
+              <ItemDescription>
+                When fetching the mod catalog from GitHub, count prerelease Uiscias builds as well
+                as stable ones. New manifests are often published on prereleases first, so this is
+                usually required to see the latest mods.
+              </ItemDescription>
+            </ItemContent>
 
-          <ItemActions>
-            <Switch
-              id="include-prereleases"
-              checked={includePrereleases}
-              onCheckedChange={handlePrereleaseChange}
-              disabled={prerelease.isPending}
-            />
-          </ItemActions>
-        </Item>
+            <ItemActions>
+              <Switch
+                id="include-prereleases"
+                checked={shouldIncludePrereleases}
+                onCheckedChange={handlePrereleaseChange}
+                disabled={prerelease.isPending}
+              />
+            </ItemActions>
+          </Item>
+        )}
       </ItemGroup>
       <Toaster />
     </div>
