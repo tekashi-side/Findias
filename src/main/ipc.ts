@@ -8,7 +8,7 @@ import {
   type SetupState,
 } from '../shared/api';
 import type { ModListState } from '../shared/modList';
-import { loadSettings, saveSettings, type Settings } from './settingsStore';
+import { loadSettings, saveSettings } from './settingsStore';
 import { getFeatureFlags, isFeatureEnabled } from './featureFlags';
 import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation';
 import { resolveModList } from './modResolver';
@@ -44,23 +44,24 @@ const catalogProvider = createManifestCatalogProvider(
 );
 
 /**
- * The effective prerelease preference: the persisted opt-in AND-ed with the
- * `prereleases` feature flag. In a packaged build the flag is off, so this is
- * always false no matter what `findias-settings.json` says.
+ * Whether prerelease Uiscias releases should be considered: the persisted opt-in
+ * AND-ed with the `prereleases` feature flag. In a packaged build the flag is
+ * off, so this is always false no matter what `findias-settings.json` says.
  */
-const effectiveShouldIncludePrereleases = (settings: Settings): boolean =>
-  settings.shouldIncludePrereleases && isFeatureEnabled('prereleases');
+export const arePrereleasesEligible = async (): Promise<boolean> => {
+  const { shouldIncludePrereleases } = await loadSettings();
+  return shouldIncludePrereleases && isFeatureEnabled('prereleases');
+};
 
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const settings = await loadSettings();
-  const shouldIncludePrereleases = effectiveShouldIncludePrereleases(settings);
-  const features = getFeatureFlags();
-  if (!settings.gameRootPath) {
-    return { gameRootPath: null, valid: false, shouldIncludePrereleases, features };
+  const { gameRootPath } = await loadSettings();
+  const shouldIncludePrereleases = await arePrereleasesEligible();
+  if (!gameRootPath) {
+    return { gameRootPath: null, valid: false, shouldIncludePrereleases };
   }
-  const { ok } = await validateGameRoot(settings.gameRootPath);
-  return { gameRootPath: settings.gameRootPath, valid: ok, shouldIncludePrereleases, features };
+  const { ok } = await validateGameRoot(gameRootPath);
+  return { gameRootPath, valid: ok, shouldIncludePrereleases };
 };
 
 /** Resolve the stored game paths, throwing a clear error if setup is invalid. */
@@ -86,7 +87,7 @@ const resolveCurrentState = async (
   paths: GamePaths,
   options: { force?: boolean } = {},
 ): Promise<ModListState> => {
-  const shouldIncludePrereleases = effectiveShouldIncludePrereleases(await loadSettings());
+  const shouldIncludePrereleases = await arePrereleasesEligible();
   const installed = await createPackageFolderProvider(paths).list();
   try {
     const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases, {
@@ -131,7 +132,7 @@ const findVariant = (
  */
 const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promise<ModListState> => {
   const paths = await requireGamePaths();
-  const shouldIncludePrereleases = effectiveShouldIncludePrereleases(await loadSettings());
+  const shouldIncludePrereleases = await arePrereleasesEligible();
   const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases);
   const found = findVariant(catalog, modId);
   if (!found) {
@@ -190,6 +191,11 @@ const setShouldIncludePrereleases = async (value: boolean): Promise<ModListState
 };
 
 export const registerIpcHandlers = (): void => {
+  // Synchronous so the preload can resolve the flags as a constant at load time.
+  ipcMain.on(IpcChannels.getFeatureFlags, (event) => {
+    event.returnValue = getFeatureFlags();
+  });
+
   ipcMain.handle(
     IpcChannels.getAppInfo,
     (): AppInfo => ({
@@ -256,8 +262,7 @@ export const registerIpcHandlers = (): void => {
       state: {
         gameRootPath: chosen,
         valid: true,
-        shouldIncludePrereleases: effectiveShouldIncludePrereleases(settings),
-        features: getFeatureFlags(),
+        shouldIncludePrereleases: await arePrereleasesEligible(),
       },
     };
   });

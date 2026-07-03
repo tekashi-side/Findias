@@ -216,12 +216,17 @@ so a flag can never be flipped from the renderer.
 
 - Each flag maps to a resolver in `FLAG_RESOLVERS`. The keys live in the shared
   layer (`FeatureFlag` / `FeatureFlags` in [`src/shared/api.ts`](../src/shared/api.ts)).
-- `getFeatureFlags()` snapshots every flag onto `SetupState.features`, so the
-  renderer can hide UI for inactive flags.
-- **`prereleases`** — active only in dev (`!app.isPackaged`). The effective
-  value is the persisted `shouldIncludePrereleases` setting AND-ed with this flag (see
-  `effectiveIncludePrereleases` in [`src/main/ipc.ts`](../src/main/ipc.ts)), so a
-  packaged build always resolves to `false`, hides the Settings toggle, and
+- Flags are constant for the session, so they are delivered to the renderer as a
+  one-shot **synchronous** read: the preload calls `IpcChannels.getFeatureFlags`
+  (`ipcRenderer.sendSync`) at load and exposes the result as the constant
+  `window.findias.featureFlags`. The renderer reads it via the `useFeatureFlag`
+  hook ([`src/renderer/hooks/useFeatureFlags.ts`](../src/renderer/hooks/useFeatureFlags.ts)),
+  a hook shape so the backing source can later become async (e.g. a remote flag
+  service) without touching call sites.
+- **`prereleases`** — active only in dev (`!app.isPackaged`). Whether prereleases
+  are actually used is the persisted `shouldIncludePrereleases` setting AND-ed
+  with this flag (see `arePrereleasesEligible` in [`src/main/ipc.ts`](../src/main/ipc.ts)),
+  so a packaged build always resolves to `false`, hides the Settings toggle, and
   ignores any attempt to persist an opt-in.
 
 ## Process model
@@ -348,7 +353,7 @@ All renderer↔main communication goes through a single typed API exposed on
 // Shape exposed by the preload (illustrative, not final)
 interface FindiasApi {
   // settings & setup
-  getSetupState(): Promise<SetupState>; // { gameRootPath, valid, shouldIncludePrereleases, features }
+  getSetupState(): Promise<SetupState>; // { gameRootPath, valid, shouldIncludePrereleases }
   chooseGameFolder(): Promise<ChooseFolderResult>;
   setShouldIncludePrereleases(value: boolean): Promise<ModListState>; // persist + re-resolve
 

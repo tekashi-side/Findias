@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { ChooseFolderResult, SetupState } from '@shared/api';
 import type { ModListState } from '@shared/modList';
 import { isTheme, THEMES, useTheme, type Theme } from '@/components/theme-provider';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,6 +40,7 @@ const errorMessage = (error: unknown): string =>
 const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
+  const isPrereleasesEnabled = useFeatureFlag('prereleases');
   const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
     setup.shouldIncludePrereleases,
   );
@@ -138,7 +140,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
           </ItemActions>
         </Item>
 
-        {setup.features.prereleases && (
+        {isPrereleasesEnabled && (
           <Item variant="outline" className="items-start">
             <ItemContent>
               <ItemTitle>Include prereleases</ItemTitle>

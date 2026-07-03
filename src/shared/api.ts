@@ -38,8 +38,6 @@ export interface SetupState {
    * `prereleases` feature is inactive, regardless of the persisted setting.
    */
   shouldIncludePrereleases: boolean;
-  /** Active state of the app's feature flags. */
-  features: FeatureFlags;
 }
 
 /** Result of prompting the user to choose a game folder. */
@@ -77,6 +75,11 @@ export interface UpdateStatus {
 
 /** The allow-listed surface exposed to the renderer via contextBridge. */
 export interface FindiasApi {
+  /**
+   * Active state of the app's feature flags, resolved once in the main process
+   * and read synchronously at preload load. Constant for the session.
+   */
+  readonly featureFlags: FeatureFlags;
   getAppInfo(): Promise<AppInfo>;
   getSetupState(): Promise<SetupState>;
   chooseGameFolder(): Promise<ChooseFolderResult>;
@@ -104,6 +107,7 @@ export interface FindiasApi {
 
 /** IPC channel names, kept in one place to avoid string drift across processes. */
 export const IpcChannels = {
+  getFeatureFlags: 'featureFlags:get',
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
   chooseGameFolder: 'setup:chooseGameFolder',
