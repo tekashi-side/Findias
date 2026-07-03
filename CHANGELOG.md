@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/tekashi-side/Findias/compare/v1.2.0...v1.3.0) (2026-07-03)
+
+
+### Features
+
+* add ability to use feature flags ([7267d96](https://github.com/tekashi-side/Findias/commit/7267d96f57b6fc15ce667aa045ec74817ec951e4))
+* refactor feature flag handling and add tests for IPC integration ([95afc74](https://github.com/tekashi-side/Findias/commit/95afc744576ae8f1ca736c513239ee3aa1df4a2a))
+
 ## [1.2.0](https://github.com/tekashi-side/Findias/compare/v1.1.0...v1.2.0) (2026-07-02)
 
 
