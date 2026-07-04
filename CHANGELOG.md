@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/tekashi-side/Findias/compare/v1.4.0...v1.5.0) (2026-07-04)
+
+
+### Features
+
+* improve the update app toast ([e2444b8](https://github.com/tekashi-side/Findias/commit/e2444b8c10ab837fb9210fb2da1bb12c3e8fb33b))
+
 ## [1.4.0](https://github.com/tekashi-side/Findias/compare/v1.3.0...v1.4.0) (2026-07-04)
 
 
