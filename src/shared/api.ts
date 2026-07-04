@@ -6,7 +6,7 @@
 import type { ModListState } from './modList';
 
 /** Known feature-flag keys. Add new gated capabilities here. */
-export type FeatureFlag = 'prereleases';
+export type FeatureFlag = 'prereleases' | 'previewAppUpdateToast';
 
 /** Active state of every feature flag, resolved in the main process. */
 export type FeatureFlags = Record<FeatureFlag, boolean>;

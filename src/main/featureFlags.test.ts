@@ -11,16 +11,18 @@ afterEach(() => {
   electronMock.app.isPackaged = false;
 });
 
-describe('prereleases feature flag', () => {
-  it('is active in dev (unpackaged) builds', () => {
+describe('dev-only feature flags', () => {
+  it('are active in unpackaged builds', () => {
     electronMock.app.isPackaged = false;
     expect(isFeatureEnabled('prereleases')).toBe(true);
-    expect(getFeatureFlags()).toEqual({ prereleases: true });
+    expect(isFeatureEnabled('previewAppUpdateToast')).toBe(true);
+    expect(getFeatureFlags()).toEqual({ prereleases: true, previewAppUpdateToast: true });
   });
 
-  it('is inactive in packaged builds', () => {
+  it('are inactive in packaged builds', () => {
     electronMock.app.isPackaged = true;
     expect(isFeatureEnabled('prereleases')).toBe(false);
-    expect(getFeatureFlags()).toEqual({ prereleases: false });
+    expect(isFeatureEnabled('previewAppUpdateToast')).toBe(false);
+    expect(getFeatureFlags()).toEqual({ prereleases: false, previewAppUpdateToast: false });
   });
 });
