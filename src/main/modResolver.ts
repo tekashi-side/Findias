@@ -5,6 +5,7 @@ import type {
   ModGroupRow,
   ModVariantRow,
 } from '../shared/modList';
+import { orphanDisplayName } from '../shared/modFilename';
 import type { Catalog, CatalogGroup, CatalogVariant } from './providers/catalog';
 import type { InstalledMod } from './providers/installed';
 
@@ -52,6 +53,15 @@ const groupInstalledByModId = (installed: InstalledMod[]): Map<string, Installed
     groups.set(mod.modId, group);
   }
   return groups;
+};
+
+/** The set of every modId present in the catalog, for membership checks. */
+export const catalogModIds = (catalog: Catalog): Set<string> => {
+  const ids = new Set<string>();
+  for (const group of catalog.groups) {
+    for (const variant of group.variants) ids.add(variant.modId);
+  }
+  return ids;
 };
 
 /** Index every catalog variant by modId for O(1) lookups. */
@@ -164,9 +174,12 @@ const buildVariantRow = (
 /** Build a delete-only row for an installed mod absent from the catalog. */
 const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGroupRow => {
   const primary = installedGroup.enabled ?? installedGroup.disabled;
+  // Show the file's natural name (extension + trailing version stripped, prefix
+  // kept) so the user can tell where an orphan came from.
+  const name = primary ? orphanDisplayName(primary.fileName) : modId;
   const variant: ModVariantRow = {
     modId,
-    name: modId,
+    name,
     status: 'orphan',
     releaseVersion: null,
     installedVersion: primary?.version ?? null,
@@ -178,13 +191,26 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
   };
   return {
     groupId: modId,
-    name: modId,
+    name,
     tags: [],
     hasVariants: false,
     mutuallyExclusive: false,
     installedVariantId: modId,
     variants: [variant],
   };
+};
+
+/** A group is an orphan group when its (only) variant is an orphan. */
+const isOrphanGroup = (group: ModGroupRow): boolean =>
+  group.variants.some((variant) => variant.status === 'orphan');
+
+/**
+ * Order groups for display: catalog groups first (alphabetical), then orphans
+ * (alphabetical among themselves) pinned to the bottom of the list.
+ */
+const compareGroups = (a: ModGroupRow, b: ModGroupRow): number => {
+  const orphanDelta = Number(isOrphanGroup(a)) - Number(isOrphanGroup(b));
+  return orphanDelta !== 0 ? orphanDelta : a.name.localeCompare(b.name);
 };
 
 /** Pick the installed variant of a group (preferring the enabled location). */
@@ -217,7 +243,7 @@ export const resolveModList = (
     const groups = [...installedByModId.entries()].map(([modId, group]) =>
       buildOrphanGroup(modId, group),
     );
-    return { groups: groups.sort((a, b) => a.name.localeCompare(b.name)), metadata: null };
+    return { groups: groups.sort(compareGroups), metadata: null };
   }
 
   const catalogIndex = indexCatalogByModId(catalog);
@@ -255,5 +281,5 @@ export const resolveModList = (
     outdated: catalog.metadata.supportedGameVersion !== catalog.metadata.currentGameVersion,
   };
 
-  return { groups: groups.sort((a, b) => a.name.localeCompare(b.name)), metadata };
+  return { groups: groups.sort(compareGroups), metadata };
 };

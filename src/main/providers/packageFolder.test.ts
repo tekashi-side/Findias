@@ -32,16 +32,30 @@ describe('PackageFolderProvider', () => {
     expect(await provider.list()).toEqual([]);
   });
 
-  it('lists managed mods in the root as enabled and ignores everything else', async () => {
-    await touch(paths.packageDir, 'uisciasDDtimer_5.it');
-    await touch(paths.packageDir, 'data_00001.it'); // official game file
-    await touch(paths.packageDir, 'randommod.it'); // unmanaged third-party
-    await touch(paths.packageDir, 'notes.txt'); // not a .it file
+  it('lists managed mods as managed, surfaces foreign .it files, and ignores official/non-.it files', async () => {
+    await touch(paths.packageDir, 'uisciasDDtimer_5.it'); // managed
+    await touch(paths.packageDir, 'data_00001.it'); // official game file (ignored)
+    await touch(paths.packageDir, 'randommod.it'); // foreign third-party (surfaced)
+    await touch(paths.packageDir, 'notes.txt'); // not a .it file (ignored)
 
     const provider = createPackageFolderProvider(paths);
-    expect(await provider.list()).toEqual([
-      { modId: 'DDtimer', version: 5, fileName: 'uisciasDDtimer_5.it', enabled: true },
-    ]);
+    const list = await provider.list();
+
+    expect(list).toContainEqual({
+      modId: 'DDtimer',
+      version: 5,
+      fileName: 'uisciasDDtimer_5.it',
+      enabled: true,
+      managed: true,
+    });
+    expect(list).toContainEqual({
+      modId: 'randommod.it',
+      version: 0,
+      fileName: 'randommod.it',
+      enabled: true,
+      managed: false,
+    });
+    expect(list).toHaveLength(2);
   });
 
   it('marks mods in package/disabled as disabled', async () => {
@@ -57,12 +71,14 @@ describe('PackageFolderProvider', () => {
       version: 2,
       fileName: 'uisciasFoo_2.it',
       enabled: true,
+      managed: true,
     });
     expect(list).toContainEqual({
       modId: 'Bar',
       version: 3,
       fileName: 'uisciasBar_3.it',
       enabled: false,
+      managed: true,
     });
     expect(list).toHaveLength(2);
   });
@@ -73,7 +89,7 @@ describe('PackageFolderProvider', () => {
 
     const provider = createPackageFolderProvider(paths);
     expect(await provider.list()).toEqual([
-      { modId: 'Foo', version: 2, fileName: 'uisciasFoo_2.it', enabled: true },
+      { modId: 'Foo', version: 2, fileName: 'uisciasFoo_2.it', enabled: true, managed: true },
     ]);
   });
 });

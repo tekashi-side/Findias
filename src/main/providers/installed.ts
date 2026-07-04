@@ -19,6 +19,13 @@ export interface InstalledMod {
   fileName: string;
   /** false = the file currently lives in `package/disabled`. */
   enabled: boolean;
+  /**
+   * True for files matching the Findias-managed grammar (`uiscias<name>_<v>.it`);
+   * false for foreign `.it` files from other providers. Foreign mods use their
+   * full file name as `modId` (there is no grammar to key on) and are always
+   * resolved as delete-only orphans.
+   */
+  managed: boolean;
   /** Only populated by sources that record it (e.g. a future installedMods.json). */
   updatedAt?: string;
 }

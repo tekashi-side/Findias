@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import type { GamePaths } from '../shared/api';
-import { parseManagedModFileName } from '../shared/modFilename';
+import { isOfficialGameFile, parseManagedModFileName } from '../shared/modFilename';
 
 /**
  * Physical, invariant disk operations on managed `.it` files. This never changes
@@ -16,6 +16,12 @@ export interface ModStore {
    * write-new-then-delete-old replace to preserve the freshly written version).
    */
   removeManaged(modId: string, exceptFileName?: string): Promise<void>;
+  /**
+   * Delete a single foreign (non-managed) mod by its exact file name, from both
+   * the package root and the disabled subfolder. Official game files
+   * (`data_*.it`) are refused as a safety guard.
+   */
+  removeByFileName(fileName: string): Promise<void>;
   /**
    * Move a mod's managed file(s) between the package root and `package/disabled`.
    * Disabling lazily creates the `disabled` folder; enabling moves files back to
@@ -72,6 +78,15 @@ export const createPackageModStore = (paths: GamePaths): ModStore => {
       await Promise.all([
         removeFromDir(paths.packageDir, modId, exceptFileName),
         removeFromDir(paths.disabledDir, modId, exceptFileName),
+      ]);
+    },
+
+    removeByFileName: async (fileName: string): Promise<void> => {
+      // Never delete official game data files, even if asked to.
+      if (isOfficialGameFile(fileName)) return;
+      await Promise.all([
+        fs.rm(join(paths.packageDir, fileName), { force: true }),
+        fs.rm(join(paths.disabledDir, fileName), { force: true }),
       ]);
     },
 

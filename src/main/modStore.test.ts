@@ -70,6 +70,42 @@ describe('PackageModStore.removeManaged', () => {
   });
 });
 
+describe('PackageModStore.removeByFileName', () => {
+  beforeEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.mkdir(paths.disabledDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('deletes an exact foreign file from root and disabled', async () => {
+    await touch(paths.packageDir, 'randommod.it');
+    await touch(paths.disabledDir, 'randommod.it');
+    await touch(paths.packageDir, 'uisciasBar_1.it');
+
+    await createPackageModStore(paths).removeByFileName('randommod.it');
+
+    expect((await fs.readdir(paths.packageDir)).sort()).toEqual(['disabled', 'uisciasBar_1.it']);
+    expect(await fs.readdir(paths.disabledDir)).toEqual([]);
+  });
+
+  it('refuses to delete an official game file', async () => {
+    await touch(paths.packageDir, 'data_00001.it');
+
+    await createPackageModStore(paths).removeByFileName('data_00001.it');
+
+    expect(await fs.readdir(paths.packageDir)).toContain('data_00001.it');
+  });
+
+  it('does not fail when the file is absent', async () => {
+    await expect(
+      createPackageModStore(paths).removeByFileName('missing.it'),
+    ).resolves.toBeUndefined();
+  });
+});
+
 describe('PackageModStore.setDisabled', () => {
   beforeEach(async () => {
     await fs.rm(root, { recursive: true, force: true });

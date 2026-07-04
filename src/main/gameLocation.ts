@@ -8,6 +8,9 @@ export const PACKAGE_DIR_NAME = 'package';
 /** Subfolder of `package` used to hold temporarily disabled mods. */
 export const DISABLED_DIR_NAME = 'disabled';
 
+/** Subfolder of `package` where pre-existing non-official mods are archived. */
+export const ARCHIVED_DIR_NAME = 'archived';
+
 export interface ValidationResult {
   ok: boolean;
   error?: string;
@@ -20,6 +23,7 @@ export const resolveGamePaths = (root: string): GamePaths => {
     root,
     packageDir,
     disabledDir: join(packageDir, DISABLED_DIR_NAME),
+    archivedDir: join(packageDir, ARCHIVED_DIR_NAME),
   };
 };
 

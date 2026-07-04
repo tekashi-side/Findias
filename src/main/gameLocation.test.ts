@@ -11,6 +11,7 @@ describe('resolveGamePaths', () => {
     expect(paths.root).toBe(root);
     expect(paths.packageDir).toBe(join(root, 'package'));
     expect(paths.disabledDir).toBe(join(root, 'package', 'disabled'));
+    expect(paths.archivedDir).toBe(join(root, 'package', 'archived'));
   });
 });
 

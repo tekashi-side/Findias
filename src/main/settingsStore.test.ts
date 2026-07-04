@@ -24,6 +24,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: 'D:/Nexon/mabinogi/appdata' })).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: false,
+      modSetupCompleted: false,
     });
   });
 
@@ -31,6 +32,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
+      modSetupCompleted: false,
     });
   });
 
@@ -38,6 +40,15 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null, shouldIncludePrereleases: true })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: true,
+      modSetupCompleted: false,
+    });
+  });
+
+  it('reads an explicit modSetupCompleted value', () => {
+    expect(parseSettings({ gameRootPath: null, modSetupCompleted: true })).toEqual({
+      gameRootPath: null,
+      shouldIncludePrereleases: false,
+      modSetupCompleted: true,
     });
   });
 
@@ -83,16 +94,22 @@ describe('loadSettings / saveSettings', () => {
     await saveSettings({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
+      modSetupCompleted: true,
     });
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
+      modSetupCompleted: true,
     });
   });
 
   it('defaults shouldIncludePrereleases to false for an older file missing the field', async () => {
     await fs.writeFile(settingsFile, JSON.stringify({ gameRootPath: 'D:/x' }), 'utf-8');
-    expect(await loadSettings()).toEqual({ gameRootPath: 'D:/x', shouldIncludePrereleases: false });
+    expect(await loadSettings()).toEqual({
+      gameRootPath: 'D:/x',
+      shouldIncludePrereleases: false,
+      modSetupCompleted: false,
+    });
   });
 
   it('returns defaults when the file is corrupt JSON', async () => {

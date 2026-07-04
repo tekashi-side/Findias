@@ -23,6 +23,8 @@ export interface GamePaths {
   root: string;
   packageDir: string;
   disabledDir: string;
+  /** Where pre-existing, non-official mods are moved during setup. Never scanned. */
+  archivedDir: string;
 }
 
 /**
@@ -38,6 +40,20 @@ export interface SetupState {
    * `prereleases` feature is inactive, regardless of the persisted setting.
    */
   shouldIncludePrereleases: boolean;
+  /**
+   * True when the game folder is valid but the one-time mod-archive setup step
+   * has not been completed for it AND pre-existing (non-official) mods are
+   * present in the package root. Drives the second setup step.
+   */
+  needsModArchive: boolean;
+}
+
+/** A pre-existing, non-official mod file detected in the package root. */
+export interface ForeignMod {
+  /** Exact file name on disk. */
+  fileName: string;
+  /** Natural display name (extension + trailing version stripped). */
+  displayName: string;
 }
 
 /** Result of prompting the user to choose a game folder. */
@@ -83,6 +99,14 @@ export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>;
   getSetupState(): Promise<SetupState>;
   chooseGameFolder(): Promise<ChooseFolderResult>;
+  /** List pre-existing, non-official mods in the package root (for the archive step). */
+  listForeignMods(): Promise<ForeignMod[]>;
+  /**
+   * Complete the one-time mod-archive setup step. When `archive` is true, moves
+   * every pre-existing non-official mod into `package/archived`. Always marks the
+   * step complete and returns the fresh setup state.
+   */
+  completeModSetup(archive: boolean): Promise<SetupState>;
   /** Scan the package folder, fetch the catalog, and resolve the mod list. */
   refresh(): Promise<ModListState>;
   /** Install (or replace with) the latest release version of a mod. */
@@ -111,6 +135,8 @@ export const IpcChannels = {
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
   chooseGameFolder: 'setup:chooseGameFolder',
+  listForeignMods: 'setup:listForeignMods',
+  completeModSetup: 'setup:completeModSetup',
   refresh: 'mods:refresh',
   installOrUpdate: 'mods:installOrUpdate',
   deleteMod: 'mods:delete',
