@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/tekashi-side/Findias/compare/v1.3.0...v1.4.0) (2026-07-04)
+
+
+### Features
+
+* enhance SetupGate component with folder selection options and improved layout ([5beda1b](https://github.com/tekashi-side/Findias/commit/5beda1bb6fe9e50363a586ba63b566446edf4c47))
+* implement mod archiving functionality and enhance setup flow ([e45124d](https://github.com/tekashi-side/Findias/commit/e45124d419161eacbdd6499e97edc92f28388694))
+
 ## [1.3.0](https://github.com/tekashi-side/Findias/compare/v1.2.0...v1.3.0) (2026-07-03)
 
 
