@@ -1,6 +1,6 @@
 import { useState, type FC, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import SetupGate from './components/SetupGate';
+import SetupView from './components/SetupView';
 import MainView from './components/MainView';
 import SettingsView from './components/SettingsView';
 import TitleBar from './components/TitleBar';
@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 import { Toaster } from '@/components/ui/sonner';
 
-/** Root view: reads setup state, then routes to {@link SetupGate}, {@link MainView}, or {@link SettingsView}. */
+/** Root view: reads setup state, then routes to {@link SetupView}, {@link MainView}, or {@link SettingsView}. */
 const App: FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -20,7 +20,7 @@ const App: FC = () => {
     queryFn: () => window.findias.getSetupState(),
   });
 
-  const settingsAvailable = Boolean(data?.valid);
+  const settingsAvailable = Boolean(data?.valid) && !data?.needsModArchive;
 
   /** Wrap content with the persistent frameless title bar shell. */
   const shell = (content: ReactNode): ReactNode => (
@@ -53,7 +53,7 @@ const App: FC = () => {
     );
   }
 
-  if (!data.valid) return shell(<SetupGate />);
+  if (!data.valid || data.needsModArchive) return shell(<SetupView setup={data} />);
 
   return shell(settingsOpen ? <SettingsView setup={data} /> : <MainView />);
 };

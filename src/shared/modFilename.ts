@@ -41,3 +41,25 @@ export const parseManagedModFileName = (fileName: string): ParsedMod | null => {
 export const buildManagedModFileName = (modId: string, version: number): string => {
   return `uiscias${modId}_${version}.it`;
 };
+
+/**
+ * Official Mabinogi game data files (`data_<number>.it`). These ship with the
+ * game and must never be surfaced, archived, or deleted by Findias.
+ */
+const OFFICIAL = /^data_\d+\.it$/i;
+
+/** Whether a file name is an official game data file (`data_<number>.it`). */
+export const isOfficialGameFile = (fileName: string): boolean => OFFICIAL.test(fileName);
+
+/**
+ * Natural display name for an orphan (a `.it` file that is not in the catalog):
+ * drop the `.it` extension and a trailing `_<number>` version segment, but keep
+ * the rest of the name verbatim (including any `Uiscias` prefix) so the user can
+ * tell where the file came from.
+ *
+ *   "UisciasSomeOrphanMod_00001.it" -> "UisciasSomeOrphanMod"
+ *   "SomeCustomMod_00001.it"        -> "SomeCustomMod"
+ *   "randommod.it"                  -> "randommod"
+ */
+export const orphanDisplayName = (fileName: string): string =>
+  fileName.replace(/\.it$/i, '').replace(/_\d+$/, '');

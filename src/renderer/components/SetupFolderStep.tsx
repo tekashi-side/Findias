@@ -13,8 +13,8 @@ import {
   ItemDescription,
 } from '@/components/ui/item';
 
-/** First-run screen prompting the user to pick their Mabinogi game folder. */
-const SetupGate: FC = () => {
+/** First-run setup step: prompts the user to pick their Mabinogi game folder. */
+const SetupFolderStep: FC = () => {
   const queryClient = useQueryClient();
 
   const choose = useMutation<ChooseFolderResult>({
@@ -87,4 +87,4 @@ const SetupGate: FC = () => {
   );
 };
 
-export default SetupGate;
+export default SetupFolderStep;

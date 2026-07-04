@@ -96,7 +96,11 @@ const ModListItem: FC<ModListItemProps> = ({
   return (
     <Item
       variant="outline"
-      className={cn('items-start', selected && 'border-primary/60 bg-primary/5')}
+      className={cn(
+        'items-start',
+        variant.status === 'orphan' && 'opacity-50 transition-opacity hover:opacity-100',
+        selected && 'border-primary/60 bg-primary/5',
+      )}
       data-selected={selected || undefined}
       onClick={() => onSelect?.(variant.modId)}
     >

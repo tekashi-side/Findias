@@ -47,6 +47,16 @@ const installed = (modId: string, version: number, enabled: boolean): InstalledM
   version,
   fileName: `uiscias${modId}_${version}.it`,
   enabled,
+  managed: true,
+});
+
+/** A foreign (non-managed) mod file keyed by its full file name. */
+const foreign = (fileName: string, enabled = true): InstalledMod => ({
+  modId: fileName,
+  version: 0,
+  fileName,
+  enabled,
+  managed: false,
 });
 
 /** Shorthand: the first variant of the first group. */
@@ -194,6 +204,24 @@ describe('resolveModList', () => {
       [],
     );
     expect(result.groups.map((g) => g.groupId)).toEqual(['Alpha', 'Zeta']);
+  });
+
+  it('shows an orphan under its natural file name, keeping any prefix', () => {
+    const managedOrphan = resolveModList(catalogOf([]), [installed('SomeOrphanMod', 1, true)]);
+    // uisciasSomeOrphanMod_1.it -> "uisciasSomeOrphanMod"
+    expect(firstVariant(managedOrphan).name).toBe('uisciasSomeOrphanMod');
+
+    const foreignOrphan = resolveModList(catalogOf([]), [foreign('SomeCustomMod_00001.it')]);
+    expect(firstVariant(foreignOrphan).name).toBe('SomeCustomMod');
+    expect(firstVariant(foreignOrphan)).toMatchObject({ status: 'orphan', actions: ['delete'] });
+  });
+
+  it('pins orphans to the bottom, below catalog groups, each sorted by name', () => {
+    const result = resolveModList(
+      catalogOf([soloGroup(variant('Zeta', 1)), soloGroup(variant('Alpha', 1))]),
+      [foreign('ZzzCustom_1.it'), foreign('AaaCustom_1.it')],
+    );
+    expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Zeta', 'AaaCustom', 'ZzzCustom']);
   });
 
   it('carries the release asset size, and leaves orphans sizeless', () => {
