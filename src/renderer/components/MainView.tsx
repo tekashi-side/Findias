@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { CircleX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
@@ -10,7 +10,12 @@ import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
-import { Input } from '@/components/ui/input';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
@@ -125,12 +130,24 @@ const MainView: FC = () => {
     <div className="flex h-full">
       <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
         <div className="flex shrink-0 items-center gap-2">
-          <Input
-            className="grow"
-            placeholder="Search for mods"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <InputGroup className="grow">
+            <InputGroupInput
+              placeholder="Search for mods"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label="Clear search"
+                  onClick={() => setSearch('')}
+                >
+                  <CircleX />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
           <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
             {isFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
