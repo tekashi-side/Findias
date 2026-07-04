@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { useFeatureFlag } from '@/hooks/useFeatureFlags';
+import { showAppUpdateReadyToast } from '../showAppUpdateReadyToast';
 
 /**
  * Subscribe to app self-update events and surface a persistent "restart to
@@ -9,30 +10,26 @@ import { toast } from 'sonner';
  * applies on the next normal close.
  *
  * The updater only runs in packaged builds, so in dev these events never fire.
+ * Run `__previewAppUpdateToast()` from devtools to preview the toast.
  */
 export const useAppUpdate = (): void => {
+  const canPreviewAppUpdateToast = useFeatureFlag('previewAppUpdateToast');
+
   useEffect(() => {
-    const TOAST_ID = 'app-update-downloaded';
+    if (canPreviewAppUpdateToast) {
+      window.__previewAppUpdateToast = (version?: string) => {
+        showAppUpdateReadyToast({ version: version || '9.9.9-preview' });
+      };
+    }
 
     return window.findias.onUpdateStatus((status) => {
       if (status.state === 'downloaded') {
-        toast.success('Update ready to install', {
-          id: TOAST_ID,
-          description: status.version
-            ? `Findias ${status.version} has been downloaded.`
-            : 'A new version of Findias has been downloaded.',
-          duration: Infinity,
-          closeButton: true,
-          action: {
-            label: 'Restart & install',
-            onClick: () => window.findias.installUpdate(),
-          },
-        });
+        showAppUpdateReadyToast({ version: status.version });
       } else if (status.state === 'error') {
         // Keep this quiet and non-blocking: a failed background update check
         // should never interrupt normal use.
         console.warn('App update error:', status.message);
       }
     });
-  }, []);
+  }, [canPreviewAppUpdateToast]);
 };
