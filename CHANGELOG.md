@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/tekashi-side/Findias/compare/v1.7.0...v1.8.0) (2026-07-05)
+
+
+### Features
+
+* updating markdown implementation ([cfdb675](https://github.com/tekashi-side/Findias/commit/cfdb67565bd21f2ccc0979089152e42d847cd798))
+
 ## [1.7.0](https://github.com/tekashi-side/Findias/compare/v1.6.0...v1.7.0) (2026-07-05)
 
 
