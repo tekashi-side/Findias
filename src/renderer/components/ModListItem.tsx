@@ -46,7 +46,7 @@ type ModListItemProps = {
 
 const ACTION_LABEL: Record<ModAction, string> = {
   install: 'Install',
-  update: 'Update',
+  update: 'Update Available',
   enable: 'Enable',
   disable: 'Disable',
   delete: 'Delete',
@@ -107,7 +107,7 @@ const ModListItem: FC<ModListItemProps> = ({
       <ItemContent>
         <ItemTitle className="flex-wrap break-words">
           <span className="break-words">{variant.name}</span>
-          <StatusChip status={variant.status} />
+          <StatusChip status={variant.status} visibility="list" />
         </ItemTitle>
 
         {((showUpdateType && variant.updateType) || (tags && tags.length > 0)) && (

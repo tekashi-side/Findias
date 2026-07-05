@@ -153,14 +153,14 @@ describe('resolveModList', () => {
     });
   });
 
-  it('marks a disabled stale mod as disabled with enable + update + delete', () => {
+  it('marks a disabled stale mod as disabled with update + enable + delete', () => {
     const result = resolveModList(catalogOf([soloGroup(variant('Foo', 5))]), [
       installed('Foo', 3, false),
     ]);
     expect(firstVariant(result)).toMatchObject({
       status: 'disabled',
       installedVersion: 3,
-      actions: ['enable', 'update', 'delete'],
+      actions: ['update', 'enable', 'delete'],
     });
   });
 

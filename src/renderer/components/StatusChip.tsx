@@ -3,9 +3,20 @@ import type { ModStatus } from '@shared/modList';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+type StatusChipVisibility = 'all' | 'list';
+
 type StatusChipProps = {
   status: ModStatus;
+  /** `all` (default): every status. `list`: only show statuses not conveyed by row actions (orphan). */
+  visibility?: StatusChipVisibility;
 };
+
+const LIST_HIDDEN_STATUSES: ReadonlySet<ModStatus> = new Set([
+  'not-installed',
+  'update-available',
+  'disabled',
+  'up-to-date',
+]);
 
 const CONFIG: Record<ModStatus, { label: string; className: string }> = {
   'not-installed': { label: 'Not installed', className: '' },
@@ -25,7 +36,9 @@ const CONFIG: Record<ModStatus, { label: string; className: string }> = {
 };
 
 /** A small badge that renders a mod's {@link ModStatus} with status-specific color. */
-const StatusChip: FC<StatusChipProps> = ({ status }) => {
+const StatusChip: FC<StatusChipProps> = ({ status, visibility = 'all' }) => {
+  if (visibility === 'list' && LIST_HIDDEN_STATUSES.has(status)) return null;
+
   const { label, className } = CONFIG[status];
   return (
     <Badge variant="outline" className={cn(className)}>

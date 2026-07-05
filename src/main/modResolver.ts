@@ -137,7 +137,7 @@ const buildVariantRow = (
   } else if (!enabled && disabled) {
     status = 'disabled';
     actions =
-      disabled.version < variant.version ? ['enable', 'update', 'delete'] : ['enable', 'delete'];
+      disabled.version < variant.version ? ['update', 'enable', 'delete'] : ['enable', 'delete'];
   } else if (primary.version < variant.version) {
     status = 'update-available';
     actions = ['update', 'disable', 'delete'];
