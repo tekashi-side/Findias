@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/tekashi-side/Findias/compare/v1.5.0...v1.6.0) (2026-07-05)
+
+
+### Features
+
+* refactor search input with new InputGroup component and add clear button functionality ([680db31](https://github.com/tekashi-side/Findias/commit/680db312f67f99348f3e9cff64a6e693928d9030))
+
+
+### Fixes
+
+* update action order for disabled stale mods and improve StatusChip visibility handling ([f200fda](https://github.com/tekashi-side/Findias/commit/f200fda252ff56a78fb15d8a936dc6bc47622e18))
+
 ## [1.5.0](https://github.com/tekashi-side/Findias/compare/v1.4.0...v1.5.0) (2026-07-04)
 
 
