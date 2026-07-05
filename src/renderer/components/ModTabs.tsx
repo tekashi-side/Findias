@@ -1,22 +1,32 @@
 import { useMemo, type FC } from 'react';
-import { CircleAlert, CirclePause, Layers, PackageCheck, type LucideIcon } from 'lucide-react';
-import type { ModGroupRow, ModStatus } from '@shared/modList';
+import {
+  CircleAlert,
+  CircleFadingArrowUp,
+  CirclePause,
+  Layers,
+  PackageCheck,
+  type LucideIcon,
+} from 'lucide-react';
+import type { ModGroupRow, ModVariantRow } from '@shared/modList';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 /** The status-based filters offered alongside the text search. */
-export type ModTab = 'all' | 'installed' | 'disabled' | 'orphaned';
+export type ModTab = 'all' | 'installed' | 'updates' | 'disabled' | 'orphaned';
 
-/** Maps each non-"all" tab to the variant statuses that belong to it. */
-const TAB_STATUS_MATCH: Record<Exclude<ModTab, 'all'>, (status: ModStatus) => boolean> = {
-  installed: (status) => status === 'up-to-date' || status === 'update-available',
-  disabled: (status) => status === 'disabled',
-  orphaned: (status) => status === 'orphan',
+/** Maps each non-"all" tab to the variants that belong to it. */
+const TAB_VARIANT_MATCH: Record<Exclude<ModTab, 'all'>, (variant: ModVariantRow) => boolean> = {
+  installed: (v) => v.status === 'up-to-date' || v.status === 'update-available',
+  // An update is available whenever the variant offers the `update` action.
+  updates: (v) => v.actions.includes('update'),
+  disabled: (v) => v.status === 'disabled',
+  orphaned: (v) => v.status === 'orphan',
 };
 
 /** The tabs in display order, with their labels. */
 const TAB_ITEMS: readonly { value: ModTab; label: string }[] = [
   { value: 'all', label: 'All Mods' },
   { value: 'installed', label: 'Installed' },
+  { value: 'updates', label: 'Updates Available' },
   { value: 'disabled', label: 'Disabled' },
   { value: 'orphaned', label: 'Orphaned' },
 ];
@@ -25,13 +35,14 @@ const TAB_ITEMS: readonly { value: ModTab; label: string }[] = [
 const TAB_ICONS: Record<ModTab, LucideIcon> = {
   all: Layers,
   installed: PackageCheck,
+  updates: CircleFadingArrowUp,
   disabled: CirclePause,
   orphaned: CircleAlert,
 };
 
-/** A group belongs to a tab when any of its variants matches that tab's statuses. */
+/** A group belongs to a tab when any of its variants matches that tab. */
 export const groupMatchesTab = (group: ModGroupRow, tab: ModTab): boolean =>
-  tab === 'all' || group.variants.some((variant) => TAB_STATUS_MATCH[tab](variant.status));
+  tab === 'all' || group.variants.some((variant) => TAB_VARIANT_MATCH[tab](variant));
 
 /** Narrow Radix's `string` onValueChange payload back to our tab union. */
 const isModTab = (value: string): value is ModTab => TAB_ITEMS.some((item) => item.value === value);
@@ -53,6 +64,7 @@ const ModTabs: FC<ModTabsProps> = ({ value, onValueChange, groups }) => {
     () => ({
       all: groups.length,
       installed: groups.filter((g) => groupMatchesTab(g, 'installed')).length,
+      updates: groups.filter((g) => groupMatchesTab(g, 'updates')).length,
       disabled: groups.filter((g) => groupMatchesTab(g, 'disabled')).length,
       orphaned: groups.filter((g) => groupMatchesTab(g, 'orphaned')).length,
     }),
