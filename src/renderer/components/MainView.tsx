@@ -149,7 +149,8 @@ const MainView: FC = () => {
             )}
           </InputGroup>
           <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
-            {isFetching ? 'Refreshing…' : 'Refresh'}
+            {isFetching && <Spinner data-icon="inline-start" aria-hidden />}
+            {isFetching ? 'Refreshing' : 'Refresh'}
           </Button>
         </div>
 
