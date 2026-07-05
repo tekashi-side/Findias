@@ -53,7 +53,7 @@ jobs:
           RELEASE_PR: ${{ steps.rp.outputs.pr }}
         run: |
           pr_number=$(echo "$RELEASE_PR" | jq -r '.number')
-          gh pr merge "$pr_number" --auto --squash
+          gh pr merge "$pr_number" --auto --squash --repo "${{ github.repository }}"
 
   # Only after a release is actually created: build the Windows installer and
   # upload it (plus the electron-updater metadata) to that release. Runs on
