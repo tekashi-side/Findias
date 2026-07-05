@@ -21,6 +21,7 @@ import { CatalogError, type Catalog } from './providers/catalog';
 import { createManifestCatalogProvider } from './providers/manifestCatalog';
 import { createLoggingFetch } from './providers/loggingFetch';
 import { createPackageFolderProvider } from './providers/packageFolder';
+import { openExternalUrl } from './openExternal';
 
 /**
  * Resolve the dev network logger from `FINDIAS_LOG_NETWORK` (tri-state):
@@ -288,6 +289,8 @@ export const registerIpcHandlers = (): void => {
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());
+
+  ipcMain.on(IpcChannels.openExternal, (_event, url: string) => openExternalUrl(url));
 
   ipcMain.on(IpcChannels.windowMinimize, (event) =>
     BrowserWindow.fromWebContents(event.sender)?.minimize(),

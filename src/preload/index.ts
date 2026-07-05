@@ -36,6 +36,7 @@ const api: FindiasApi = {
     return () => ipcRenderer.removeListener(IpcChannels.updateStatus, listener);
   },
   installUpdate: () => ipcRenderer.send(IpcChannels.installUpdate),
+  openExternal: (url) => ipcRenderer.send(IpcChannels.openExternal, url),
   minimizeWindow: () => ipcRenderer.send(IpcChannels.windowMinimize),
   closeWindow: () => ipcRenderer.send(IpcChannels.windowClose),
 };

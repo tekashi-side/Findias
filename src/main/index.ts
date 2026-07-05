@@ -1,7 +1,26 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import { registerIpcHandlers } from './ipc';
 import { initUpdater } from './updater';
+import { openExternalUrl } from './openExternal';
+
+/**
+ * Whether a navigation target is "internal" (the app navigating within itself)
+ * and should be allowed. In dev the renderer is served over http, so same-origin
+ * covers Vite's occasional full-page reloads; in a packaged build it's loaded
+ * from `file:` (whose origin is always "null"), so we allow only an exact
+ * self-reload and treat every other `file:` target as external.
+ */
+const isInternalNavigation = (target: string, currentUrl: string): boolean => {
+  try {
+    const next = new URL(target);
+    const current = new URL(currentUrl);
+    if (current.protocol === 'file:') return next.href === current.href;
+    return next.origin === current.origin;
+  } catch {
+    return false;
+  }
+};
 
 // Dev-only: give the dev server its own userData folder so it never shares
 // settings/caches with the installed app. Windows is case-insensitive, so the
@@ -38,9 +57,18 @@ const createWindow = (): void => {
   window.on('ready-to-show', () => window.show());
 
   // Open external links in the user's browser, never inside the app window.
+  // Both guards funnel through `openExternalUrl`, so only http(s) targets open.
   window.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    openExternalUrl(url);
     return { action: 'deny' };
+  });
+
+  // Defense-in-depth: a top-level navigation would replace the SPA. Keep the app
+  // on its own page and send anything else to the browser.
+  window.webContents.on('will-navigate', (event, url) => {
+    if (isInternalNavigation(url, window.webContents.getURL())) return;
+    event.preventDefault();
+    openExternalUrl(url);
   });
 
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
