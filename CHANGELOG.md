@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/tekashi-side/Findias/compare/v1.6.0...v1.7.0) (2026-07-05)
+
+
+### Features
+
+* adding an updates available tab to the mod tabs ([a948954](https://github.com/tekashi-side/Findias/commit/a9489545b370da56e4d574efc6b78869d31d6cac))
+* adding auto-merge feature ([32fd335](https://github.com/tekashi-side/Findias/commit/32fd3355afcff11ee4211f1ac8cb5e8d6dc43da7))
+
+
+### Fixes
+
+* fixing the auto release step ([a644ec9](https://github.com/tekashi-side/Findias/commit/a644ec9b02549d188f644138e4021b3d80503021))
+
 ## [1.6.0](https://github.com/tekashi-side/Findias/compare/v1.5.0...v1.6.0) (2026-07-05)
 
 
