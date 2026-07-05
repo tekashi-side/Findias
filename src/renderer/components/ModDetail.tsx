@@ -25,31 +25,6 @@ type ModDetailProps = {
   group: ModGroupRow | null;
 };
 
-/**
- * Utility classes that style rendered markdown (there is no typography plugin).
- * Applied to a wrapper so react-markdown's plain elements read as prose.
- */
-const PROSE =
-  // `wrap-anywhere` (overflow-wrap: anywhere), not `break-words`: only `anywhere`
-  // shrinks the element's min-content size, so a giant unbroken word can't force
-  // the column (and the ScrollArea's inner display:table wrapper) wider than its
-  // container.
-  'text-sm leading-relaxed wrap-anywhere ' +
-  '[&_h1]:mt-0 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold ' +
-  '[&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold ' +
-  '[&_h3]:mt-3 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold ' +
-  '[&_h4]:mt-3 [&_h4]:mb-1 [&_h4]:text-sm [&_h4]:font-semibold ' +
-  '[&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 ' +
-  '[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 ' +
-  '[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 ' +
-  '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs ' +
-  '[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 ' +
-  '[&_pre_code]:bg-transparent [&_pre_code]:p-0 ' +
-  '[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground ' +
-  '[&_table]:my-2 [&_table]:w-full [&_table]:text-left [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 ' +
-  '[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 ' +
-  '[&_hr]:my-3 [&_hr]:border-border [&_img]:hidden';
-
 /** Build the "release vX / installed vY / size" summary line for a variant. */
 const versionSummary = (variant: ModVariantRow): string => {
   const release =
@@ -177,15 +152,34 @@ const ModDetail: FC<ModDetailProps> = ({ variant, group }) => {
         {readme ? (
           <>
             <Separator />
-            <div className={PROSE}>
+            {/*
+             * `wrap-anywhere` (overflow-wrap: anywhere), not `break-words`: only
+             * `anywhere` shrinks the element's min-content size, so a giant unbroken
+             * word can't force the column (and the ScrollArea's inner display:table
+             * wrapper) wider than its container. `max-w-none` drops prose's default
+             * reading-width cap so it fills the pane. Heading sizes and the inline-code
+             * chip are themed centrally in the `.prose` block in index.css.
+             */}
+            <div className="prose prose-sm max-w-none wrap-anywhere">
               <Markdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // Images live in the carousel; links must not navigate the app
-                  // shell (there is no external-open bridge), so they are inert.
+                  // The h1 is the mod title, already shown in the header above, so
+                  // drop it. Removing it from the DOM (vs. hiding) lets prose's
+                  // `> :first-child { margin-top: 0 }` flush the next heading to the top.
+                  h1: () => null,
+                  // Images live in the carousel, so they are dropped here.
                   img: () => null,
+                  // Anchors can't navigate the app shell; route http(s) links to
+                  // the user's default browser via the main process instead.
                   a: ({ children, href }) => (
-                    <a href={href} onClick={(e) => e.preventDefault()}>
+                    <a
+                      href={href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (href) window.findias.openExternal(href);
+                      }}
+                    >
                       {children}
                     </a>
                   ),

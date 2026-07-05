@@ -123,6 +123,12 @@ export interface FindiasApi {
   onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
   /** Quit and install a downloaded app update (restarts into the new version). */
   installUpdate(): void;
+  /**
+   * Open an http(s) URL in the user's default browser. Renderer anchors can't
+   * navigate the app shell, so links (e.g. in mod READMEs) route through here.
+   * The main process ignores non-web protocols.
+   */
+  openExternal(url: string): void;
   /** Minimize the application window. */
   minimizeWindow(): void;
   /** Close the application window. */
@@ -145,6 +151,7 @@ export const IpcChannels = {
   downloadProgress: 'mods:downloadProgress',
   updateStatus: 'update:status',
   installUpdate: 'update:install',
+  openExternal: 'shell:openExternal',
   windowMinimize: 'window:minimize',
   windowClose: 'window:close',
 } as const;
