@@ -171,7 +171,7 @@ const buildVariantRow = (
   };
 };
 
-/** Build a delete-only row for an installed mod absent from the catalog. */
+/** Build a row for an installed mod absent from the catalog (enable/disable + delete). */
 const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGroupRow => {
   const primary = installedGroup.enabled ?? installedGroup.disabled;
   const isEnabled = Boolean(installedGroup.enabled);
@@ -272,7 +272,7 @@ export const resolveModList = (
     };
   });
 
-  // Installed mods with no catalog variant become delete-only orphan groups.
+  // Installed mods with no catalog variant become orphan groups (toggle + delete).
   for (const [modId, installedGroup] of installedByModId) {
     if (!catalogIndex.has(modId)) groups.push(buildOrphanGroup(modId, installedGroup));
   }

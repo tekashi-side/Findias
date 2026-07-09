@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState, type FC } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowUpCircle, CircleCheck, CircleX, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,6 +40,9 @@ const MainView: FC = () => {
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
+  // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
+  // suppress its per-mod toast during a batch (the batch reports one summary).
+  const isUpdatingAllRef = useRef(false);
   const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
@@ -69,7 +72,10 @@ const MainView: FC = () => {
   const install = useMutation({
     mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
     onSuccess: seedModList,
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      // During "Update All" the batch aggregates failures into one summary toast.
+      if (!isUpdatingAllRef.current) toast.error(errorMessage(e));
+    },
     onSettled: (_data, _error, modId) => clearProgress(modId),
   });
 
@@ -106,8 +112,9 @@ const MainView: FC = () => {
   const groups = data?.groups ?? [];
   const outdated = data?.metadata?.outdated ?? false;
 
-  // Every variant currently offering an update, including disabled mods (their
-  // file is refreshed but they stay disabled). Matches the "Updates" tab count.
+  // Every variant currently offering an update, including disabled ones. Note the
+  // installer always writes to the package root, so updating a disabled mod
+  // re-enables it. Matches the "Updates" tab count.
   const updatableModIds = useMemo(
     () =>
       groups
@@ -126,18 +133,23 @@ const MainView: FC = () => {
   const handleUpdateAll = async (): Promise<void> => {
     const ids = updatableModIds;
     if (ids.length === 0) return;
+    isUpdatingAllRef.current = true;
     setIsUpdatingAll(true);
     setUpdateAllProgress({ done: 0, total: ids.length });
     const failed: string[] = [];
-    for (const modId of ids) {
-      try {
-        await install.mutateAsync(modId);
-      } catch {
-        failed.push(modId);
+    try {
+      for (const modId of ids) {
+        try {
+          await install.mutateAsync(modId);
+        } catch {
+          failed.push(modId);
+        }
+        setUpdateAllProgress((prev) => ({ ...prev, done: prev.done + 1 }));
       }
-      setUpdateAllProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+    } finally {
+      isUpdatingAllRef.current = false;
+      setIsUpdatingAll(false);
     }
-    setIsUpdatingAll(false);
     const succeeded = ids.length - failed.length;
     if (failed.length === 0) {
       toast.success(`Updated ${succeeded} ${succeeded === 1 ? 'mod' : 'mods'}.`);

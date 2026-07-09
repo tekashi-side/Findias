@@ -22,8 +22,8 @@ export interface InstalledMod {
   /**
    * True for files matching the Findias-managed grammar (`uiscias<name>_<v>.it`);
    * false for foreign `.it` files from other providers. Foreign mods use their
-   * full file name as `modId` (there is no grammar to key on) and are always
-   * resolved as delete-only orphans.
+   * full file name as `modId` (there is no grammar to key on) and are resolved
+   * as orphans (which can be enabled/disabled or deleted).
    */
   managed: boolean;
   /** Only populated by sources that record it (e.g. a future installedMods.json). */
