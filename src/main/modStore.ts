@@ -28,6 +28,12 @@ export interface ModStore {
    * the root. The `disabled` folder itself is never deleted.
    */
   setDisabled(modId: string, disabled: boolean): Promise<void>;
+  /**
+   * Move a single foreign (non-managed) mod between the package root and
+   * `package/disabled` by its exact file name. Official game files
+   * (`data_*.it`) are refused as a safety guard.
+   */
+  setDisabledByFileName(fileName: string, disabled: boolean): Promise<void>;
 }
 
 /** Delete managed files for a modId within a single directory. */
@@ -71,6 +77,18 @@ const moveManaged = async (fromDir: string, toDir: string, modId: string): Promi
   );
 };
 
+/** Move a single exact file from one directory to another, if it exists. */
+const moveByFileName = async (fromDir: string, toDir: string, fileName: string): Promise<void> => {
+  const target = join(toDir, fileName);
+  // Defensively clear a colliding target so the rename can't fail on Windows.
+  await fs.rm(target, { force: true });
+  try {
+    await fs.rename(join(fromDir, fileName), target);
+  } catch {
+    // Source absent (e.g. already in the target state): nothing to move.
+  }
+};
+
 /** The current `ModStore`: operates directly on the `package` folder on disk. */
 export const createPackageModStore = (paths: GamePaths): ModStore => {
   return {
@@ -97,6 +115,18 @@ export const createPackageModStore = (paths: GamePaths): ModStore => {
         await moveManaged(paths.packageDir, paths.disabledDir, modId);
       } else {
         await moveManaged(paths.disabledDir, paths.packageDir, modId);
+      }
+    },
+
+    setDisabledByFileName: async (fileName: string, disabled: boolean): Promise<void> => {
+      // Never move official game data files, even if asked to.
+      if (isOfficialGameFile(fileName)) return;
+      if (disabled) {
+        // Lazily create the disabled folder on first use; never removed later.
+        await fs.mkdir(paths.disabledDir, { recursive: true });
+        await moveByFileName(paths.packageDir, paths.disabledDir, fileName);
+      } else {
+        await moveByFileName(paths.disabledDir, paths.packageDir, fileName);
       }
     },
   };
