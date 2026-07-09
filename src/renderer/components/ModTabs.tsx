@@ -15,10 +15,14 @@ export type ModTab = 'all' | 'installed' | 'updates' | 'disabled' | 'orphaned';
 
 /** Maps each non-"all" tab to the variants that belong to it. */
 const TAB_VARIANT_MATCH: Record<Exclude<ModTab, 'all'>, (variant: ModVariantRow) => boolean> = {
-  installed: (v) => v.status === 'up-to-date' || v.status === 'update-available',
+  // Any catalog-known mod present on disk (enabled or disabled); orphans excluded.
+  installed: (v) =>
+    v.status === 'up-to-date' || v.status === 'update-available' || v.status === 'disabled',
   // An update is available whenever the variant offers the `update` action.
   updates: (v) => v.actions.includes('update'),
-  disabled: (v) => v.status === 'disabled',
+  // Catalog-disabled mods, plus disabled orphans (which expose an `enable` action).
+  disabled: (v) =>
+    v.status === 'disabled' || (v.status === 'orphan' && v.actions.includes('enable')),
   orphaned: (v) => v.status === 'orphan',
 };
 

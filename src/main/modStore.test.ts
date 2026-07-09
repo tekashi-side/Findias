@@ -156,3 +156,58 @@ describe('PackageModStore.setDisabled', () => {
     expect(await fs.readdir(paths.disabledDir)).toEqual(['uisciasFoo_3.it']);
   });
 });
+
+describe('PackageModStore.setDisabledByFileName', () => {
+  beforeEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+    await fs.mkdir(paths.packageDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('disables a foreign file into a lazily-created disabled folder', async () => {
+    await touch(paths.packageDir, 'randommod.it');
+
+    await createPackageModStore(paths).setDisabledByFileName('randommod.it', true);
+
+    expect(await fs.readdir(paths.packageDir)).toEqual(['disabled']);
+    expect(await fs.readdir(paths.disabledDir)).toEqual(['randommod.it']);
+  });
+
+  it('enables a foreign file by moving it back to the package root', async () => {
+    await fs.mkdir(paths.disabledDir, { recursive: true });
+    await touch(paths.disabledDir, 'randommod.it');
+
+    await createPackageModStore(paths).setDisabledByFileName('randommod.it', false);
+
+    expect(await fs.readdir(paths.packageDir)).toEqual(['disabled', 'randommod.it']);
+    expect(await fs.readdir(paths.disabledDir)).toEqual([]);
+  });
+
+  it('round-trips disable then enable', async () => {
+    await touch(paths.packageDir, 'randommod.it');
+    const store = createPackageModStore(paths);
+
+    await store.setDisabledByFileName('randommod.it', true);
+    await store.setDisabledByFileName('randommod.it', false);
+
+    expect(await fs.readdir(paths.packageDir)).toEqual(['disabled', 'randommod.it']);
+    expect(await fs.readdir(paths.disabledDir)).toEqual([]);
+  });
+
+  it('refuses to move an official game file', async () => {
+    await touch(paths.packageDir, 'data_00001.it');
+
+    await createPackageModStore(paths).setDisabledByFileName('data_00001.it', true);
+
+    expect(await fs.readdir(paths.packageDir)).toContain('data_00001.it');
+  });
+
+  it('does not fail when the file is absent', async () => {
+    await expect(
+      createPackageModStore(paths).setDisabledByFileName('missing.it', true),
+    ).resolves.toBeUndefined();
+  });
+});

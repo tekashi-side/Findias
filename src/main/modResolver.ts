@@ -174,6 +174,7 @@ const buildVariantRow = (
 /** Build a delete-only row for an installed mod absent from the catalog. */
 const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGroupRow => {
   const primary = installedGroup.enabled ?? installedGroup.disabled;
+  const isEnabled = Boolean(installedGroup.enabled);
   // Show the file's natural name (extension + trailing version stripped, prefix
   // kept) so the user can tell where an orphan came from.
   const name = primary ? orphanDisplayName(primary.fileName) : modId;
@@ -186,7 +187,7 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
     size: null,
     fileName: primary?.fileName ?? null,
     updateType: null,
-    actions: ['delete'],
+    actions: isEnabled ? ['disable', 'delete'] : ['enable', 'delete'],
     conflicts: [],
   };
   return {

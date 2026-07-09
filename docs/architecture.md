@@ -728,13 +728,14 @@ become single-variant **orphan** groups.
 **Per-variant status** is strictly **version-number based** (catalog game-version
 metadata never influences it):
 
-| Catalog has it | Installed (enabled) | Installed (disabled) | Status                                                   |
-| -------------- | ------------------- | -------------------- | -------------------------------------------------------- |
-| ✓              | —                   | —                    | **Not installed** → _Install_                            |
-| ✓              | ≥ catalog version   | —                    | **Up to date** → _Disable_ + _Delete_                    |
-| ✓              | < catalog version   | —                    | **Update available** → _Update_ + _Disable_ + _Delete_   |
-| ✓              | —                   | any                  | **Disabled** → _Enable_ (+ _Update_ if stale) + _Delete_ |
-| —              | any                 | any                  | **Orphan** (installed, not in catalog) → _Delete_ only   |
+| Catalog has it | Installed (enabled) | Installed (disabled) | Status                                                        |
+| -------------- | ------------------- | -------------------- | ------------------------------------------------------------- |
+| ✓              | —                   | —                    | **Not installed** → _Install_                                 |
+| ✓              | ≥ catalog version   | —                    | **Up to date** → _Disable_ + _Delete_                         |
+| ✓              | < catalog version   | —                    | **Update available** → _Update_ + _Disable_ + _Delete_        |
+| ✓              | —                   | any                  | **Disabled** → _Enable_ (+ _Update_ if stale) + _Delete_      |
+| —              | enabled             | —                    | **Orphan** (installed, not in catalog) → _Disable_ + _Delete_ |
+| —              | —                   | disabled             | **Orphan** (installed, not in catalog) → _Enable_ + _Delete_  |
 
 **Conflict detection (enabled-only).** Because the game loads only the `package`
 root, only **enabled** mods can truly conflict. The resolver builds a

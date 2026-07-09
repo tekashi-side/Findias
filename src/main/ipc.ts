@@ -227,10 +227,19 @@ const completeModSetup = async (archive: boolean): Promise<SetupState> => {
   return computeSetupState();
 };
 
-/** Move a mod in/out of `package/disabled`, then return the fresh mod list. */
+/**
+ * Move a mod in/out of `package/disabled`, then return the fresh mod list.
+ * Foreign orphans are identified by a `modId` that is a real `.it` file name and
+ * are moved by exact name; managed mods move every version by their parsed modId.
+ */
 const setDisabled = async (modId: string, disabled: boolean): Promise<ModListState> => {
   const paths = await requireGamePaths();
-  await createPackageModStore(paths).setDisabled(modId, disabled);
+  const store = createPackageModStore(paths);
+  if (modId.toLowerCase().endsWith('.it')) {
+    await store.setDisabledByFileName(modId, disabled);
+  } else {
+    await store.setDisabled(modId, disabled);
+  }
   return resolveCurrentState(paths);
 };
 

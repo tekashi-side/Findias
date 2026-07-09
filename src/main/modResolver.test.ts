@@ -174,13 +174,27 @@ describe('resolveModList', () => {
     });
   });
 
-  it('marks an installed mod absent from the release as an orphan', () => {
+  it('marks an enabled installed mod absent from the release as a disable-able orphan', () => {
     const result = resolveModList(catalogOf([]), [installed('Foo', 3, true)]);
     expect(firstVariant(result)).toMatchObject({
       status: 'orphan',
       releaseVersion: null,
       installedVersion: 3,
-      actions: ['delete'],
+      actions: ['disable', 'delete'],
+    });
+  });
+
+  it('lets a disabled orphan be enabled', () => {
+    const managed = resolveModList(catalogOf([]), [installed('Foo', 3, false)]);
+    expect(firstVariant(managed)).toMatchObject({
+      status: 'orphan',
+      actions: ['enable', 'delete'],
+    });
+
+    const foreignDisabled = resolveModList(catalogOf([]), [foreign('SomeCustom_1.it', false)]);
+    expect(firstVariant(foreignDisabled)).toMatchObject({
+      status: 'orphan',
+      actions: ['enable', 'delete'],
     });
   });
 
@@ -213,7 +227,10 @@ describe('resolveModList', () => {
 
     const foreignOrphan = resolveModList(catalogOf([]), [foreign('SomeCustomMod_00001.it')]);
     expect(firstVariant(foreignOrphan).name).toBe('SomeCustomMod');
-    expect(firstVariant(foreignOrphan)).toMatchObject({ status: 'orphan', actions: ['delete'] });
+    expect(firstVariant(foreignOrphan)).toMatchObject({
+      status: 'orphan',
+      actions: ['disable', 'delete'],
+    });
   });
 
   it('pins orphans to the bottom, below catalog groups, each sorted by name', () => {
@@ -235,7 +252,10 @@ describe('resolveModList', () => {
   it('returns orphan groups and null metadata when the catalog is unavailable', () => {
     const result = resolveModList(null, [installed('Foo', 2, true)]);
     expect(result.metadata).toBeNull();
-    expect(firstVariant(result)).toMatchObject({ status: 'orphan', actions: ['delete'] });
+    expect(firstVariant(result)).toMatchObject({
+      status: 'orphan',
+      actions: ['disable', 'delete'],
+    });
   });
 
   describe('conflicts (enabled-only)', () => {
