@@ -26,7 +26,7 @@ const TAB_VARIANT_MATCH: Record<Exclude<ModTab, 'all'>, (variant: ModVariantRow)
 const TAB_ITEMS: readonly { value: ModTab; label: string }[] = [
   { value: 'all', label: 'All Mods' },
   { value: 'installed', label: 'Installed' },
-  { value: 'updates', label: 'Updates Available' },
+  { value: 'updates', label: 'Updates' },
   { value: 'disabled', label: 'Disabled' },
   { value: 'orphaned', label: 'Orphaned' },
 ];

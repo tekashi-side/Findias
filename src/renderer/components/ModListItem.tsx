@@ -37,6 +37,8 @@ type ModListItemProps = {
   progress?: DownloadProgress;
   /** When true, the catalog banner is active, so the updateType chip is shown. */
   outdated: boolean;
+  /** When true, a bulk update is in flight, so all actions on this row are disabled. */
+  isLocked: boolean;
   onAction: (action: ModAction, modId: string) => void;
   /** True when this row is open in the detail pane. */
   selected?: boolean;
@@ -82,10 +84,12 @@ const ModListItem: FC<ModListItemProps> = ({
   busy,
   progress,
   outdated,
+  isLocked,
   onAction,
   selected = false,
   onSelect,
 }) => {
+  const isDisabled = busy || isLocked;
   const percent =
     progress && progress.totalBytes
       ? Math.min(100, Math.round((progress.receivedBytes / progress.totalBytes) * 100))
@@ -171,7 +175,7 @@ const ModListItem: FC<ModListItemProps> = ({
                 <Button
                   size="icon-sm"
                   variant="destructive"
-                  disabled={busy}
+                  disabled={isDisabled}
                   aria-label={ACTION_LABEL[action]}
                 >
                   <Trash2 className="size-4" />
@@ -200,7 +204,7 @@ const ModListItem: FC<ModListItemProps> = ({
               key={action}
               size="sm"
               variant={actionVariant(action)}
-              disabled={busy}
+              disabled={isDisabled}
               onClick={() => onAction(action, variant.modId)}
             >
               {ACTION_LABEL[action]}

@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleX, X } from 'lucide-react';
+import { ArrowUpCircle, CircleCheck, CircleX, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
@@ -38,6 +38,8 @@ const MainView: FC = () => {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
+  const [isUpdatingAll, setIsUpdatingAll] = useState(false);
+  const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
   const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
@@ -104,6 +106,46 @@ const MainView: FC = () => {
   const groups = data?.groups ?? [];
   const outdated = data?.metadata?.outdated ?? false;
 
+  // Every variant currently offering an update, including disabled mods (their
+  // file is refreshed but they stay disabled). Matches the "Updates" tab count.
+  const updatableModIds = useMemo(
+    () =>
+      groups
+        .flatMap((g) => g.variants)
+        .filter((v) => v.actions.includes('update'))
+        .map((v) => v.modId),
+    [groups],
+  );
+  const updateCount = updatableModIds.length;
+
+  /**
+   * Sequentially update every mod that has an update available. The list is
+   * snapshotted up front because each mutation reseeds the cache (and thus
+   * `groups`). Failures don't abort the batch; a summary is reported at the end.
+   */
+  const handleUpdateAll = async (): Promise<void> => {
+    const ids = updatableModIds;
+    if (ids.length === 0) return;
+    setIsUpdatingAll(true);
+    setUpdateAllProgress({ done: 0, total: ids.length });
+    const failed: string[] = [];
+    for (const modId of ids) {
+      try {
+        await install.mutateAsync(modId);
+      } catch {
+        failed.push(modId);
+      }
+      setUpdateAllProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+    }
+    setIsUpdatingAll(false);
+    const succeeded = ids.length - failed.length;
+    if (failed.length === 0) {
+      toast.success(`Updated ${succeeded} ${succeeded === 1 ? 'mod' : 'mods'}.`);
+    } else {
+      toast.error(`Updated ${succeeded} of ${ids.length} mods. ${failed.length} failed.`);
+    }
+  };
+
   const filteredGroups = useMemo(() => {
     const byTab = groups.filter((g) => groupMatchesTab(g, tab));
     const q = deferredSearch.trim().toLowerCase();
@@ -148,8 +190,38 @@ const MainView: FC = () => {
               </InputGroupAddon>
             )}
           </InputGroup>
-          <Button variant="outline" onClick={() => void refetch()} disabled={isFetching || busy}>
-            {isFetching && <Spinner data-icon="inline-start" aria-hidden />}
+          <Button
+            className="bg-emerald-600 text-white hover:bg-emerald-600/90"
+            onClick={() => void handleUpdateAll()}
+            disabled={updateCount === 0 || isFetching || busy || isUpdatingAll}
+          >
+            {isUpdatingAll ? (
+              <>
+                <Spinner data-icon="inline-start" aria-hidden />
+                Updating… ({updateAllProgress.done}/{updateAllProgress.total})
+              </>
+            ) : updateCount === 0 ? (
+              <>
+                <CircleCheck data-icon="inline-start" aria-hidden />
+                Up to date
+              </>
+            ) : (
+              <>
+                <ArrowUpCircle data-icon="inline-start" aria-hidden />
+                Update All Mods ({updateCount})
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void refetch()}
+            disabled={isFetching || busy || isUpdatingAll}
+          >
+            {isFetching ? (
+              <Spinner data-icon="inline-start" aria-hidden />
+            ) : (
+              <RefreshCw data-icon="inline-start" aria-hidden />
+            )}
             {isFetching ? 'Refreshing' : 'Refresh'}
           </Button>
         </div>
@@ -240,6 +312,7 @@ const MainView: FC = () => {
                   busyModId={busyModId}
                   progressByMod={progressByMod}
                   outdated={outdated}
+                  isLocked={isUpdatingAll}
                   onAction={handleAction}
                   selectedModId={selectedModId}
                   onSelect={setSelectedModId}

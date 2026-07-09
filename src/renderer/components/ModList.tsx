@@ -10,6 +10,8 @@ type ModListProps = {
   busyModId?: string;
   progressByMod: Record<string, DownloadProgress>;
   outdated: boolean;
+  /** When true, a bulk update is in flight, so all row actions are disabled. */
+  isLocked: boolean;
   onAction: (action: ModAction, modId: string) => void;
   /** Currently-selected variant modId, highlighted and shown in the detail pane. */
   selectedModId: string | null;
@@ -23,6 +25,7 @@ const ModList: FC<ModListProps> = ({
   busyModId,
   progressByMod,
   outdated,
+  isLocked,
   onAction,
   selectedModId,
   onSelect,
@@ -37,6 +40,7 @@ const ModList: FC<ModListProps> = ({
             busyModId={busyModId}
             progressByMod={progressByMod}
             outdated={outdated}
+            isLocked={isLocked}
             onAction={onAction}
             selectedModId={selectedModId}
             onSelect={onSelect}
@@ -49,6 +53,7 @@ const ModList: FC<ModListProps> = ({
             busy={group.variants[0].modId === busyModId}
             progress={progressByMod[group.variants[0].modId]}
             outdated={outdated}
+            isLocked={isLocked}
             onAction={onAction}
             selected={group.variants[0].modId === selectedModId}
             onSelect={onSelect}
