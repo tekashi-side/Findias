@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.0](https://github.com/tekashi-side/Findias/compare/v1.8.0...v1.9.0) (2026-07-09)
+
+
+### Features
+
+* adding update all button ([a951ca0](https://github.com/tekashi-side/Findias/commit/a951ca072cd2e13cfc23889b04e0ccdae445d772))
+* can disable or enable orphaned mods ([6d4940e](https://github.com/tekashi-side/Findias/commit/6d4940e064e8b21748849a52b969400a54667116))
+
 ## [1.8.0](https://github.com/tekashi-side/Findias/compare/v1.7.0...v1.8.0) (2026-07-05)
 
 
