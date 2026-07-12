@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.10.0](https://github.com/tekashi-side/Findias/compare/v1.9.0...v1.10.0) (2026-07-12)
+
+
+### Features
+
+* replace mod status with a comprehensive state representation ([efe4ae4](https://github.com/tekashi-side/Findias/commit/efe4ae4654d864a60f8df2b37dacc4d2672eabe2))
+
+
+### Fixes
+
+* update installed tab logic to include orphaned mods ([d84849f](https://github.com/tekashi-side/Findias/commit/d84849fa6c344f4692e133dab98d605008795f33))
+
 ## [1.9.0](https://github.com/tekashi-side/Findias/compare/v1.8.0...v1.9.0) (2026-07-09)
 
 
