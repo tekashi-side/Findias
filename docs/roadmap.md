@@ -72,7 +72,7 @@ unit tests for both providers (mock fetch + a temp fixture folder). ✅
   `ModAction` cross the IPC boundary. ✅
 - IPC: `refresh` scans the folder, fetches the catalog, and resolves; a catalog
   failure degrades softly (installed mods still returned as orphans, surfaced via
-  `catalog.available`). ✅
+  `catalog.isAvailable`). ✅
 - Renderer: scrollable shadcn/Tailwind list — name, status chip, release + installed
   version, action buttons (rendered but disabled until Phase 4); loading / error
   (with retry) / catalog-unavailable banner / empty ("no compatible mods")

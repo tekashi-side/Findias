@@ -117,7 +117,7 @@ const requireGamePaths = async (): Promise<GamePaths> => {
  * Build the current mod list: scan the package folder + fetch the catalog, then
  * resolve. A catalog failure (offline, rate-limited, no manifest) degrades
  * softly — installed mods are still returned (as orphans) so the user can manage
- * them, and the failure is reported via `catalog.available`.
+ * them, and the failure is reported via `catalog.isAvailable`.
  */
 const resolveCurrentState = async (
   paths: GamePaths,

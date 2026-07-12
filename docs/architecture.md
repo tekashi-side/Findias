@@ -139,6 +139,7 @@ Example — the settings schema is the source for both validation and the type:
 export const settingsSchema = z.object({
   gameRootPath: z.string().nullable().catch(null),
   shouldIncludePrereleases: z.boolean().catch(false),
+  isModSetupCompleted: z.boolean().catch(false),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 ```
@@ -353,9 +354,9 @@ All renderer↔main communication goes through a single typed API exposed on
 // Shape exposed by the preload (illustrative, not final)
 interface FindiasApi {
   // settings & setup
-  getSetupState(): Promise<SetupState>; // { gameRootPath, valid, shouldIncludePrereleases }
-  chooseGameFolder(): Promise<ChooseFolderResult>;
-  setShouldIncludePrereleases(value: boolean): Promise<ModListState>; // persist + re-resolve
+  getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, shouldIncludePrereleases, shouldShowModArchive }
+  chooseGameFolder(): Promise<ChooseFolderResult>; // { isOk, isCanceled?, error?, state? }
+  setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>; // persist + re-resolve
 
   // catalog
   refresh(): Promise<ModListState>; // scan disk + fetch manifest + resolve
@@ -363,7 +364,7 @@ interface FindiasApi {
   // mutations
   installOrUpdate(modId: string): Promise<ModListState>; // installs/updates; auto-switches variants
   deleteMod(modId: string): Promise<ModListState>;
-  setDisabled(modId: string, disabled: boolean): Promise<ModListState>;
+  setDisabled(modId: string, isDisabled: boolean): Promise<ModListState>;
 
   // progress events
   onDownloadProgress(cb: (p: DownloadProgress) => void): () => void;
@@ -417,7 +418,7 @@ interface CatalogGroup {
   modName: string; // group display name
   findiasTags: string[];
   hasVariants: boolean;
-  mutuallyExclusive: boolean;
+  isMutuallyExclusive: boolean; // parsed from manifest JSON key `mutuallyExclusive`
   variants: CatalogVariant[]; // length 1 for a non-variant mod
 }
 
@@ -445,7 +446,8 @@ interface InstalledMod {
   modId: string;
   version: number;
   fileName: string;
-  enabled: boolean; // false = in package/disabled
+  isEnabled: boolean; // false = in package/disabled
+  isManaged: boolean; // true for Findias-managed grammar; false for foreign .it files
   updatedAt?: string; // available only if the source records it
 }
 ```
@@ -762,14 +764,14 @@ be enabled. Deleting/disabling the enabled blocker restores the actions on the
 next resolve.
 
 **Freshness signals (two, never mixed).** The resolver sets a single
-banner-only flag, `metadata.outdated = supportedGameVersion !== currentGameVersion`.
+banner-only flag, `metadata.isOutdated = supportedGameVersion !== currentGameVersion`.
 It drives **only** the top-of-app banner and the conditional display of each
 variant's `updateType` (`stable`/`volatile`); it is never read into any variant's
 `state`. A variant's `isUpdateAvailable` remains strictly version-number based.
 
 The resulting `ModListState` is `{ groups, catalog, metadata }`. Each
 `ModGroupRow` carries `groupId`, group `name`, `tags`, `hasVariants`,
-`mutuallyExclusive`, `installedVariantId`, and its `variants`; each
+`isMutuallyExclusive`, `installedVariantId`, and its `variants`; each
 `ModVariantRow` carries display name, versions, size, `fileName`, `updateType`,
 `tags`, `state`, `actions`, and `conflicts`.
 
@@ -780,7 +782,7 @@ The resulting `ModListState` is `{ groups, catalog, metadata }`. Each
 ```
 app ready
   → load settings
-  → valid game path? ──no──► show setup gate (chooseGameFolder)
+  → SetupState.isValid? ──no──► show setup gate (chooseGameFolder)
         │ yes
         ▼
   InstalledModsProvider.list()                             ┐ (folder scan)
@@ -792,14 +794,14 @@ app ready
 ```
 
 > A catalog fetch failure degrades softly: installed mods are still returned (as
-> orphans), `catalog.available` is false with a message, and `metadata` is null.
+> orphans), `catalog.isAvailable` is false with a message, and `metadata` is null.
 
 ### Install / variant auto-switch
 
 ```
 installOrUpdate(modId)
   → getCatalog → find { group, variant } for modId
-  → if group.mutuallyExclusive: replaceSiblings = other variants' modIds
+  → if group.isMutuallyExclusive: replaceSiblings = other variants' modIds
   → Downloader: stream variant.fetchBytes() → package/<tempfile>
      (emit onDownloadProgress, totalBytes = variant.size)
   → ModStore: atomic rename → package/Uiscias<modId>_<n>.it
