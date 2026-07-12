@@ -102,7 +102,7 @@ const ModListItem: FC<ModListItemProps> = ({
       variant="outline"
       className={cn(
         'items-start',
-        variant.status === 'orphan' && 'opacity-50 transition-opacity hover:opacity-100',
+        !variant.state.isInCatalog && 'opacity-50 transition-opacity hover:opacity-100',
         selected && 'border-primary/60 bg-primary/5',
       )}
       data-selected={selected || undefined}
@@ -111,7 +111,7 @@ const ModListItem: FC<ModListItemProps> = ({
       <ItemContent>
         <ItemTitle className="flex-wrap break-words">
           <span className="break-words">{variant.name}</span>
-          <StatusChip status={variant.status} visibility="list" />
+          <StatusChip state={variant.state} visibility="list" />
         </ItemTitle>
 
         {((showUpdateType && variant.updateType) || (tags && tags.length > 0)) && (

@@ -3,6 +3,7 @@ import type {
   ModAction,
   ModConflict,
   ModGroupRow,
+  ModState,
   ModVariantRow,
 } from '../shared/modList';
 import { orphanDisplayName } from '../shared/modFilename';
@@ -128,21 +129,22 @@ const buildVariantRow = (
   const disabled = installedGroup?.disabled;
   const primary = enabled ?? disabled;
 
-  let status: ModVariantRow['status'];
+  const state: ModState = {
+    isInCatalog: true,
+    presence: enabled ? 'enabled' : disabled ? 'disabled' : 'absent',
+    isUpdateAvailable: !!primary && primary.version < variant.version,
+  };
+
   let actions: ModAction[];
 
   if (!primary) {
-    status = 'not-installed';
     actions = ['install'];
   } else if (!enabled && disabled) {
-    status = 'disabled';
     actions =
       disabled.version < variant.version ? ['update', 'enable', 'delete'] : ['enable', 'delete'];
   } else if (primary.version < variant.version) {
-    status = 'update-available';
     actions = ['update', 'disable', 'delete'];
   } else {
-    status = 'up-to-date';
     actions = ['disable', 'delete'];
   }
 
@@ -155,7 +157,7 @@ const buildVariantRow = (
   return {
     modId: variant.modId,
     name: variant.modName,
-    status,
+    state,
     releaseVersion: variant.version,
     installedVersion: primary?.version ?? null,
     size: variant.size,
@@ -181,7 +183,11 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
   const variant: ModVariantRow = {
     modId,
     name,
-    status: 'orphan',
+    state: {
+      isInCatalog: false,
+      presence: isEnabled ? 'enabled' : 'disabled',
+      isUpdateAvailable: false,
+    },
     releaseVersion: null,
     installedVersion: primary?.version ?? null,
     size: null,
@@ -203,7 +209,7 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
 
 /** A group is an orphan group when its (only) variant is an orphan. */
 const isOrphanGroup = (group: ModGroupRow): boolean =>
-  group.variants.some((variant) => variant.status === 'orphan');
+  group.variants.some((variant) => !variant.state.isInCatalog);
 
 /**
  * Order groups for display: catalog groups first (alphabetical), then orphans

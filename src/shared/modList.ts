@@ -8,13 +8,46 @@
  * non-variant mod is simply a group with a single variant.
  */
 
-/** Per-mod status, computed by merging the release catalog with what is on disk. */
+/**
+ * The canonical, orthogonal description of a mod's state, computed by merging the
+ * release catalog with what is on disk. This is the single source of truth for
+ * both filtering and display; every "status" label is derived from it.
+ */
+export interface ModState {
+  /** In the current release catalog. `false` => orphan (present on disk only). */
+  isInCatalog: boolean;
+  /** On-disk presence: not installed, installed+enabled, or installed+disabled. */
+  presence: 'absent' | 'enabled' | 'disabled';
+  /**
+   * Installed version is older than the release version. Only meaningful when
+   * `isInCatalog` and `presence !== 'absent'`; always `false` otherwise.
+   */
+  isUpdateAvailable: boolean;
+}
+
+/**
+ * The finite set of display labels a mod can be shown as. Not a stored field:
+ * this is purely the output alphabet of {@link toDisplayStatus}, which projects
+ * the orthogonal {@link ModState} down to a single mutually-exclusive badge.
+ */
 export type ModStatus =
   | 'not-installed' // in the release, not on disk
   | 'up-to-date' // installed (enabled) at >= the release version
   | 'update-available' // installed (enabled) at an older version than the release
   | 'disabled' // present only in package/disabled
   | 'orphan'; // installed but absent from the current release
+
+/**
+ * Project a {@link ModState} onto its single presentational {@link ModStatus}.
+ * `disabled` is reported before `isUpdateAvailable`, so a disabled-with-update mod
+ * shows the "Disabled" label (its update is still surfaced via `state`/actions).
+ */
+export const toDisplayStatus = (state: ModState): ModStatus => {
+  if (!state.isInCatalog) return 'orphan';
+  if (state.presence === 'absent') return 'not-installed';
+  if (state.presence === 'disabled') return 'disabled';
+  return state.isUpdateAvailable ? 'update-available' : 'up-to-date';
+};
 
 /** An action the user may take on a variant row. */
 export type ModAction = 'install' | 'update' | 'enable' | 'disable' | 'delete';
@@ -31,7 +64,8 @@ export interface ModVariantRow {
   modId: string;
   /** Human-readable display name from the manifest. */
   name: string;
-  status: ModStatus;
+  /** The canonical, orthogonal state; drives both filtering and the display label. */
+  state: ModState;
   /** Version offered by the latest release, or null if absent from it (orphan). */
   releaseVersion: number | null;
   /** Version currently on disk, or null if not installed. */

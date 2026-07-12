@@ -13,17 +13,15 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 /** The status-based filters offered alongside the text search. */
 export type ModTab = 'all' | 'installed' | 'updates' | 'disabled' | 'orphaned';
 
-/** Maps each non-"all" tab to the variants that belong to it. */
+/** Maps each non-"all" tab to the variants that belong to it, derived from `state`. */
 const TAB_VARIANT_MATCH: Record<Exclude<ModTab, 'all'>, (variant: ModVariantRow) => boolean> = {
   // Any catalog-known mod present on disk (enabled or disabled); orphans excluded.
-  installed: (v) =>
-    v.status === 'up-to-date' || v.status === 'update-available' || v.status === 'disabled',
-  // An update is available whenever the variant offers the `update` action.
-  updates: (v) => v.actions.includes('update'),
-  // Catalog-disabled mods, plus disabled orphans (which expose an `enable` action).
-  disabled: (v) =>
-    v.status === 'disabled' || (v.status === 'orphan' && v.actions.includes('enable')),
-  orphaned: (v) => v.status === 'orphan',
+  installed: (v) => v.state.isInCatalog && v.state.presence !== 'absent',
+  // An update is available regardless of enabled/disabled or conflict-pruned actions.
+  updates: (v) => v.state.isUpdateAvailable,
+  // Any disabled mod, catalog-known or orphan.
+  disabled: (v) => v.state.presence === 'disabled',
+  orphaned: (v) => !v.state.isInCatalog,
 };
 
 /** The tabs in display order, with their labels. */

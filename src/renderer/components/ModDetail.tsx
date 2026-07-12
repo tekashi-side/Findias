@@ -95,7 +95,7 @@ const ModDetail: FC<ModDetailProps> = ({ variant, group }) => {
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold wrap-anywhere">{variant.name}</h2>
-            <StatusChip status={variant.status} />
+            <StatusChip state={variant.state} />
           </div>
 
           <p className="text-sm text-muted-foreground">{versionSummary(variant)}</p>
