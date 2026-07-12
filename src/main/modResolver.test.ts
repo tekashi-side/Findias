@@ -74,7 +74,7 @@ describe('resolveModList', () => {
     const result = resolveModList(catalogOf([soloGroup(variant('Foo', 3))]), []);
     expect(firstVariant(result)).toMatchObject({
       modId: 'Foo',
-      status: 'not-installed',
+      state: { isInCatalog: true, presence: 'absent', isUpdateAvailable: false },
       releaseVersion: 3,
       installedVersion: null,
       actions: ['install'],
@@ -125,7 +125,7 @@ describe('resolveModList', () => {
       installed('Foo', 3, true),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'up-to-date',
+      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: false },
       actions: ['disable', 'delete'],
     });
   });
@@ -135,7 +135,7 @@ describe('resolveModList', () => {
       installed('Foo', 3, true),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'up-to-date',
+      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: false },
       installedVersion: 3,
       actions: ['disable', 'delete'],
     });
@@ -146,7 +146,7 @@ describe('resolveModList', () => {
       installed('Foo', 3, true),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'update-available',
+      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: true },
       releaseVersion: 5,
       installedVersion: 3,
       actions: ['update', 'disable', 'delete'],
@@ -158,7 +158,7 @@ describe('resolveModList', () => {
       installed('Foo', 3, false),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'disabled',
+      state: { isInCatalog: true, presence: 'disabled', isUpdateAvailable: true },
       installedVersion: 3,
       actions: ['update', 'enable', 'delete'],
     });
@@ -169,7 +169,7 @@ describe('resolveModList', () => {
       installed('Foo', 3, false),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'disabled',
+      state: { isInCatalog: true, presence: 'disabled', isUpdateAvailable: false },
       actions: ['enable', 'delete'],
     });
   });
@@ -177,7 +177,7 @@ describe('resolveModList', () => {
   it('marks an enabled installed mod absent from the release as a disable-able orphan', () => {
     const result = resolveModList(catalogOf([]), [installed('Foo', 3, true)]);
     expect(firstVariant(result)).toMatchObject({
-      status: 'orphan',
+      state: { isInCatalog: false, presence: 'enabled', isUpdateAvailable: false },
       releaseVersion: null,
       installedVersion: 3,
       actions: ['disable', 'delete'],
@@ -187,13 +187,13 @@ describe('resolveModList', () => {
   it('lets a disabled orphan be enabled', () => {
     const managed = resolveModList(catalogOf([]), [installed('Foo', 3, false)]);
     expect(firstVariant(managed)).toMatchObject({
-      status: 'orphan',
+      state: { isInCatalog: false, presence: 'disabled', isUpdateAvailable: false },
       actions: ['enable', 'delete'],
     });
 
     const foreignDisabled = resolveModList(catalogOf([]), [foreign('SomeCustom_1.it', false)]);
     expect(firstVariant(foreignDisabled)).toMatchObject({
-      status: 'orphan',
+      state: { isInCatalog: false, presence: 'disabled', isUpdateAvailable: false },
       actions: ['enable', 'delete'],
     });
   });
@@ -205,7 +205,7 @@ describe('resolveModList', () => {
     ]);
     expect(result.groups).toHaveLength(1);
     expect(firstVariant(result)).toMatchObject({
-      status: 'update-available',
+      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: true },
       installedVersion: 4,
       actions: ['update', 'disable', 'delete'],
     });
@@ -228,7 +228,7 @@ describe('resolveModList', () => {
     const foreignOrphan = resolveModList(catalogOf([]), [foreign('SomeCustomMod_00001.it')]);
     expect(firstVariant(foreignOrphan).name).toBe('SomeCustomMod');
     expect(firstVariant(foreignOrphan)).toMatchObject({
-      status: 'orphan',
+      state: { isInCatalog: false, presence: 'enabled', isUpdateAvailable: false },
       actions: ['disable', 'delete'],
     });
   });
@@ -253,7 +253,7 @@ describe('resolveModList', () => {
     const result = resolveModList(null, [installed('Foo', 2, true)]);
     expect(result.metadata).toBeNull();
     expect(firstVariant(result)).toMatchObject({
-      status: 'orphan',
+      state: { isInCatalog: false, presence: 'enabled', isUpdateAvailable: false },
       actions: ['disable', 'delete'],
     });
   });
@@ -290,9 +290,22 @@ describe('resolveModList', () => {
       ]);
       const result = resolveModList(catalog, [installed('A', 1, true), installed('B', 1, false)]);
       const bRow = result.groups.find((g) => g.groupId === 'B')!.variants[0];
-      expect(bRow.status).toBe('disabled');
+      expect(bRow.state).toMatchObject({ presence: 'disabled', isUpdateAvailable: false });
       expect(bRow.actions).toEqual(['delete']);
       expect(bRow.conflicts).toEqual([{ modId: 'A', modName: 'Mod A' }]);
+    });
+
+    it('keeps isUpdateAvailable true when a conflict strips the update action', () => {
+      const catalog = catalogOf([
+        soloGroup(variant('A', 1, { usedFiles: shared, name: 'Mod A' })),
+        soloGroup(variant('B', 2, { usedFiles: shared })),
+      ]);
+      // B is enabled at v1 (older than release v2) but conflicts with enabled A,
+      // so the `update` action is pruned. The state must still report the update.
+      const result = resolveModList(catalog, [installed('A', 1, true), installed('B', 1, true)]);
+      const bRow = result.groups.find((g) => g.groupId === 'B')!.variants[0];
+      expect(bRow.state.isUpdateAvailable).toBe(true);
+      expect(bRow.actions).not.toContain('update');
     });
 
     it('does not treat same-group variants as conflicts (auto-switch)', () => {
@@ -320,7 +333,11 @@ describe('resolveModList', () => {
       [installed('Foo', 3, true)],
     );
     expect(result.metadata?.outdated).toBe(true);
-    // The mod is current; outdated metadata must not change its status.
-    expect(firstVariant(result).status).toBe('up-to-date');
+    // The mod is current; outdated metadata must not change its state.
+    expect(firstVariant(result).state).toMatchObject({
+      isInCatalog: true,
+      presence: 'enabled',
+      isUpdateAvailable: false,
+    });
   });
 });

@@ -1,12 +1,12 @@
 import type { FC } from 'react';
-import type { ModStatus } from '@shared/modList';
+import { type ModState, type ModStatus, toDisplayStatus } from '@shared/modList';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 type StatusChipVisibility = 'all' | 'list';
 
 type StatusChipProps = {
-  status: ModStatus;
+  state: ModState;
   /** `all` (default): every status. `list`: only show statuses not conveyed by row actions (orphan). */
   visibility?: StatusChipVisibility;
 };
@@ -35,8 +35,9 @@ const CONFIG: Record<ModStatus, { label: string; className: string }> = {
   orphan: { label: 'Not in release', className: '' },
 };
 
-/** A small badge that renders a mod's {@link ModStatus} with status-specific color. */
-const StatusChip: FC<StatusChipProps> = ({ status, visibility = 'all' }) => {
+/** A small badge that renders a mod's {@link ModState} as a color-coded label. */
+const StatusChip: FC<StatusChipProps> = ({ state, visibility = 'all' }) => {
+  const status = toDisplayStatus(state);
   if (visibility === 'list' && LIST_HIDDEN_STATUSES.has(status)) return null;
 
   const { label, className } = CONFIG[status];
