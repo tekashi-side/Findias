@@ -104,7 +104,7 @@ export interface ModGroupRow {
   /** Group-level tags. */
   tags: string[];
   hasVariants: boolean;
-  mutuallyExclusive: boolean;
+  isMutuallyExclusive: boolean;
   /** modId of the currently-installed variant in this group, if any. */
   installedVariantId: string | null;
   variants: ModVariantRow[];
@@ -125,14 +125,14 @@ export interface CatalogMetadata {
    * client version. Drives ONLY the top-of-app banner (and the conditional
    * display of per-mod `updateType`); it never affects a variant's `status`.
    */
-  outdated: boolean;
+  isOutdated: boolean;
 }
 
 /** Status of the remote catalog fetch for the current refresh. */
 export interface CatalogStatus {
   /** False when the catalog could not be loaded (offline, rate-limited, etc.). */
-  available: boolean;
-  /** User-facing explanation when `available` is false. */
+  isAvailable: boolean;
+  /** User-facing explanation when `isAvailable` is false. */
   error?: string;
 }
 

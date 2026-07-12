@@ -22,7 +22,7 @@ const readDirSafe = async (dir: string): Promise<Dirent[]> => {
  * foreign mod keyed by its full file name. Official `data_*.it` files, non-`.it`
  * files, and subdirectories (`disabled/`, `archived/`) are skipped.
  */
-const listInDir = async (dir: string, enabled: boolean): Promise<InstalledMod[]> => {
+const listInDir = async (dir: string, isEnabled: boolean): Promise<InstalledMod[]> => {
   const mods: InstalledMod[] = [];
   for (const entry of await readDirSafe(dir)) {
     if (!entry.isFile()) continue;
@@ -34,8 +34,8 @@ const listInDir = async (dir: string, enabled: boolean): Promise<InstalledMod[]>
         modId: parsed.modId,
         version: parsed.version,
         fileName: parsed.fileName,
-        enabled,
-        managed: true,
+        isEnabled,
+        isManaged: true,
       });
     } else {
       // Foreign mod from another provider: identity is the full file name.
@@ -43,8 +43,8 @@ const listInDir = async (dir: string, enabled: boolean): Promise<InstalledMod[]>
         modId: entry.name,
         version: 0,
         fileName: entry.name,
-        enabled,
-        managed: false,
+        isEnabled,
+        isManaged: false,
       });
     }
   }
@@ -63,11 +63,11 @@ const listInDir = async (dir: string, enabled: boolean): Promise<InstalledMod[]>
 export const createPackageFolderProvider = (paths: GamePaths): InstalledModsProvider => {
   return {
     list: async (): Promise<InstalledMod[]> => {
-      const [enabled, disabled] = await Promise.all([
+      const [enabledMods, disabledMods] = await Promise.all([
         listInDir(paths.packageDir, true),
         listInDir(paths.disabledDir, false),
       ]);
-      return [...enabled, ...disabled];
+      return [...enabledMods, ...disabledMods];
     },
   };
 };

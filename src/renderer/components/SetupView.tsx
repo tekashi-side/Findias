@@ -9,7 +9,7 @@ import SetupArchiveStep from './SetupArchiveStep';
  * setup state resolved in the main process.
  */
 const SetupView: FC<{ setup: SetupState }> = ({ setup }) => {
-  if (!setup.valid) return <SetupFolderStep />;
+  if (!setup.isValid) return <SetupFolderStep />;
   return <SetupArchiveStep />;
 };
 

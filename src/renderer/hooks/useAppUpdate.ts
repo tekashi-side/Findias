@@ -13,10 +13,10 @@ import { showAppUpdateReadyToast } from '../showAppUpdateReadyToast';
  * Run `__previewAppUpdateToast()` from devtools to preview the toast.
  */
 export const useAppUpdate = (): void => {
-  const canPreviewAppUpdateToast = useFeatureFlag('previewAppUpdateToast');
+  const isPreviewAppUpdateToastEnabled = useFeatureFlag('previewAppUpdateToast');
 
   useEffect(() => {
-    if (canPreviewAppUpdateToast) {
+    if (isPreviewAppUpdateToastEnabled) {
       window.__previewAppUpdateToast = (version?: string) => {
         showAppUpdateReadyToast({ version: version || '9.9.9-preview' });
       };
@@ -31,5 +31,5 @@ export const useAppUpdate = (): void => {
         console.warn('App update error:', status.message);
       }
     });
-  }, [canPreviewAppUpdateToast]);
+  }, [isPreviewAppUpdateToastEnabled]);
 };

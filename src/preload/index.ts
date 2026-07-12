@@ -17,13 +17,15 @@ const api: FindiasApi = {
   getSetupState: () => ipcRenderer.invoke(IpcChannels.getSetupState),
   chooseGameFolder: () => ipcRenderer.invoke(IpcChannels.chooseGameFolder),
   listForeignMods: () => ipcRenderer.invoke(IpcChannels.listForeignMods),
-  completeModSetup: (archive) => ipcRenderer.invoke(IpcChannels.completeModSetup, archive),
+  completeModSetup: (shouldArchive) =>
+    ipcRenderer.invoke(IpcChannels.completeModSetup, shouldArchive),
   refresh: () => ipcRenderer.invoke(IpcChannels.refresh),
   installOrUpdate: (modId) => ipcRenderer.invoke(IpcChannels.installOrUpdate, modId),
   deleteMod: (modId) => ipcRenderer.invoke(IpcChannels.deleteMod, modId),
-  setDisabled: (modId, disabled) => ipcRenderer.invoke(IpcChannels.setDisabled, modId, disabled),
-  setShouldIncludePrereleases: (value) =>
-    ipcRenderer.invoke(IpcChannels.setShouldIncludePrereleases, value),
+  setDisabled: (modId, isDisabled) =>
+    ipcRenderer.invoke(IpcChannels.setDisabled, modId, isDisabled),
+  setShouldIncludePrereleases: (shouldIncludePrereleases) =>
+    ipcRenderer.invoke(IpcChannels.setShouldIncludePrereleases, shouldIncludePrereleases),
   onDownloadProgress: (callback) => {
     const listener = (_event: IpcRendererEvent, progress: DownloadProgress): void =>
       callback(progress);

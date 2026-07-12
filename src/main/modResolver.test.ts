@@ -25,7 +25,7 @@ const soloGroup = (v: CatalogVariant): CatalogGroup => ({
   modName: v.modName,
   findiasTags: [],
   hasVariants: false,
-  mutuallyExclusive: false,
+  isMutuallyExclusive: false,
   variants: [v],
 });
 
@@ -42,21 +42,21 @@ const catalogOf = (
   groups,
 });
 
-const installed = (modId: string, version: number, enabled: boolean): InstalledMod => ({
+const installed = (modId: string, version: number, isEnabled: boolean): InstalledMod => ({
   modId,
   version,
   fileName: `uiscias${modId}_${version}.it`,
-  enabled,
-  managed: true,
+  isEnabled,
+  isManaged: true,
 });
 
 /** A foreign (non-managed) mod file keyed by its full file name. */
-const foreign = (fileName: string, enabled = true): InstalledMod => ({
+const foreign = (fileName: string, isEnabled = true): InstalledMod => ({
   modId: fileName,
   version: 0,
   fileName,
-  enabled,
-  managed: false,
+  isEnabled,
+  isManaged: false,
 });
 
 /** Shorthand: the first variant of the first group. */
@@ -66,7 +66,7 @@ describe('resolveModList', () => {
   it('returns no groups when both sources are empty', () => {
     expect(resolveModList(catalogOf([]), [])).toMatchObject({
       groups: [],
-      metadata: { outdated: false },
+      metadata: { isOutdated: false },
     });
   });
 
@@ -314,7 +314,7 @@ describe('resolveModList', () => {
         modName: 'Bri Hp Bars',
         findiasTags: [],
         hasVariants: true,
-        mutuallyExclusive: true,
+        isMutuallyExclusive: true,
         variants: [
           variant('BriHpBars1And2', 1, { usedFiles: shared }),
           variant('BriHpBars1And3', 1, { usedFiles: shared }),
@@ -332,8 +332,8 @@ describe('resolveModList', () => {
       catalogOf([soloGroup(variant('Foo', 3))], { current: '1.2.4', supported: '1.2.3' }),
       [installed('Foo', 3, true)],
     );
-    expect(result.metadata?.outdated).toBe(true);
-    // The mod is current; outdated metadata must not change its state.
+    expect(result.metadata?.isOutdated).toBe(true);
+    // The mod is current; isOutdated metadata must not change its state.
     expect(firstVariant(result).state).toMatchObject({
       isInCatalog: true,
       presence: 'enabled',

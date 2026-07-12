@@ -33,15 +33,15 @@ type ModListItemProps = {
   variant: ModVariantRow;
   /** Group tags to display above the row (omitted for variant sub-rows). */
   tags?: string[];
-  busy: boolean;
+  isBusy: boolean;
   progress?: DownloadProgress;
   /** When true, the catalog banner is active, so the updateType chip is shown. */
-  outdated: boolean;
+  isOutdated: boolean;
   /** When true, a bulk update is in flight, so all actions on this row are disabled. */
   isLocked: boolean;
   onAction: (action: ModAction, modId: string) => void;
   /** True when this row is open in the detail pane. */
-  selected?: boolean;
+  isSelected?: boolean;
   /** Select this row to open it in the detail pane. */
   onSelect?: (modId: string) => void;
 };
@@ -81,21 +81,21 @@ const versionSummary = (variant: ModVariantRow): string => {
 const ModListItem: FC<ModListItemProps> = ({
   variant,
   tags,
-  busy,
+  isBusy,
   progress,
-  outdated,
+  isOutdated,
   isLocked,
   onAction,
-  selected = false,
+  isSelected = false,
   onSelect,
 }) => {
-  const isDisabled = busy || isLocked;
+  const isDisabled = isBusy || isLocked;
   const percent =
     progress && progress.totalBytes
       ? Math.min(100, Math.round((progress.receivedBytes / progress.totalBytes) * 100))
       : null;
 
-  const showUpdateType = outdated && variant.updateType !== null;
+  const shouldShowUpdateType = isOutdated && variant.updateType !== null;
 
   return (
     <Item
@@ -103,9 +103,9 @@ const ModListItem: FC<ModListItemProps> = ({
       className={cn(
         'items-start',
         !variant.state.isInCatalog && 'opacity-50 transition-opacity hover:opacity-100',
-        selected && 'border-primary/60 bg-primary/5',
+        isSelected && 'border-primary/60 bg-primary/5',
       )}
-      data-selected={selected || undefined}
+      data-selected={isSelected || undefined}
       onClick={() => onSelect?.(variant.modId)}
     >
       <ItemContent>
@@ -114,9 +114,9 @@ const ModListItem: FC<ModListItemProps> = ({
           <StatusChip state={variant.state} visibility="list" />
         </ItemTitle>
 
-        {((showUpdateType && variant.updateType) || (tags && tags.length > 0)) && (
+        {((shouldShowUpdateType && variant.updateType) || (tags && tags.length > 0)) && (
           <div className="flex flex-wrap gap-1">
-            {showUpdateType && variant.updateType && (
+            {shouldShowUpdateType && variant.updateType && (
               <Badge
                 variant="outline"
                 className={cn(
@@ -213,7 +213,7 @@ const ModListItem: FC<ModListItemProps> = ({
         )}
       </ItemActions>
 
-      {busy && (
+      {isBusy && (
         <ItemFooter>
           {percent === null ? (
             <div className="h-3 w-full overflow-hidden rounded-full bg-muted">

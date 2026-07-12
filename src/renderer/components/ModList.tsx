@@ -9,7 +9,7 @@ type ModListProps = {
   groups: ModGroupRow[];
   busyModId?: string;
   progressByMod: Record<string, DownloadProgress>;
-  outdated: boolean;
+  isOutdated: boolean;
   /** When true, a bulk update is in flight, so all row actions are disabled. */
   isLocked: boolean;
   onAction: (action: ModAction, modId: string) => void;
@@ -24,7 +24,7 @@ const ModList: FC<ModListProps> = ({
   groups,
   busyModId,
   progressByMod,
-  outdated,
+  isOutdated,
   isLocked,
   onAction,
   selectedModId,
@@ -39,7 +39,7 @@ const ModList: FC<ModListProps> = ({
             group={group}
             busyModId={busyModId}
             progressByMod={progressByMod}
-            outdated={outdated}
+            isOutdated={isOutdated}
             isLocked={isLocked}
             onAction={onAction}
             selectedModId={selectedModId}
@@ -50,12 +50,12 @@ const ModList: FC<ModListProps> = ({
             key={group.groupId}
             variant={group.variants[0]}
             tags={group.tags}
-            busy={group.variants[0].modId === busyModId}
+            isBusy={group.variants[0].modId === busyModId}
             progress={progressByMod[group.variants[0].modId]}
-            outdated={outdated}
+            isOutdated={isOutdated}
             isLocked={isLocked}
             onAction={onAction}
-            selected={group.variants[0].modId === selectedModId}
+            isSelected={group.variants[0].modId === selectedModId}
             onSelect={onSelect}
           />
         ),

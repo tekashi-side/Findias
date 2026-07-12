@@ -11,7 +11,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 /** Root view: reads setup state, then routes to {@link SetupView}, {@link MainView}, or {@link SettingsView}. */
 const App: FC = () => {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useAppUpdate();
 
@@ -20,15 +20,15 @@ const App: FC = () => {
     queryFn: () => window.findias.getSetupState(),
   });
 
-  const settingsAvailable = Boolean(data?.valid) && !data?.needsModArchive;
+  const isSettingsAvailable = Boolean(data?.isValid) && !data?.shouldShowModArchive;
 
   /** Wrap content with the persistent frameless title bar shell. */
   const shell = (content: ReactNode): ReactNode => (
     <div className="flex h-full flex-col">
       <TitleBar
-        settingsAvailable={settingsAvailable}
-        settingsOpen={settingsOpen}
-        onToggleSettings={() => setSettingsOpen((open) => !open)}
+        isSettingsAvailable={isSettingsAvailable}
+        isSettingsOpen={isSettingsOpen}
+        onToggleSettings={() => setIsSettingsOpen((isOpen) => !isOpen)}
       />
       <div className="min-h-0 flex-1">{content}</div>
       <Toaster />
@@ -53,9 +53,9 @@ const App: FC = () => {
     );
   }
 
-  if (!data.valid || data.needsModArchive) return shell(<SetupView setup={data} />);
+  if (!data.isValid || data.shouldShowModArchive) return shell(<SetupView setup={data} />);
 
-  return shell(settingsOpen ? <SettingsView setup={data} /> : <MainView />);
+  return shell(isSettingsOpen ? <SettingsView setup={data} /> : <MainView />);
 };
 
 export default App;

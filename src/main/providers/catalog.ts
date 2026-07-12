@@ -39,7 +39,7 @@ export interface CatalogGroup {
   modName: string;
   findiasTags: string[];
   hasVariants: boolean;
-  mutuallyExclusive: boolean;
+  isMutuallyExclusive: boolean;
   variants: CatalogVariant[];
   /** Group-level README markdown, when provided (a variant may override it). */
   readme?: string;
@@ -68,7 +68,7 @@ export interface GetCatalogOptions {
    * The implementation may still return a cached catalog if the source reports
    * nothing changed (e.g. an HTTP `304`), which stays free of rate-limit cost.
    */
-  force?: boolean;
+  shouldForce?: boolean;
 }
 
 /**

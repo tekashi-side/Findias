@@ -117,7 +117,7 @@ describe('ManifestCatalogProvider', () => {
     expect(catalog.groups[1]).toMatchObject({
       groupId: 'BriHpBars',
       hasVariants: true,
-      mutuallyExclusive: true,
+      isMutuallyExclusive: true,
     });
     expect(catalog.groups[1].variants.map((v) => v.modId)).toEqual([
       'BriHpBars1And2',
@@ -267,7 +267,7 @@ describe('ManifestCatalogProvider caching', () => {
 
     const first = await provider.getCatalog(true);
     const manifestDownloads = requested.filter((u) => u === MANIFEST_URL).length;
-    const second = await provider.getCatalog(true, { force: true });
+    const second = await provider.getCatalog(true, { shouldForce: true });
 
     expect(second).toBe(first); // cache reused on 304
     expect(releasesCalls).toBe(2); // the feed was revalidated
@@ -297,7 +297,7 @@ describe('ManifestCatalogProvider caching', () => {
     const first = await provider.getCatalog(true);
     expect(first.metadata.currentGameVersion).toBe('1.2.4');
 
-    const second = await provider.getCatalog(true, { force: true });
+    const second = await provider.getCatalog(true, { shouldForce: true });
     expect(second.metadata.currentGameVersion).toBe('9.9.9');
   });
 
@@ -321,7 +321,7 @@ describe('ManifestCatalogProvider caching', () => {
     const provider = createManifestCatalogProvider({ fetchFn });
 
     const first = await provider.getCatalog(true);
-    const second = await provider.getCatalog(true, { force: true });
+    const second = await provider.getCatalog(true, { shouldForce: true });
 
     expect(second).toBe(first); // transient rate-limit falls back to the cache
   });

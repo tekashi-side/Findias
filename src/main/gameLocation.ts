@@ -12,7 +12,7 @@ export const DISABLED_DIR_NAME = 'disabled';
 export const ARCHIVED_DIR_NAME = 'archived';
 
 export interface ValidationResult {
-  ok: boolean;
+  isOk: boolean;
   error?: string;
 }
 
@@ -42,17 +42,17 @@ const isDirectory = async (path: string): Promise<boolean> => {
  */
 export const validateGameRoot = async (root: string): Promise<ValidationResult> => {
   if (!root) {
-    return { ok: false, error: 'No folder was selected.' };
+    return { isOk: false, error: 'No folder was selected.' };
   }
   if (!(await isDirectory(root))) {
-    return { ok: false, error: 'The selected folder no longer exists.' };
+    return { isOk: false, error: 'The selected folder no longer exists.' };
   }
   if (!(await isDirectory(resolveGamePaths(root).packageDir))) {
     return {
-      ok: false,
+      isOk: false,
       error:
         'This does not look like a Mabinogi game folder — no "package" subfolder was found inside it.',
     };
   }
-  return { ok: true };
+  return { isOk: true };
 };

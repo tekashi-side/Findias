@@ -24,9 +24,9 @@ export interface ResolvedModList {
 
 interface InstalledGroup {
   /** Highest-version enabled file for a modId (in package root), if any. */
-  enabled?: InstalledMod;
+  enabledMod?: InstalledMod;
   /** Highest-version disabled file for a modId (in package/disabled), if any. */
-  disabled?: InstalledMod;
+  disabledMod?: InstalledMod;
 }
 
 /** Actions that would result in a mod being enabled (loaded by the game). */
@@ -46,10 +46,10 @@ const groupInstalledByModId = (installed: InstalledMod[]): Map<string, Installed
   const groups = new Map<string, InstalledGroup>();
   for (const mod of installed) {
     const group = groups.get(mod.modId) ?? {};
-    if (mod.enabled) {
-      if (!group.enabled || mod.version > group.enabled.version) group.enabled = mod;
-    } else if (!group.disabled || mod.version > group.disabled.version) {
-      group.disabled = mod;
+    if (mod.isEnabled) {
+      if (!group.enabledMod || mod.version > group.enabledMod.version) group.enabledMod = mod;
+    } else if (!group.disabledMod || mod.version > group.disabledMod.version) {
+      group.disabledMod = mod;
     }
     groups.set(mod.modId, group);
   }
@@ -87,7 +87,7 @@ const indexEnabledUsedFiles = (
 ): Map<string, ModConflict[]> => {
   const byFile = new Map<string, ModConflict[]>();
   for (const [modId, group] of installedByModId) {
-    if (!group.enabled) continue;
+    if (!group.enabledMod) continue;
     const found = catalogIndex.get(modId);
     if (!found) continue;
     const conflict: ModConflict = { modId, modName: found.variant.modName };
@@ -125,13 +125,13 @@ const buildVariantRow = (
   installedGroup: InstalledGroup | undefined,
   conflicts: ModConflict[],
 ): ModVariantRow => {
-  const enabled = installedGroup?.enabled;
-  const disabled = installedGroup?.disabled;
-  const primary = enabled ?? disabled;
+  const enabledMod = installedGroup?.enabledMod;
+  const disabledMod = installedGroup?.disabledMod;
+  const primary = enabledMod ?? disabledMod;
 
   const state: ModState = {
     isInCatalog: true,
-    presence: enabled ? 'enabled' : disabled ? 'disabled' : 'absent',
+    presence: enabledMod ? 'enabled' : disabledMod ? 'disabled' : 'absent',
     isUpdateAvailable: !!primary && primary.version < variant.version,
   };
 
@@ -139,9 +139,9 @@ const buildVariantRow = (
 
   if (!primary) {
     actions = ['install'];
-  } else if (!enabled && disabled) {
+  } else if (!enabledMod && disabledMod) {
     actions =
-      disabled.version < variant.version ? ['update', 'enable', 'delete'] : ['enable', 'delete'];
+      disabledMod.version < variant.version ? ['update', 'enable', 'delete'] : ['enable', 'delete'];
   } else if (primary.version < variant.version) {
     actions = ['update', 'disable', 'delete'];
   } else {
@@ -175,8 +175,8 @@ const buildVariantRow = (
 
 /** Build a row for an installed mod absent from the catalog (enable/disable + delete). */
 const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGroupRow => {
-  const primary = installedGroup.enabled ?? installedGroup.disabled;
-  const isEnabled = Boolean(installedGroup.enabled);
+  const primary = installedGroup.enabledMod ?? installedGroup.disabledMod;
+  const isEnabled = Boolean(installedGroup.enabledMod);
   // Show the file's natural name (extension + trailing version stripped, prefix
   // kept) so the user can tell where an orphan came from.
   const name = primary ? orphanDisplayName(primary.fileName) : modId;
@@ -201,7 +201,7 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
     name,
     tags: [],
     hasVariants: false,
-    mutuallyExclusive: false,
+    isMutuallyExclusive: false,
     installedVariantId: modId,
     variants: [variant],
   };
@@ -228,8 +228,8 @@ const installedVariantId = (
   let disabledMatch: string | null = null;
   for (const variant of group.variants) {
     const installed = installedByModId.get(variant.modId);
-    if (installed?.enabled) return variant.modId;
-    if (installed?.disabled && disabledMatch === null) disabledMatch = variant.modId;
+    if (installed?.enabledMod) return variant.modId;
+    if (installed?.disabledMod && disabledMatch === null) disabledMatch = variant.modId;
   }
   return disabledMatch;
 };
@@ -270,7 +270,7 @@ export const resolveModList = (
       name: group.modName,
       tags: group.findiasTags,
       hasVariants: group.hasVariants,
-      mutuallyExclusive: group.mutuallyExclusive,
+      isMutuallyExclusive: group.isMutuallyExclusive,
       installedVariantId: installedVariantId(group, installedByModId),
       variants,
       readme: group.readme,
@@ -285,7 +285,7 @@ export const resolveModList = (
 
   const metadata: CatalogMetadata = {
     ...catalog.metadata,
-    outdated: catalog.metadata.supportedGameVersion !== catalog.metadata.currentGameVersion,
+    isOutdated: catalog.metadata.supportedGameVersion !== catalog.metadata.currentGameVersion,
   };
 
   return { groups: groups.sort(compareGroups), metadata };
