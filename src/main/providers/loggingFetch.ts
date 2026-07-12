@@ -37,7 +37,7 @@ const dumpHeaders = (headers: RequestInit['headers']): string => {
 
 export interface LoggingFetchOptions {
   /** Also log the (redacted) request and response headers. */
-  verbose?: boolean;
+  isVerbose?: boolean;
   /** The underlying fetch to delegate to (defaults to the global `fetch`). */
   inner?: FetchLike;
 }
@@ -70,7 +70,7 @@ export const createLoggingFetch = (options: LoggingFetchOptions = {}): FetchLike
         ` ${pc.dim(`(${ms}ms)`)} ${pc.dim(`etag=${res.headers.get('etag') ?? '-'}`)}` +
         ` ${pc.dim('ratelimit=')}${rateLimit}`,
     );
-    if (options.verbose) {
+    if (options.isVerbose) {
       console.log(
         `${pc.cyan('[net]')}   ${pc.dim('request headers:')}${dumpHeaders(init?.headers)}`,
       );

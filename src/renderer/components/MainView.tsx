@@ -34,7 +34,7 @@ const errorMessage = (error: unknown): string =>
 const MainView: FC = () => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
-  const [outdatedDismissed, setOutdatedDismissed] = useState(false);
+  const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -86,8 +86,8 @@ const MainView: FC = () => {
   });
 
   const toggle = useMutation({
-    mutationFn: ({ modId, disabled }: { modId: string; disabled: boolean }) =>
-      window.findias.setDisabled(modId, disabled),
+    mutationFn: ({ modId, isDisabled }: { modId: string; isDisabled: boolean }) =>
+      window.findias.setDisabled(modId, isDisabled),
     onSuccess: seedModList,
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -95,8 +95,8 @@ const MainView: FC = () => {
   /** Dispatch a row's action to the matching mutation. */
   const handleAction = (action: ModAction, modId: string): void => {
     if (action === 'delete') remove.mutate(modId);
-    else if (action === 'enable') toggle.mutate({ modId, disabled: false });
-    else if (action === 'disable') toggle.mutate({ modId, disabled: true });
+    else if (action === 'enable') toggle.mutate({ modId, isDisabled: false });
+    else if (action === 'disable') toggle.mutate({ modId, isDisabled: true });
     else install.mutate(modId);
   };
 
@@ -108,9 +108,9 @@ const MainView: FC = () => {
         ? toggle.variables.modId
         : undefined;
 
-  const busy = Boolean(busyModId);
+  const isBusy = Boolean(busyModId);
   const groups = data?.groups ?? [];
-  const outdated = data?.metadata?.outdated ?? false;
+  const isOutdated = data?.metadata?.isOutdated ?? false;
 
   // Every variant currently offering an update, including disabled ones. Note the
   // installer always writes to the package root, so updating a disabled mod
@@ -205,7 +205,7 @@ const MainView: FC = () => {
           <Button
             className="bg-emerald-600 text-white hover:bg-emerald-600/90"
             onClick={() => void handleUpdateAll()}
-            disabled={updateCount === 0 || isFetching || busy || isUpdatingAll}
+            disabled={updateCount === 0 || isFetching || isBusy || isUpdatingAll}
           >
             {isUpdatingAll ? (
               <>
@@ -227,7 +227,7 @@ const MainView: FC = () => {
           <Button
             variant="outline"
             onClick={() => void refetch()}
-            disabled={isFetching || busy || isUpdatingAll}
+            disabled={isFetching || isBusy || isUpdatingAll}
           >
             {isFetching ? (
               <Spinner data-icon="inline-start" aria-hidden />
@@ -260,7 +260,7 @@ const MainView: FC = () => {
             </Alert>
           )}
 
-          {data && outdated && !outdatedDismissed && (
+          {data && isOutdated && !isOutdatedDismissed && (
             <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
               <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
                 New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
@@ -271,7 +271,7 @@ const MainView: FC = () => {
                   size="icon"
                   className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
                   aria-label="Dismiss"
-                  onClick={() => setOutdatedDismissed(true)}
+                  onClick={() => setIsOutdatedDismissed(true)}
                 >
                   <X className="size-4" />
                 </Button>
@@ -279,7 +279,7 @@ const MainView: FC = () => {
             </Alert>
           )}
 
-          {data && !data.catalog.available && (
+          {data && !data.catalog.isAvailable && (
             <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
               <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
                 {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the mods
@@ -293,7 +293,7 @@ const MainView: FC = () => {
               <EmptyHeader>
                 <EmptyTitle>No mods to show</EmptyTitle>
                 <EmptyDescription>
-                  {data.catalog.available
+                  {data.catalog.isAvailable
                     ? 'No compatible mods were found in the latest Uiscias release.'
                     : 'No managed mods are installed.'}
                 </EmptyDescription>
@@ -323,7 +323,7 @@ const MainView: FC = () => {
                   groups={filteredGroups}
                   busyModId={busyModId}
                   progressByMod={progressByMod}
-                  outdated={outdated}
+                  isOutdated={isOutdated}
                   isLocked={isUpdatingAll}
                   onAction={handleAction}
                   selectedModId={selectedModId}

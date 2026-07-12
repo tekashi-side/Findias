@@ -29,7 +29,7 @@ export const settingsSchema = z.object({
    * current game folder. Reset to false whenever a new folder is chosen so the
    * step re-checks each folder for pre-existing mods. Defaults to false.
    */
-  modSetupCompleted: z.boolean().catch(false),
+  isModSetupCompleted: z.boolean().catch(false),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -37,7 +37,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   gameRootPath: null,
   shouldIncludePrereleases: false,
-  modSetupCompleted: false,
+  isModSetupCompleted: false,
 };
 
 /**

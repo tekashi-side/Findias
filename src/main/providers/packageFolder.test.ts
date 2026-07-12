@@ -45,15 +45,15 @@ describe('PackageFolderProvider', () => {
       modId: 'DDtimer',
       version: 5,
       fileName: 'uisciasDDtimer_5.it',
-      enabled: true,
-      managed: true,
+      isEnabled: true,
+      isManaged: true,
     });
     expect(list).toContainEqual({
       modId: 'randommod.it',
       version: 0,
       fileName: 'randommod.it',
-      enabled: true,
-      managed: false,
+      isEnabled: true,
+      isManaged: false,
     });
     expect(list).toHaveLength(2);
   });
@@ -70,15 +70,15 @@ describe('PackageFolderProvider', () => {
       modId: 'Foo',
       version: 2,
       fileName: 'uisciasFoo_2.it',
-      enabled: true,
-      managed: true,
+      isEnabled: true,
+      isManaged: true,
     });
     expect(list).toContainEqual({
       modId: 'Bar',
       version: 3,
       fileName: 'uisciasBar_3.it',
-      enabled: false,
-      managed: true,
+      isEnabled: false,
+      isManaged: true,
     });
     expect(list).toHaveLength(2);
   });
@@ -89,7 +89,7 @@ describe('PackageFolderProvider', () => {
 
     const provider = createPackageFolderProvider(paths);
     expect(await provider.list()).toEqual([
-      { modId: 'Foo', version: 2, fileName: 'uisciasFoo_2.it', enabled: true, managed: true },
+      { modId: 'Foo', version: 2, fileName: 'uisciasFoo_2.it', isEnabled: true, isManaged: true },
     ]);
   });
 });

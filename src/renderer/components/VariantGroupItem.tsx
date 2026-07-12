@@ -19,7 +19,7 @@ type VariantGroupItemProps = {
   group: ModGroupRow;
   busyModId?: string;
   progressByMod: Record<string, DownloadProgress>;
-  outdated: boolean;
+  isOutdated: boolean;
   /** When true, a bulk update is in flight, so all variant actions are disabled. */
   isLocked: boolean;
   onAction: (action: ModAction, modId: string) => void;
@@ -40,7 +40,7 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
   group,
   busyModId,
   progressByMod,
-  outdated,
+  isOutdated,
   isLocked,
   onAction,
   selectedModId,
@@ -90,12 +90,12 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
             <ModListItem
               key={variant.modId}
               variant={variant}
-              busy={variant.modId === busyModId}
+              isBusy={variant.modId === busyModId}
               progress={progressByMod[variant.modId]}
-              outdated={outdated}
+              isOutdated={isOutdated}
               isLocked={isLocked}
               onAction={onAction}
-              selected={variant.modId === selectedModId}
+              isSelected={variant.modId === selectedModId}
               onSelect={onSelect}
             />
           ))}

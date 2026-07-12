@@ -33,7 +33,7 @@ export interface GamePaths {
  */
 export interface SetupState {
   gameRootPath: string | null;
-  valid: boolean;
+  isValid: boolean;
   /**
    * Effective (feature-flag-gated) value of whether prerelease Uiscias releases
    * are considered when fetching the catalog. Always false when the
@@ -45,7 +45,7 @@ export interface SetupState {
    * has not been completed for it AND pre-existing (non-official) mods are
    * present in the package root. Drives the second setup step.
    */
-  needsModArchive: boolean;
+  shouldShowModArchive: boolean;
 }
 
 /** A pre-existing, non-official mod file detected in the package root. */
@@ -58,9 +58,9 @@ export interface ForeignMod {
 
 /** Result of prompting the user to choose a game folder. */
 export interface ChooseFolderResult {
-  ok: boolean;
+  isOk: boolean;
   /** True when the user dismissed the native dialog. */
-  canceled?: boolean;
+  isCanceled?: boolean;
   /** Present when validation failed (e.g. no `package` subfolder). */
   error?: string;
   /** Present on success — the new setup state. */
@@ -102,11 +102,11 @@ export interface FindiasApi {
   /** List pre-existing, non-official mods in the package root (for the archive step). */
   listForeignMods(): Promise<ForeignMod[]>;
   /**
-   * Complete the one-time mod-archive setup step. When `archive` is true, moves
+   * Complete the one-time mod-archive setup step. When `shouldArchive` is true, moves
    * every pre-existing non-official mod into `package/archived`. Always marks the
    * step complete and returns the fresh setup state.
    */
-  completeModSetup(archive: boolean): Promise<SetupState>;
+  completeModSetup(shouldArchive: boolean): Promise<SetupState>;
   /** Scan the package folder, fetch the catalog, and resolve the mod list. */
   refresh(): Promise<ModListState>;
   /** Install (or replace with) the latest release version of a mod. */
@@ -114,9 +114,9 @@ export interface FindiasApi {
   /** Delete every managed file for a mod (package root + disabled). */
   deleteMod(modId: string): Promise<ModListState>;
   /** Move a mod between the package root and `package/disabled`. */
-  setDisabled(modId: string, disabled: boolean): Promise<ModListState>;
+  setDisabled(modId: string, isDisabled: boolean): Promise<ModListState>;
   /** Persist whether prereleases are eligible, then re-resolve the mod list. */
-  setShouldIncludePrereleases(value: boolean): Promise<ModListState>;
+  setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
   /** Subscribe to app self-update status events; returns an unsubscribe function. */

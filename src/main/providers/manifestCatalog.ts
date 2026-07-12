@@ -132,7 +132,7 @@ const buildCatalog = async (
     modName: group.modName,
     findiasTags: group.findiasTags,
     hasVariants: group.hasVariants,
-    mutuallyExclusive: group.mutuallyExclusive,
+    isMutuallyExclusive: group.mutuallyExclusive,
     variants: group.variants.map((variant) => makeVariant(variant, urlByFileName, options.fetchFn)),
     readme: group.readme,
     images: group.images,
@@ -176,10 +176,10 @@ export const createManifestCatalogProvider = (
 
   const getCatalog = async (
     shouldIncludePrereleases: boolean,
-    { force = false }: GetCatalogOptions = {},
+    { shouldForce = false }: GetCatalogOptions = {},
   ): Promise<Catalog> => {
     const cached = cache.get(shouldIncludePrereleases);
-    if (cached && !force && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    if (cached && !shouldForce && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
       return cached.catalog;
     }
 

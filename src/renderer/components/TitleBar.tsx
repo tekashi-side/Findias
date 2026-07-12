@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 
 type TitleBarProps = {
   /** Whether the settings toggle is meaningful (true once setup is valid). */
-  settingsAvailable: boolean;
+  isSettingsAvailable: boolean;
   /** Whether the settings screen is currently shown. */
-  settingsOpen: boolean;
+  isSettingsOpen: boolean;
   /** Toggle the settings screen on/off. */
   onToggleSettings: () => void;
 };
@@ -16,16 +16,16 @@ type TitleBarProps = {
  * and settings/minimize/close controls on the right. The bar itself is a drag
  * region (`-webkit-app-region: drag`); the buttons opt out so they stay clickable.
  */
-const TitleBar: FC<TitleBarProps> = ({ settingsAvailable, settingsOpen, onToggleSettings }) => (
+const TitleBar: FC<TitleBarProps> = ({ isSettingsAvailable, isSettingsOpen, onToggleSettings }) => (
   <div className="flex h-9 shrink-0 items-center justify-between border-b pr-1 pl-3 [-webkit-app-region:drag]">
     <span className="text-sm font-medium text-muted-foreground select-none">Findias</span>
     <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
-      {settingsAvailable && (
+      {isSettingsAvailable && (
         <Button
-          variant={settingsOpen ? 'secondary' : 'ghost'}
+          variant={isSettingsOpen ? 'secondary' : 'ghost'}
           size="icon-sm"
           aria-label="Settings"
-          aria-pressed={settingsOpen}
+          aria-pressed={isSettingsOpen}
           onClick={onToggleSettings}
         >
           <Settings className="size-4" />

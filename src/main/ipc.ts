@@ -31,9 +31,10 @@ import { openExternalUrl } from './openExternal';
  */
 const resolveLoggingFetch = () => {
   const mode = process.env.FINDIAS_LOG_NETWORK;
-  const off = mode === '0' || mode === 'false';
-  const on = mode === '1' || mode === 'true' || mode === 'verbose' || (!off && !app.isPackaged);
-  return on ? createLoggingFetch({ verbose: mode === 'verbose' }) : undefined;
+  const isLoggingOff = mode === '0' || mode === 'false';
+  const isLoggingEnabled =
+    mode === '1' || mode === 'true' || mode === 'verbose' || (!isLoggingOff && !app.isPackaged);
+  return isLoggingEnabled ? createLoggingFetch({ isVerbose: mode === 'verbose' }) : undefined;
 };
 
 /**
@@ -74,23 +75,29 @@ const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
 
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const { gameRootPath, modSetupCompleted } = await loadSettings();
+  const { gameRootPath, isModSetupCompleted } = await loadSettings();
   const shouldIncludePrereleases = await arePrereleasesEligible();
   if (!gameRootPath) {
-    return { gameRootPath: null, valid: false, shouldIncludePrereleases, needsModArchive: false };
+    return {
+      gameRootPath: null,
+      isValid: false,
+      shouldIncludePrereleases,
+      shouldShowModArchive: false,
+    };
   }
-  const { ok } = await validateGameRoot(gameRootPath);
+  const { isOk } = await validateGameRoot(gameRootPath);
   // Only scan while the one-time archive step is pending. The cheap folder check
   // runs first so the catalog is fetched only when pre-existing mods exist, and
   // orphans are then determined against the catalog (mods already in the catalog
   // are legit and must not be flagged/archived).
-  let needsModArchive = false;
-  if (ok && !modSetupCompleted) {
+  let shouldShowModArchive = false;
+  if (isOk && !isModSetupCompleted) {
     const paths = resolveGamePaths(gameRootPath);
-    const anyForeign = await hasForeignMods(paths, null);
-    needsModArchive = anyForeign && (await hasForeignMods(paths, await resolveCatalogModIds()));
+    const hasAnyForeignMod = await hasForeignMods(paths, null);
+    shouldShowModArchive =
+      hasAnyForeignMod && (await hasForeignMods(paths, await resolveCatalogModIds()));
   }
-  return { gameRootPath, valid: ok, shouldIncludePrereleases, needsModArchive };
+  return { gameRootPath, isValid: isOk, shouldIncludePrereleases, shouldShowModArchive };
 };
 
 /** Resolve the stored game paths, throwing a clear error if setup is invalid. */
@@ -98,9 +105,9 @@ const requireGamePaths = async (): Promise<GamePaths> => {
   const { gameRootPath } = await loadSettings();
   const validation: ValidationResult = gameRootPath
     ? await validateGameRoot(gameRootPath)
-    : { ok: false, error: 'No game folder is configured.' };
+    : { isOk: false, error: 'No game folder is configured.' };
 
-  if (!gameRootPath || !validation.ok) {
+  if (!gameRootPath || !validation.isOk) {
     throw new Error(validation.error ?? 'No game folder is configured.');
   }
   return resolveGamePaths(gameRootPath);
@@ -110,25 +117,25 @@ const requireGamePaths = async (): Promise<GamePaths> => {
  * Build the current mod list: scan the package folder + fetch the catalog, then
  * resolve. A catalog failure (offline, rate-limited, no manifest) degrades
  * softly — installed mods are still returned (as orphans) so the user can manage
- * them, and the failure is reported via `catalog.available`.
+ * them, and the failure is reported via `catalog.isAvailable`.
  */
 const resolveCurrentState = async (
   paths: GamePaths,
-  options: { force?: boolean } = {},
+  options: { shouldForce?: boolean } = {},
 ): Promise<ModListState> => {
   const shouldIncludePrereleases = await arePrereleasesEligible();
   const installed = await createPackageFolderProvider(paths).list();
   try {
     const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases, {
-      force: options.force,
+      shouldForce: options.shouldForce,
     });
     const { groups, metadata } = resolveModList(catalog, installed);
-    return { groups, catalog: { available: true }, metadata };
+    return { groups, catalog: { isAvailable: true }, metadata };
   } catch (error) {
     const message =
       error instanceof CatalogError ? error.message : 'Could not load the mod catalog.';
     const { groups, metadata } = resolveModList(null, installed);
-    return { groups, catalog: { available: false, error: message }, metadata };
+    return { groups, catalog: { isAvailable: false, error: message }, metadata };
   }
 };
 
@@ -136,7 +143,7 @@ const resolveCurrentState = async (
 // revalidation (a free 304 when the feed is unchanged) rather than serving the
 // TTL-cached catalog.
 const refresh = async (): Promise<ModListState> =>
-  resolveCurrentState(await requireGamePaths(), { force: true });
+  resolveCurrentState(await requireGamePaths(), { shouldForce: true });
 
 /** Locate a variant + its group in the catalog by modId. */
 const findVariant = (
@@ -169,7 +176,7 @@ const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promis
   }
 
   const { group, variant } = found;
-  const replaceSiblings = group.mutuallyExclusive
+  const replaceSiblings = group.isMutuallyExclusive
     ? group.variants
         .filter((candidate) => candidate.modId !== modId)
         .map((candidate) => candidate.modId)
@@ -188,7 +195,7 @@ const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promis
 
   const installed = await createPackageFolderProvider(paths).list();
   const { groups, metadata } = resolveModList(catalog, installed);
-  return { groups, catalog: { available: true }, metadata };
+  return { groups, catalog: { isAvailable: true }, metadata };
 };
 
 /**
@@ -212,18 +219,18 @@ const getForeignMods = async (): Promise<ForeignMod[]> =>
   listForeignMods(await requireGamePaths(), await resolveCatalogModIds());
 
 /**
- * Complete the one-time mod-archive setup step. When `archive` is true, move
+ * Complete the one-time mod-archive setup step. When `shouldArchive` is true, move
  * every orphan mod (non-official and absent from the catalog) into
  * `package/archived`; catalog mods are left in place. Always persist the
  * completion flag so the step is not shown again for this folder, then return
  * the fresh setup state.
  */
-const completeModSetup = async (archive: boolean): Promise<SetupState> => {
-  if (archive) {
+const completeModSetup = async (shouldArchive: boolean): Promise<SetupState> => {
+  if (shouldArchive) {
     await archiveForeignMods(await requireGamePaths(), await resolveCatalogModIds());
   }
   const settings = await loadSettings();
-  await saveSettings({ ...settings, modSetupCompleted: true });
+  await saveSettings({ ...settings, isModSetupCompleted: true });
   return computeSetupState();
 };
 
@@ -232,13 +239,13 @@ const completeModSetup = async (archive: boolean): Promise<SetupState> => {
  * Foreign orphans are identified by a `modId` that is a real `.it` file name and
  * are moved by exact name; managed mods move every version by their parsed modId.
  */
-const setDisabled = async (modId: string, disabled: boolean): Promise<ModListState> => {
+const setDisabled = async (modId: string, isDisabled: boolean): Promise<ModListState> => {
   const paths = await requireGamePaths();
   const store = createPackageModStore(paths);
   if (modId.toLowerCase().endsWith('.it')) {
-    await store.setDisabledByFileName(modId, disabled);
+    await store.setDisabledByFileName(modId, isDisabled);
   } else {
-    await store.setDisabled(modId, disabled);
+    await store.setDisabled(modId, isDisabled);
   }
   return resolveCurrentState(paths);
 };
@@ -249,10 +256,12 @@ const setDisabled = async (modId: string, disabled: boolean): Promise<ModListSta
  * this is a defensive guard: a request to enable is ignored (never persisted)
  * and the settings are left untouched.
  */
-const setShouldIncludePrereleases = async (value: boolean): Promise<ModListState> => {
+const setShouldIncludePrereleases = async (
+  shouldIncludePrereleases: boolean,
+): Promise<ModListState> => {
   if (isFeatureEnabled('prereleases')) {
     const settings = await loadSettings();
-    await saveSettings({ ...settings, shouldIncludePrereleases: value });
+    await saveSettings({ ...settings, shouldIncludePrereleases });
   }
   return resolveCurrentState(await requireGamePaths());
 };
@@ -277,8 +286,8 @@ export const registerIpcHandlers = (): void => {
 
   ipcMain.handle(IpcChannels.listForeignMods, () => getForeignMods());
 
-  ipcMain.handle(IpcChannels.completeModSetup, (_event, archive: boolean) =>
-    completeModSetup(archive),
+  ipcMain.handle(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
+    completeModSetup(shouldArchive),
   );
 
   ipcMain.handle(IpcChannels.refresh, () => refresh());
@@ -289,12 +298,14 @@ export const registerIpcHandlers = (): void => {
 
   ipcMain.handle(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId));
 
-  ipcMain.handle(IpcChannels.setDisabled, (_event, modId: string, disabled: boolean) =>
-    setDisabled(modId, disabled),
+  ipcMain.handle(IpcChannels.setDisabled, (_event, modId: string, isDisabled: boolean) =>
+    setDisabled(modId, isDisabled),
   );
 
-  ipcMain.handle(IpcChannels.setShouldIncludePrereleases, (_event, value: boolean) =>
-    setShouldIncludePrereleases(value),
+  ipcMain.handle(
+    IpcChannels.setShouldIncludePrereleases,
+    (_event, shouldIncludePrereleases: boolean) =>
+      setShouldIncludePrereleases(shouldIncludePrereleases),
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());
@@ -321,19 +332,19 @@ export const registerIpcHandlers = (): void => {
       : await dialog.showOpenDialog(dialogOptions);
 
     if (result.canceled || result.filePaths.length === 0) {
-      return { ok: false, canceled: true };
+      return { isOk: false, isCanceled: true };
     }
 
     const chosen = result.filePaths[0];
     const validation = await validateGameRoot(chosen);
-    if (!validation.ok) {
-      return { ok: false, error: validation.error };
+    if (!validation.isOk) {
+      return { isOk: false, error: validation.error };
     }
 
     // Reset the one-time mod-archive step so the newly chosen folder is
     // re-checked for pre-existing mods.
     const settings = await loadSettings();
-    await saveSettings({ ...settings, gameRootPath: chosen, modSetupCompleted: false });
-    return { ok: true, state: await computeSetupState() };
+    await saveSettings({ ...settings, gameRootPath: chosen, isModSetupCompleted: false });
+    return { isOk: true, state: await computeSetupState() };
   });
 };

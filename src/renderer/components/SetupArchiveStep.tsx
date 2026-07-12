@@ -22,7 +22,7 @@ const SetupArchiveStep: FC = () => {
   });
 
   const complete = useMutation({
-    mutationFn: (archive: boolean) => window.findias.completeModSetup(archive),
+    mutationFn: (shouldArchive: boolean) => window.findias.completeModSetup(shouldArchive),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },

@@ -52,7 +52,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const choose = useMutation<ChooseFolderResult>({
     mutationFn: () => window.findias.chooseGameFolder(),
     onSuccess: (result) => {
-      if (result.ok) {
+      if (result.isOk) {
         void queryClient.invalidateQueries({ queryKey: ['setupState'] });
         void queryClient.invalidateQueries({ queryKey: ['modList'] });
       }
@@ -60,7 +60,8 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   });
 
   const prerelease = useMutation({
-    mutationFn: (value: boolean) => window.findias.setShouldIncludePrereleases(value),
+    mutationFn: (shouldIncludePrereleases: boolean) =>
+      window.findias.setShouldIncludePrereleases(shouldIncludePrereleases),
     onSuccess: (state: ModListState) => {
       queryClient.setQueryData(['modList'], state);
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
@@ -69,13 +70,13 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   });
 
   /** Optimistically reflect the prerelease toggle, then persist it. */
-  const handlePrereleaseChange = (value: boolean): void => {
-    setShouldIncludePrereleases(value);
-    prerelease.mutate(value);
+  const handlePrereleaseChange = (shouldIncludePrereleases: boolean): void => {
+    setShouldIncludePrereleases(shouldIncludePrereleases);
+    prerelease.mutate(shouldIncludePrereleases);
   };
 
   const result = choose.data;
-  const validationError = result && !result.ok && !result.canceled ? result.error : undefined;
+  const validationError = result && !result.isOk && !result.isCanceled ? result.error : undefined;
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">

@@ -27,21 +27,21 @@ describe('validateGameRoot', () => {
   });
 
   it('rejects empty input', async () => {
-    expect((await validateGameRoot('')).ok).toBe(false);
+    expect((await validateGameRoot('')).isOk).toBe(false);
   });
 
   it('rejects a non-existent folder', async () => {
-    expect((await validateGameRoot(join(tmp, 'missing'))).ok).toBe(false);
+    expect((await validateGameRoot(join(tmp, 'missing'))).isOk).toBe(false);
   });
 
   it('rejects a folder without a package subfolder', async () => {
     const result = await validateGameRoot(tmp);
-    expect(result.ok).toBe(false);
+    expect(result.isOk).toBe(false);
     expect(result.error).toMatch(/package/i);
   });
 
   it('accepts a folder containing a package subfolder', async () => {
     await fs.mkdir(join(tmp, 'package'));
-    expect((await validateGameRoot(tmp)).ok).toBe(true);
+    expect((await validateGameRoot(tmp)).isOk).toBe(true);
   });
 });

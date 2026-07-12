@@ -24,7 +24,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: 'D:/Nexon/mabinogi/appdata' })).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: false,
-      modSetupCompleted: false,
+      isModSetupCompleted: false,
     });
   });
 
@@ -32,7 +32,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
-      modSetupCompleted: false,
+      isModSetupCompleted: false,
     });
   });
 
@@ -40,15 +40,15 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null, shouldIncludePrereleases: true })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: true,
-      modSetupCompleted: false,
+      isModSetupCompleted: false,
     });
   });
 
-  it('reads an explicit modSetupCompleted value', () => {
-    expect(parseSettings({ gameRootPath: null, modSetupCompleted: true })).toEqual({
+  it('reads an explicit isModSetupCompleted value', () => {
+    expect(parseSettings({ gameRootPath: null, isModSetupCompleted: true })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
-      modSetupCompleted: true,
+      isModSetupCompleted: true,
     });
   });
 
@@ -94,12 +94,12 @@ describe('loadSettings / saveSettings', () => {
     await saveSettings({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
-      modSetupCompleted: true,
+      isModSetupCompleted: true,
     });
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
-      modSetupCompleted: true,
+      isModSetupCompleted: true,
     });
   });
 
@@ -108,7 +108,7 @@ describe('loadSettings / saveSettings', () => {
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/x',
       shouldIncludePrereleases: false,
-      modSetupCompleted: false,
+      isModSetupCompleted: false,
     });
   });
 

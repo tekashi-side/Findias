@@ -20,14 +20,14 @@ const SetupFolderStep: FC = () => {
   const choose = useMutation<ChooseFolderResult>({
     mutationFn: () => window.findias.chooseGameFolder(),
     onSuccess: (result) => {
-      if (result.ok) {
+      if (result.isOk) {
         void queryClient.invalidateQueries({ queryKey: ['setupState'] });
       }
     },
   });
 
   const result = choose.data;
-  const validationError = result && !result.ok && !result.canceled ? result.error : undefined;
+  const validationError = result && !result.isOk && !result.isCanceled ? result.error : undefined;
 
   return (
     <div className="flex h-full items-center justify-center px-4 py-8">

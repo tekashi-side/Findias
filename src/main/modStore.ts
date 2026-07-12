@@ -27,13 +27,13 @@ export interface ModStore {
    * Disabling lazily creates the `disabled` folder; enabling moves files back to
    * the root. The `disabled` folder itself is never deleted.
    */
-  setDisabled(modId: string, disabled: boolean): Promise<void>;
+  setDisabled(modId: string, isDisabled: boolean): Promise<void>;
   /**
    * Move a single foreign (non-managed) mod between the package root and
    * `package/disabled` by its exact file name. Official game files
    * (`data_*.it`) are refused as a safety guard.
    */
-  setDisabledByFileName(fileName: string, disabled: boolean): Promise<void>;
+  setDisabledByFileName(fileName: string, isDisabled: boolean): Promise<void>;
 }
 
 /** Delete managed files for a modId within a single directory. */
@@ -108,8 +108,8 @@ export const createPackageModStore = (paths: GamePaths): ModStore => {
       ]);
     },
 
-    setDisabled: async (modId: string, disabled: boolean): Promise<void> => {
-      if (disabled) {
+    setDisabled: async (modId: string, isDisabled: boolean): Promise<void> => {
+      if (isDisabled) {
         // Lazily create the disabled folder on first use; never removed later.
         await fs.mkdir(paths.disabledDir, { recursive: true });
         await moveManaged(paths.packageDir, paths.disabledDir, modId);
@@ -118,10 +118,10 @@ export const createPackageModStore = (paths: GamePaths): ModStore => {
       }
     },
 
-    setDisabledByFileName: async (fileName: string, disabled: boolean): Promise<void> => {
+    setDisabledByFileName: async (fileName: string, isDisabled: boolean): Promise<void> => {
       // Never move official game data files, even if asked to.
       if (isOfficialGameFile(fileName)) return;
-      if (disabled) {
+      if (isDisabled) {
         // Lazily create the disabled folder on first use; never removed later.
         await fs.mkdir(paths.disabledDir, { recursive: true });
         await moveByFileName(paths.packageDir, paths.disabledDir, fileName);
