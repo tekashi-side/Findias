@@ -15,8 +15,8 @@ export type ModTab = 'all' | 'installed' | 'updates' | 'disabled' | 'orphaned';
 
 /** Maps each non-"all" tab to the variants that belong to it, derived from `state`. */
 const TAB_VARIANT_MATCH: Record<Exclude<ModTab, 'all'>, (variant: ModVariantRow) => boolean> = {
-  // Any catalog-known mod present on disk (enabled or disabled); orphans excluded.
-  installed: (v) => v.state.isInCatalog && v.state.presence !== 'absent',
+  // Any mod present on disk (enabled or disabled), including orphans.
+  installed: (v) => v.state.presence !== 'absent',
   // An update is available regardless of enabled/disabled or conflict-pruned actions.
   updates: (v) => v.state.isUpdateAvailable,
   // Any disabled mod, catalog-known or orphan.
