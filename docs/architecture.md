@@ -737,6 +737,17 @@ metadata never influences it):
 | —              | enabled             | —                    | **Orphan** (installed, not in catalog) → _Disable_ + _Delete_ |
 | —              | —                   | disabled             | **Orphan** (installed, not in catalog) → _Enable_ + _Delete_  |
 
+**State vs. display label.** The canonical per-variant field is an orthogonal
+`ModState` — `{ isInCatalog, presence: 'absent' | 'enabled' | 'disabled', isUpdateAvailable }` —
+and is the single source of truth for both filtering and display. The **Status**
+labels above (and the status chip) are a presentational projection derived from it
+via `toDisplayStatus(state)`; they are **never stored**. Filtering (e.g. the mod-list
+tabs) reads `state` directly rather than inferring from the available `actions`,
+which keeps categorization independent of action-pruning: a stale mod still reports
+`isUpdateAvailable` even when a conflict strips its _Update_ action. (Because
+`presence !== 'absent'` is the whole test for "installed", orphans — which are always
+on disk — count as installed too.)
+
 **Conflict detection (enabled-only).** Because the game loads only the `package`
 root, only **enabled** mods can truly conflict. The resolver builds a
 `usedFile → enabled-mod` index from enabled, catalog-known installs. For each
@@ -754,13 +765,13 @@ next resolve.
 banner-only flag, `metadata.outdated = supportedGameVersion !== currentGameVersion`.
 It drives **only** the top-of-app banner and the conditional display of each
 variant's `updateType` (`stable`/`volatile`); it is never read into any variant's
-`status`. A variant's `update-available` remains strictly version-number based.
+`state`. A variant's `isUpdateAvailable` remains strictly version-number based.
 
 The resulting `ModListState` is `{ groups, catalog, metadata }`. Each
 `ModGroupRow` carries `groupId`, group `name`, `tags`, `hasVariants`,
 `mutuallyExclusive`, `installedVariantId`, and its `variants`; each
 `ModVariantRow` carries display name, versions, size, `fileName`, `updateType`,
-`tags`, `status`, `actions`, and `conflicts`.
+`tags`, `state`, `actions`, and `conflicts`.
 
 ## Core flows
 
@@ -884,18 +895,18 @@ interface AppState {
 
 ## Module responsibilities (main process)
 
-| Module                    | Implements              | Responsibility                                                                                                                                                                    |
-| ------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SettingsStore`           | —                       | Load/save the JSON settings file in `userData`.                                                                                                                                   |
-| `GameLocation`            | —                       | Validate a chosen folder; resolve `package` and `package/disabled` paths.                                                                                                         |
-| `ManifestCatalogProvider` | `ModCatalogProvider`    | Select newest eligible release (via `githubReleases.ts`), download + leniently validate its `manifestCatalog.json`, return normalized grouped `Catalog`. Swappable (source-tree). |
-| `PackageFolderProvider`   | `InstalledModsProvider` | List/parse managed `.it` files (root + `package/disabled`); return `InstalledMod[]`. Swappable (`installedMods.json`).                                                            |
-| `ModStore`                | — (invariant)           | Physical disk ops: write/delete/move `.it` files in `package` and `package/disabled`.                                                                                             |
-| `ModResolver`             | —                       | Merge grouped catalog + installed into `ModListState` (group/variant rows, status, actions, enabled-only conflicts, banner freshness). Depends only on the normalized interfaces. |
-| `Downloader`              | —                       | Stream a source's bytes to a temp file with progress + atomic rename.                                                                                                             |
-| `ModInstaller`            | —                       | Orchestrate install / update(replace) / delete / disable via the providers + `ModStore`.                                                                                          |
-| `Updater`                 | —                       | electron-updater wrapper: check the Findias releases feed, surface update events over IPC.                                                                                        |
-| `ipc`                     | —                       | Register `ipcMain.handle` endpoints; emit progress + update events; return fresh state.                                                                                           |
+| Module                    | Implements              | Responsibility                                                                                                                                                                                |
+| ------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SettingsStore`           | —                       | Load/save the JSON settings file in `userData`.                                                                                                                                               |
+| `GameLocation`            | —                       | Validate a chosen folder; resolve `package` and `package/disabled` paths.                                                                                                                     |
+| `ManifestCatalogProvider` | `ModCatalogProvider`    | Select newest eligible release (via `githubReleases.ts`), download + leniently validate its `manifestCatalog.json`, return normalized grouped `Catalog`. Swappable (source-tree).             |
+| `PackageFolderProvider`   | `InstalledModsProvider` | List/parse managed `.it` files (root + `package/disabled`); return `InstalledMod[]`. Swappable (`installedMods.json`).                                                                        |
+| `ModStore`                | — (invariant)           | Physical disk ops: write/delete/move `.it` files in `package` and `package/disabled`.                                                                                                         |
+| `ModResolver`             | —                       | Merge grouped catalog + installed into `ModListState` (group/variant rows, orthogonal `state`, actions, enabled-only conflicts, banner freshness). Depends only on the normalized interfaces. |
+| `Downloader`              | —                       | Stream a source's bytes to a temp file with progress + atomic rename.                                                                                                                         |
+| `ModInstaller`            | —                       | Orchestrate install / update(replace) / delete / disable via the providers + `ModStore`.                                                                                                      |
+| `Updater`                 | —                       | electron-updater wrapper: check the Findias releases feed, surface update events over IPC.                                                                                                    |
+| `ipc`                     | —                       | Register `ipcMain.handle` endpoints; emit progress + update events; return fresh state.                                                                                                       |
 
 ## Out of scope (technical)
 
