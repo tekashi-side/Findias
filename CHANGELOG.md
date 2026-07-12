@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/tekashi-side/Findias/compare/v1.10.0...v1.11.0) (2026-07-12)
+
+
+### Features
+
+* refactoring all property names for boolean coding conventions ([ece8410](https://github.com/tekashi-side/Findias/commit/ece841023eaac18bf66ff250b03db921cbca0958))
+
 ## [1.10.0](https://github.com/tekashi-side/Findias/compare/v1.9.0...v1.10.0) (2026-07-12)
 
 
