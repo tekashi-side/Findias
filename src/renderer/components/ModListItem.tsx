@@ -1,12 +1,12 @@
 import type { FC } from 'react';
-import { Info, Trash2 } from 'lucide-react';
+import { Info } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
 import { formatBytes } from '../format';
 import StatusChip from './StatusChip';
+import ModActions from './ModActions';
+import ModProgressBar from './ModProgressBar';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Item,
@@ -16,17 +16,6 @@ import {
   ItemFooter,
   ItemTitle,
 } from '@/components/ui/item';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 type ModListItemProps = {
@@ -44,23 +33,6 @@ type ModListItemProps = {
   isSelected?: boolean;
   /** Select this row to open it in the detail pane. */
   onSelect?: (modId: string) => void;
-};
-
-const ACTION_LABEL: Record<ModAction, string> = {
-  install: 'Install',
-  update: 'Update Available',
-  enable: 'Enable',
-  disable: 'Disable',
-  delete: 'Delete',
-};
-
-type ButtonVariant = 'default' | 'outline' | 'destructive';
-
-/** Map a mod action to the shadcn button variant that conveys its intent. */
-const actionVariant = (action: ModAction): ButtonVariant => {
-  if (action === 'delete') return 'destructive';
-  if (action === 'install' || action === 'update' || action === 'enable') return 'default';
-  return 'outline';
 };
 
 /** Build the one-line "release vX • installed vY • size" summary for a variant. */
@@ -90,10 +62,6 @@ const ModListItem: FC<ModListItemProps> = ({
   onSelect,
 }) => {
   const isDisabled = isBusy || isLocked;
-  const percent =
-    progress && progress.totalBytes
-      ? Math.min(100, Math.round((progress.receivedBytes / progress.totalBytes) * 100))
-      : null;
 
   const shouldShowUpdateType = isOutdated && variant.updateType !== null;
 
@@ -168,60 +136,12 @@ const ModListItem: FC<ModListItemProps> = ({
       </ItemContent>
 
       <ItemActions onClick={(e) => e.stopPropagation()}>
-        {variant.actions.map((action) =>
-          action === 'delete' ? (
-            <AlertDialog key={action}>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="icon-sm"
-                  variant="destructive"
-                  disabled={isDisabled}
-                  aria-label={ACTION_LABEL[action]}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete {variant.name}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This removes the mod file from your package folder. You can reinstall it later.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    onClick={() => onAction('delete', variant.modId)}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : (
-            <Button
-              key={action}
-              size="sm"
-              variant={actionVariant(action)}
-              disabled={isDisabled}
-              onClick={() => onAction(action, variant.modId)}
-            >
-              {ACTION_LABEL[action]}
-            </Button>
-          ),
-        )}
+        <ModActions variant={variant} isDisabled={isDisabled} onAction={onAction} />
       </ItemActions>
 
       {isBusy && (
         <ItemFooter>
-          {percent === null ? (
-            <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-full animate-pulse rounded-full bg-primary/60" />
-            </div>
-          ) : (
-            <Progress value={percent} />
-          )}
+          <ModProgressBar progress={progress} />
         </ItemFooter>
       )}
     </Item>
