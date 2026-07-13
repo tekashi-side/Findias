@@ -111,7 +111,7 @@ const ModListItem: FC<ModListItemProps> = ({
       <ItemContent>
         <ItemTitle className="flex-wrap break-words">
           <span className="break-words">{variant.name}</span>
-          <StatusChip state={variant.state} visibility="list" />
+          <StatusChip state={variant.state} />
         </ItemTitle>
 
         {((shouldShowUpdateType && variant.updateType) || (tags && tags.length > 0)) && (
