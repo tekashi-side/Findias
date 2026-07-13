@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu, type WebContents } from 'electron';
+import { buildAppMenu } from './appMenu';
 import { registerIpcHandlers } from './ipc';
 import { initUpdater } from './updater';
 import { openExternalUrl } from './openExternal';
@@ -30,6 +31,15 @@ if (!app.isPackaged) {
   app.setPath('userData', join(app.getPath('appData'), 'findias-dev'));
 }
 
+/** Block Ctrl/Cmd+wheel page zoom; keyboard zoom is omitted from the app menu. */
+const blockCtrlWheelZoom = (webContents: WebContents): void => {
+  webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseWheel' && (input.control || input.meta)) {
+      event.preventDefault();
+    }
+  });
+};
+
 const createWindow = (): void => {
   const window = new BrowserWindow({
     // width: 1600,
@@ -42,10 +52,10 @@ const createWindow = (): void => {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
+    // Frameless: no native menu bar (autoHideMenuBar would be a no-op).
     frame: false,
     center: true,
     show: false,
-    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -55,6 +65,8 @@ const createWindow = (): void => {
   });
 
   window.on('ready-to-show', () => window.show());
+
+  blockCtrlWheelZoom(window.webContents);
 
   // Open external links in the user's browser, never inside the app window.
   // Both guards funnel through `openExternalUrl`, so only http(s) targets open.
@@ -80,6 +92,7 @@ const createWindow = (): void => {
 };
 
 void app.whenReady().then(() => {
+  Menu.setApplicationMenu(buildAppMenu());
   registerIpcHandlers();
   createWindow();
 
