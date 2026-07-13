@@ -3,19 +3,23 @@ import { ChevronDown } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModGroupRow } from '@shared/modList';
 import ModListItem from './ModListItem';
+import ModActions from './ModActions';
+import ModProgressBar from './ModProgressBar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Item,
   ItemActions,
   ItemContent,
   ItemDescription,
+  ItemFooter,
   ItemGroup,
   ItemTitle,
 } from '@/components/ui/item';
 import { cn } from '@/lib/utils';
 
-type VariantGroupItemProps = {
+type ModListVariantGroupItemProps = {
   group: ModGroupRow;
   busyModId?: string;
   progressByMod: Record<string, DownloadProgress>;
@@ -31,12 +35,13 @@ type VariantGroupItemProps = {
 
 /**
  * A mutually-exclusive variant group rendered as a collapsible {@link Item}: the
- * header (name + tags, no action buttons) toggles an expandable list of variant
- * rows. Collapsed by default so groups stay compact. Only one variant may be
- * installed at a time; installing another auto-switches. The header has no
- * buttons because all actions belong to the individual variants.
+ * header toggles an expandable list of variant rows. Collapsed by default so
+ * groups stay compact. Only one variant may be installed at a time; installing
+ * another auto-switches. When a variant is installed, the header surfaces that
+ * variant's actions (update/enable/disable/delete) so the user can act without
+ * expanding; install is never offered here since we can't know which variant.
  */
-const VariantGroupItem: FC<VariantGroupItemProps> = ({
+const ModListVariantGroupItem: FC<ModListVariantGroupItemProps> = ({
   group,
   busyModId,
   progressByMod,
@@ -46,11 +51,13 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
   selectedModId,
   onSelect,
 }) => {
-  const [open, setOpen] = useState(false);
-  const installed = group.variants.find((variant) => variant.modId === group.installedVariantId);
+  const [isOpen, setIsOpen] = useState(false);
+  const installedMod = group.variants.find((variant) => variant.modId === group.installedVariantId);
+  const isBusy = installedMod?.modId === busyModId;
+  const isDisabled = isBusy || isLocked;
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <CollapsibleTrigger asChild>
         <Item variant="outline" className="items-start select-none">
           <ItemContent>
@@ -72,15 +79,27 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
             )}
 
             <ItemDescription>
-              {installed ? `Installed: ${installed.name}` : 'Pick one variant to install'}
+              {installedMod ? `Installed: ${installedMod.name}` : 'Pick one variant to install'}
             </ItemDescription>
           </ItemContent>
 
           <ItemActions>
-            <ChevronDown
-              className={cn('size-4 transition-transform duration-200', open && 'rotate-180')}
-            />
+            {installedMod && (
+              <ModActions variant={installedMod} isDisabled={isDisabled} onAction={onAction} />
+            )}
+            <Button variant="outline" size="icon-sm" aria-label="Toggle variants" tabIndex={-1}>
+              <ChevronDown
+                className={cn('size-4 transition-transform duration-200', isOpen && 'rotate-180')}
+              />
+            </Button>
           </ItemActions>
+
+          {/* Only when collapsed: an expanded group's child row shows its own bar. */}
+          {installedMod && isBusy && !isOpen && (
+            <ItemFooter>
+              <ModProgressBar progress={progressByMod[installedMod.modId]} />
+            </ItemFooter>
+          )}
         </Item>
       </CollapsibleTrigger>
 
@@ -105,4 +124,4 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
   );
 };
 
-export default VariantGroupItem;
+export default ModListVariantGroupItem;
