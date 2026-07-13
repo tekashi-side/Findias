@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModGroupRow } from '@shared/modList';
 import ModListItem from './ModListItem';
-import VariantGroupItem from './VariantGroupItem';
+import ModListVariantGroupItem from './ModListVariantGroupItem';
 import { ItemGroup } from '@/components/ui/item';
 
 type ModListProps = {
@@ -34,7 +34,7 @@ const ModList: FC<ModListProps> = ({
     <ItemGroup className="gap-2">
       {groups.map((group) =>
         group.hasVariants ? (
-          <VariantGroupItem
+          <ModListVariantGroupItem
             key={group.groupId}
             group={group}
             busyModId={busyModId}

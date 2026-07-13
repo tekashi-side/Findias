@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/item';
 import { cn } from '@/lib/utils';
 
-type VariantGroupItemProps = {
+type ModListVariantGroupItemProps = {
   group: ModGroupRow;
   busyModId?: string;
   progressByMod: Record<string, DownloadProgress>;
@@ -35,12 +35,13 @@ type VariantGroupItemProps = {
 
 /**
  * A mutually-exclusive variant group rendered as a collapsible {@link Item}: the
- * header (name + tags, no action buttons) toggles an expandable list of variant
- * rows. Collapsed by default so groups stay compact. Only one variant may be
- * installed at a time; installing another auto-switches. The header has no
- * buttons because all actions belong to the individual variants.
+ * header toggles an expandable list of variant rows. Collapsed by default so
+ * groups stay compact. Only one variant may be installed at a time; installing
+ * another auto-switches. When a variant is installed, the header surfaces that
+ * variant's actions (update/enable/disable/delete) so the user can act without
+ * expanding; install is never offered here since we can't know which variant.
  */
-const VariantGroupItem: FC<VariantGroupItemProps> = ({
+const ModListVariantGroupItem: FC<ModListVariantGroupItemProps> = ({
   group,
   busyModId,
   progressByMod,
@@ -123,4 +124,4 @@ const VariantGroupItem: FC<VariantGroupItemProps> = ({
   );
 };
 
-export default VariantGroupItem;
+export default ModListVariantGroupItem;
