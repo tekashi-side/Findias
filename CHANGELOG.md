@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.12.0](https://github.com/tekashi-side/Findias/compare/v1.11.0...v1.12.0) (2026-07-13)
+
+
+### Features
+
+* allowing mod controls from variant headers ([032c2d7](https://github.com/tekashi-side/Findias/commit/032c2d727e90b1f7a62ada0f1c353ecc24c79e8a))
+* creating custom app menu, disabling zoom functionality ([2960e32](https://github.com/tekashi-side/Findias/commit/2960e324c95464165b6343850dd00e7430fa8781))
+* simplifying status chip ([73e66b6](https://github.com/tekashi-side/Findias/commit/73e66b628a4a403641889ba706273ac5130cc97a))
+
 ## [1.11.0](https://github.com/tekashi-side/Findias/compare/v1.10.0...v1.11.0) (2026-07-12)
 
 
