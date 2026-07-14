@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/tekashi-side/Findias/compare/v1.12.0...v1.13.0) (2026-07-14)
+
+
+### Features
+
+* adding conventional commit linting ([589fb16](https://github.com/tekashi-side/Findias/commit/589fb1675bf85d157d06a0a09d8db3937bc4682d))
+
+
+### Fixes
+
+* preventing release-please PR from failing ([5d9af2e](https://github.com/tekashi-side/Findias/commit/5d9af2ed7db2bdace107b6250c131f4d4c38973e))
+
 ## [1.12.0](https://github.com/tekashi-side/Findias/compare/v1.11.0...v1.12.0) (2026-07-13)
 
 
