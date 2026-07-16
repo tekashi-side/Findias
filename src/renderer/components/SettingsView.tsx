@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ChooseFolderResult, SetupState } from '@shared/api';
@@ -17,7 +17,6 @@ import {
   ItemTitle,
 } from '@/components/ui/item';
 import { Switch } from '@/components/ui/switch';
-import { Toaster } from '@/components/ui/sonner';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type SettingsViewProps = {
@@ -40,6 +39,10 @@ const errorMessage = (error: unknown): string =>
 const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
+  const { data: appInfo } = useQuery({
+    queryKey: ['appInfo'],
+    queryFn: () => window.findias.getAppInfo(),
+  });
   const isPrereleasesEnabled = useFeatureFlag('prereleases');
   const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
     setup.shouldIncludePrereleases,
@@ -163,7 +166,9 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
           </Item>
         )}
       </ItemGroup>
-      <Toaster />
+      <p className="mt-auto text-center text-xs text-muted-foreground">
+        Findias v{appInfo?.appVersion ?? '…'}
+      </p>
     </div>
   );
 };
