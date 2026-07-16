@@ -79,7 +79,7 @@ const ModTabs: FC<ModTabsProps> = ({ value, onValueChange, groups }) => {
       onValueChange={(next) => {
         if (isModTab(next)) onValueChange(next);
       }}
-      className="shrink-0"
+      className="shrink-0 grow"
     >
       <TabsList className="w-full">
         {TAB_ITEMS.map((item) => {

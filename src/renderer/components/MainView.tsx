@@ -7,6 +7,7 @@ import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
 import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
+import TagFilter from './TagFilter';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -37,6 +38,7 @@ const MainView: FC = () => {
   const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ModTab>('all');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
@@ -158,16 +160,27 @@ const MainView: FC = () => {
     }
   };
 
+  // Every tag present across the catalog, deduped and sorted, for the tag filter.
+  const allTags = useMemo(
+    () => [...new Set(groups.flatMap((g) => g.tags))].sort((a, b) => a.localeCompare(b)),
+    [groups],
+  );
+
   const filteredGroups = useMemo(() => {
     const byTab = groups.filter((g) => groupMatchesTab(g, tab));
+    // Logical-OR: keep groups carrying at least one of the selected tags.
+    const byTags =
+      selectedTags.length === 0
+        ? byTab
+        : byTab.filter((g) => selectedTags.some((tag) => g.tags.includes(tag)));
     const q = deferredSearch.trim().toLowerCase();
-    if (!q) return byTab;
-    return byTab.filter(
+    if (!q) return byTags;
+    return byTags.filter(
       (g) =>
         g.name.toLowerCase().includes(q) ||
         g.variants.some((v) => v.name.toLowerCase().includes(q)),
     );
-  }, [groups, deferredSearch, tab]);
+  }, [groups, deferredSearch, tab, selectedTags]);
 
   // Resolve the selected variant + its group from the full (unfiltered) list, so
   // the detail pane survives search/tab changes that hide the row.
@@ -239,7 +252,10 @@ const MainView: FC = () => {
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <ModTabs value={tab} onValueChange={setTab} groups={groups} />
+          <div className="flex shrink-0 items-center gap-2">
+            <ModTabs value={tab} onValueChange={setTab} groups={groups} />
+            <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
+          </div>
 
           {isLoading && (
             <div className="flex shrink-0 justify-center py-12">
