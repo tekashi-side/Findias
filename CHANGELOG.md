@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.0](https://github.com/tekashi-side/Findias/compare/v1.13.0...v1.14.0) (2026-07-16)
+
+
+### Features
+
+* add tag filtering functionality to mod list ([959029d](https://github.com/tekashi-side/Findias/commit/959029d01a4f20478265ab7034f7c653bc31700b))
+* display app version in settings view ([9b0b05a](https://github.com/tekashi-side/Findias/commit/9b0b05a23fd3d7b87c3363d5ae3075b39741df76))
+
+
+### Fixes
+
+* ensure safe archival of foreign mods by validating catalog availability ([f033ab7](https://github.com/tekashi-side/Findias/commit/f033ab72f54ab46726c7ad332c45a765de1cc948))
+
 ## [1.13.0](https://github.com/tekashi-side/Findias/compare/v1.12.0...v1.13.0) (2026-07-14)
 
 
