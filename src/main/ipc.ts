@@ -59,10 +59,10 @@ export const arePrereleasesEligible = async (): Promise<boolean> => {
 
 /**
  * The set of modIds in the current catalog, or null when the catalog can't be
- * fetched. Null means "can't verify", so the archive step treats every
- * pre-existing non-official mod as an orphan (consistent with resolveModList's
- * offline behavior). Uses the shared cached provider, so this warms the cache
- * for the mod-list refresh that follows setup.
+ * fetched. Null means "can't verify": the archive step fails closed on null (it
+ * never prompts or archives without a catalog, since it can't tell orphans from
+ * legitimate catalog mods). Uses the shared cached provider, so this warms the
+ * cache for the mod-list refresh that follows setup.
  */
 const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
   try {
@@ -94,8 +94,12 @@ const computeSetupState = async (): Promise<SetupState> => {
   if (isOk && !isModSetupCompleted) {
     const paths = resolveGamePaths(gameRootPath);
     const hasAnyForeignMod = await hasForeignMods(paths, null);
-    shouldShowModArchive =
-      hasAnyForeignMod && (await hasForeignMods(paths, await resolveCatalogModIds()));
+    if (hasAnyForeignMod) {
+      const knownModIds = await resolveCatalogModIds();
+      // Fail closed: never prompt archival against an unavailable catalog, or we
+      // would flag legitimate catalog mods as orphans.
+      shouldShowModArchive = knownModIds !== null && (await hasForeignMods(paths, knownModIds));
+    }
   }
   return { gameRootPath, isValid: isOk, shouldIncludePrereleases, shouldShowModArchive };
 };
@@ -227,7 +231,10 @@ const getForeignMods = async (): Promise<ForeignMod[]> =>
  */
 const completeModSetup = async (shouldArchive: boolean): Promise<SetupState> => {
   if (shouldArchive) {
-    await archiveForeignMods(await requireGamePaths(), await resolveCatalogModIds());
+    // Fail closed: without a catalog we can't tell orphans from legitimate mods,
+    // so archive nothing rather than risk moving catalog mods.
+    const knownModIds = await resolveCatalogModIds();
+    if (knownModIds) await archiveForeignMods(await requireGamePaths(), knownModIds);
   }
   const settings = await loadSettings();
   await saveSettings({ ...settings, isModSetupCompleted: true });
