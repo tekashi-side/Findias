@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.15.0](https://github.com/tekashi-side/Findias/compare/v1.14.0...v1.15.0) (2026-07-17)
+
+
+### Features
+
+* implement centralized error handling for IPC handlers and update telemetry error reporting ([8949532](https://github.com/tekashi-side/Findias/commit/89495326b39f89cb6afb7b7455d9c1ed80567490))
+* integrate Sentry for error reporting and telemetry ([d526136](https://github.com/tekashi-side/Findias/commit/d52613600aabee53c5c092c97dbb0fc0c08336c0))
+
+
+### Fixes
+
+* refine error reporting in IPC handlers to skip expected CatalogErrors ([b988855](https://github.com/tekashi-side/Findias/commit/b988855a5ff3be7c9a5ae957af75f685abad15b1))
+
 ## [1.14.0](https://github.com/tekashi-side/Findias/compare/v1.13.0...v1.14.0) (2026-07-16)
 
 
