@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/item';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { reportError } from '@/telemetry';
 
 type SettingsViewProps = {
   setup: SetupState;
@@ -78,7 +77,6 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },
     onError: (e) => {
-      reportError(e, { tags: { operation: 'setPrereleases' } });
       toast.error(errorMessage(e));
     },
   });
@@ -95,7 +93,6 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },
     onError: (e) => {
-      reportError(e, { tags: { operation: 'setErrorReporting' } });
       toast.error(errorMessage(e));
     },
   });

@@ -288,13 +288,32 @@ const setShouldIncludePrereleases = async (
   return resolveCurrentState(await requireGamePaths());
 };
 
+/**
+ * Register an invoke handler that reports any error it throws to Sentry (with
+ * full fidelity, before IPC serialization loses the class/cause) and rethrows so
+ * the renderer still gets it for the toast. Covers current and future handlers.
+ */
+const handleInvoke = <Args extends unknown[], Result>(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: Args) => Result | Promise<Result>,
+): void => {
+  ipcMain.handle(channel, async (event, ...args: Args) => {
+    try {
+      return await handler(event, ...args);
+    } catch (error) {
+      reportError(error, { tags: { channel }, extra: { args } });
+      throw error;
+    }
+  });
+};
+
 export const registerIpcHandlers = (): void => {
   // Synchronous so the preload can resolve the flags as a constant at load time.
   ipcMain.on(IpcChannels.getFeatureFlags, (event) => {
     event.returnValue = getFeatureFlags();
   });
 
-  ipcMain.handle(
+  handleInvoke(
     IpcChannels.getAppInfo,
     (): AppInfo => ({
       appVersion: app.getVersion(),
@@ -304,33 +323,33 @@ export const registerIpcHandlers = (): void => {
     }),
   );
 
-  ipcMain.handle(IpcChannels.getSetupState, () => computeSetupState());
+  handleInvoke(IpcChannels.getSetupState, () => computeSetupState());
 
-  ipcMain.handle(IpcChannels.listForeignMods, () => getForeignMods());
+  handleInvoke(IpcChannels.listForeignMods, () => getForeignMods());
 
-  ipcMain.handle(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
+  handleInvoke(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
     completeModSetup(shouldArchive),
   );
 
-  ipcMain.handle(IpcChannels.refresh, () => refresh());
+  handleInvoke(IpcChannels.refresh, () => refresh());
 
-  ipcMain.handle(IpcChannels.installOrUpdate, (event, modId: string) =>
+  handleInvoke(IpcChannels.installOrUpdate, (event, modId: string) =>
     installOrUpdate(event, modId),
   );
 
-  ipcMain.handle(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId));
+  handleInvoke(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId));
 
-  ipcMain.handle(IpcChannels.setDisabled, (_event, modId: string, isDisabled: boolean) =>
+  handleInvoke(IpcChannels.setDisabled, (_event, modId: string, isDisabled: boolean) =>
     setDisabled(modId, isDisabled),
   );
 
-  ipcMain.handle(
+  handleInvoke(
     IpcChannels.setShouldIncludePrereleases,
     (_event, shouldIncludePrereleases: boolean) =>
       setShouldIncludePrereleases(shouldIncludePrereleases),
   );
 
-  ipcMain.handle(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
+  handleInvoke(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
     setErrorReportingEnabled(isEnabled),
   );
 
@@ -346,7 +365,7 @@ export const registerIpcHandlers = (): void => {
     BrowserWindow.fromWebContents(event.sender)?.close(),
   );
 
-  ipcMain.handle(IpcChannels.chooseGameFolder, async (event): Promise<ChooseFolderResult> => {
+  handleInvoke(IpcChannels.chooseGameFolder, async (event): Promise<ChooseFolderResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     const dialogOptions = {
       title: 'Select your Mabinogi game folder (appdata)',

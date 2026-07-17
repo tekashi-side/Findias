@@ -20,7 +20,6 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import { reportError } from '@/telemetry';
 
 const MOD_LIST_KEY = ['modList'] as const;
 
@@ -75,8 +74,7 @@ const MainView: FC = () => {
   const install = useMutation({
     mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
     onSuccess: seedModList,
-    onError: (e, modId) => {
-      reportError(e, { tags: { operation: 'install', modId } });
+    onError: (e) => {
       // During "Update All" the batch aggregates failures into one summary toast.
       if (!isUpdatingAllRef.current) toast.error(errorMessage(e));
     },
@@ -86,8 +84,7 @@ const MainView: FC = () => {
   const remove = useMutation({
     mutationFn: (modId: string) => window.findias.deleteMod(modId),
     onSuccess: seedModList,
-    onError: (e, modId) => {
-      reportError(e, { tags: { operation: 'delete', modId } });
+    onError: (e) => {
       toast.error(errorMessage(e));
     },
   });
@@ -96,8 +93,7 @@ const MainView: FC = () => {
     mutationFn: ({ modId, isDisabled }: { modId: string; isDisabled: boolean }) =>
       window.findias.setDisabled(modId, isDisabled),
     onSuccess: seedModList,
-    onError: (e, variables) => {
-      reportError(e, { tags: { operation: 'toggle', modId: variables.modId } });
+    onError: (e) => {
       toast.error(errorMessage(e));
     },
   });
