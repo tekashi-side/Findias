@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/item';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { reportError } from '@/telemetry';
 
 type SettingsViewProps = {
   setup: SetupState;
@@ -47,10 +48,17 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
     setup.shouldIncludePrereleases,
   );
+  const [isErrorReportingEnabled, setIsErrorReportingEnabled] = useState(
+    setup.isErrorReportingEnabled,
+  );
 
   useEffect(() => {
     setShouldIncludePrereleases(setup.shouldIncludePrereleases);
   }, [setup.shouldIncludePrereleases]);
+
+  useEffect(() => {
+    setIsErrorReportingEnabled(setup.isErrorReportingEnabled);
+  }, [setup.isErrorReportingEnabled]);
 
   const choose = useMutation<ChooseFolderResult>({
     mutationFn: () => window.findias.chooseGameFolder(),
@@ -69,13 +77,33 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
       queryClient.setQueryData(['modList'], state);
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      reportError(e, { tags: { operation: 'setPrereleases' } });
+      toast.error(errorMessage(e));
+    },
   });
 
   /** Optimistically reflect the prerelease toggle, then persist it. */
   const handlePrereleaseChange = (shouldIncludePrereleases: boolean): void => {
     setShouldIncludePrereleases(shouldIncludePrereleases);
     prerelease.mutate(shouldIncludePrereleases);
+  };
+
+  const errorReporting = useMutation({
+    mutationFn: (isEnabled: boolean) => window.findias.setErrorReportingEnabled(isEnabled),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+    },
+    onError: (e) => {
+      reportError(e, { tags: { operation: 'setErrorReporting' } });
+      toast.error(errorMessage(e));
+    },
+  });
+
+  /** Optimistically reflect the error-reporting toggle, then persist it. */
+  const handleErrorReportingChange = (isEnabled: boolean): void => {
+    setIsErrorReportingEnabled(isEnabled);
+    errorReporting.mutate(isEnabled);
   };
 
   const result = choose.data;
@@ -165,6 +193,25 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
             </ItemActions>
           </Item>
         )}
+
+        <Item variant="outline" className="items-start">
+          <ItemContent>
+            <ItemTitle>Send anonymous error reports</ItemTitle>
+            <ItemDescription>
+              Automatically report crashes and errors to help fix bugs. Reports include diagnostic
+              details such as error messages and stack traces, but no personal data.
+            </ItemDescription>
+          </ItemContent>
+
+          <ItemActions>
+            <Switch
+              id="error-reporting"
+              checked={isErrorReportingEnabled}
+              onCheckedChange={handleErrorReportingChange}
+              disabled={errorReporting.isPending}
+            />
+          </ItemActions>
+        </Item>
       </ItemGroup>
       <p className="mt-auto text-center text-xs text-muted-foreground">
         Findias v{appInfo?.appVersion ?? '…'}

@@ -25,6 +25,7 @@ describe('parseSettings', () => {
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
     });
   });
 
@@ -33,6 +34,7 @@ describe('parseSettings', () => {
       gameRootPath: null,
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
     });
   });
 
@@ -41,6 +43,7 @@ describe('parseSettings', () => {
       gameRootPath: null,
       shouldIncludePrereleases: true,
       isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
     });
   });
 
@@ -49,6 +52,16 @@ describe('parseSettings', () => {
       gameRootPath: null,
       shouldIncludePrereleases: false,
       isModSetupCompleted: true,
+      isErrorReportingEnabled: true,
+    });
+  });
+
+  it('reads an explicit isErrorReportingEnabled value', () => {
+    expect(parseSettings({ gameRootPath: null, isErrorReportingEnabled: false })).toEqual({
+      gameRootPath: null,
+      shouldIncludePrereleases: false,
+      isModSetupCompleted: false,
+      isErrorReportingEnabled: false,
     });
   });
 
@@ -95,20 +108,23 @@ describe('loadSettings / saveSettings', () => {
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
       isModSetupCompleted: true,
+      isErrorReportingEnabled: false,
     });
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
       isModSetupCompleted: true,
+      isErrorReportingEnabled: false,
     });
   });
 
-  it('defaults shouldIncludePrereleases to false for an older file missing the field', async () => {
+  it('defaults new fields for an older file missing them', async () => {
     await fs.writeFile(settingsFile, JSON.stringify({ gameRootPath: 'D:/x' }), 'utf-8');
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/x',
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
     });
   });
 

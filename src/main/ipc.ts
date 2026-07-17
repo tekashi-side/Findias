@@ -22,6 +22,7 @@ import { createManifestCatalogProvider } from './providers/manifestCatalog';
 import { createLoggingFetch } from './providers/loggingFetch';
 import { createPackageFolderProvider } from './providers/packageFolder';
 import { openExternalUrl } from './openExternal';
+import { reportError, setErrorReportingEnabled } from './telemetry';
 
 /**
  * Resolve the dev network logger from `FINDIAS_LOG_NETWORK` (tri-state):
@@ -75,7 +76,7 @@ const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
 
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const { gameRootPath, isModSetupCompleted } = await loadSettings();
+  const { gameRootPath, isModSetupCompleted, isErrorReportingEnabled } = await loadSettings();
   const shouldIncludePrereleases = await arePrereleasesEligible();
   if (!gameRootPath) {
     return {
@@ -83,6 +84,7 @@ const computeSetupState = async (): Promise<SetupState> => {
       isValid: false,
       shouldIncludePrereleases,
       shouldShowModArchive: false,
+      isErrorReportingEnabled,
     };
   }
   const { isOk } = await validateGameRoot(gameRootPath);
@@ -101,7 +103,13 @@ const computeSetupState = async (): Promise<SetupState> => {
       shouldShowModArchive = knownModIds !== null && (await hasForeignMods(paths, knownModIds));
     }
   }
-  return { gameRootPath, isValid: isOk, shouldIncludePrereleases, shouldShowModArchive };
+  return {
+    gameRootPath,
+    isValid: isOk,
+    shouldIncludePrereleases,
+    shouldShowModArchive,
+    isErrorReportingEnabled,
+  };
 };
 
 /** Resolve the stored game paths, throwing a clear error if setup is invalid. */
@@ -138,6 +146,13 @@ const resolveCurrentState = async (
   } catch (error) {
     const message =
       error instanceof CatalogError ? error.message : 'Could not load the mod catalog.';
+    // Report catalog format failures (schema drift or a Findias bug — the thrown
+    // CatalogError carries the Zod error as its `cause`) and any truly unexpected
+    // error. Routine, user-recoverable failures (offline, rate-limited, no
+    // release) are expected and skipped so they don't burn the free-tier quota.
+    if (!(error instanceof CatalogError) || error.code === 'parse') {
+      reportError(error, { tags: { operation: 'resolveCatalog' } });
+    }
     const { groups, metadata } = resolveModList(null, installed);
     return { groups, catalog: { isAvailable: false, error: message }, metadata };
   }
@@ -313,6 +328,10 @@ export const registerIpcHandlers = (): void => {
     IpcChannels.setShouldIncludePrereleases,
     (_event, shouldIncludePrereleases: boolean) =>
       setShouldIncludePrereleases(shouldIncludePrereleases),
+  );
+
+  ipcMain.handle(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
+    setErrorReportingEnabled(isEnabled),
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());

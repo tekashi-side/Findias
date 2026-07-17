@@ -29,6 +29,8 @@ vi.mock('./featureFlags', () => ({
   isFeatureEnabled: isFeatureEnabledMock,
   getFeatureFlags: getFeatureFlagsMock,
 }));
+// telemetry pulls in @sentry/electron/main at import; stub it so ipc imports cleanly.
+vi.mock('./telemetry', () => ({ reportError: vi.fn(), setErrorReportingEnabled: vi.fn() }));
 
 import { arePrereleasesEligible, registerIpcHandlers } from './ipc';
 import { IpcChannels } from '../shared/api';
