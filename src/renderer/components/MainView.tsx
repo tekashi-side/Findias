@@ -84,18 +84,14 @@ const MainView: FC = () => {
   const remove = useMutation({
     mutationFn: (modId: string) => window.findias.deleteMod(modId),
     onSuccess: seedModList,
-    onError: (e) => {
-      toast.error(errorMessage(e));
-    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   const toggle = useMutation({
     mutationFn: ({ modId, isDisabled }: { modId: string; isDisabled: boolean }) =>
       window.findias.setDisabled(modId, isDisabled),
     onSuccess: seedModList,
-    onError: (e) => {
-      toast.error(errorMessage(e));
-    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   /** Dispatch a row's action to the matching mutation. */

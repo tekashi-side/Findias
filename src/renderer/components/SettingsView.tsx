@@ -76,9 +76,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
       queryClient.setQueryData(['modList'], state);
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },
-    onError: (e) => {
-      toast.error(errorMessage(e));
-    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   /** Optimistically reflect the prerelease toggle, then persist it. */
@@ -92,9 +90,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['setupState'] });
     },
-    onError: (e) => {
-      toast.error(errorMessage(e));
-    },
+    onError: (e) => toast.error(errorMessage(e)),
   });
 
   /** Optimistically reflect the error-reporting toggle, then persist it. */
