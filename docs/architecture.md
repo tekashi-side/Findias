@@ -43,6 +43,7 @@ These constraints drive every decision below:
 | Tests                | **Vitest**                                                 | Pairs with Vite (shares config/transform), fast, Jest-compatible API; used for unit tests of parsers, providers, resolver, and flows.                                                                                                                         |
 | Packaging            | **electron-builder** (dev-only dependency)                 | Produces a Windows installer / portable `.exe` to attach to the Findias Releases page.                                                                                                                                                                        |
 | App self-update      | **electron-updater** (GitHub provider)                     | Lets a running Findias check the `tekashi-side/Findias` releases feed and prompt the user to update — no manual re-download. See [App self-update](#app-self-update).                                                                                         |
+| Error reporting      | **Sentry** (`@sentry/electron`, `@sentry/vite-plugin`)     | Captures uncaught and manually reported errors across all three processes with source-mapped stack traces. Errors-only (no analytics/tracing/replay) to fit the free tier; opt-out. See [Error reporting](#error-reporting-telemetry).                        |
 
 > "No dependencies" applies to the **end user**. The build machine still uses
 > normal npm dev/runtime dependencies (Electron, Vite, React, Tailwind/shadcn, TanStack
@@ -140,6 +141,7 @@ export const settingsSchema = z.object({
   gameRootPath: z.string().nullable().catch(null),
   shouldIncludePrereleases: z.boolean().catch(false),
   isModSetupCompleted: z.boolean().catch(false),
+  isErrorReportingEnabled: z.boolean().catch(true), // opt-out; see Error reporting
 });
 export type Settings = z.infer<typeof settingsSchema>;
 ```
@@ -208,6 +210,88 @@ Notes and caveats:
   does not change the architecture.
 - Update checks hit the GitHub releases feed for `tekashi-side/Findias` — a
   separate, infrequent request from the Uiscias mod-catalog fetch.
+
+## Error reporting (telemetry)
+
+Findias reports crashes and errors to **Sentry** (`@sentry/electron`) so bugs
+surface without users having to file them by hand. It is deliberately
+**errors-only** — no product analytics, tracing, session replay, or logging — to
+stay within Sentry's free tier and to collect nothing beyond what a crash report
+needs.
+
+### What's captured
+
+- **Uncaught errors** in the main and renderer processes, plus unhandled promise
+  rejections, via the SDK's global handlers.
+- **React render crashes**, caught by a top-level `ErrorBoundary`
+  ([`src/renderer/components/ErrorBoundary.tsx`](../src/renderer/components/ErrorBoundary.tsx))
+  that reports the error (with the component stack) and shows a themed
+  "something went wrong — reload" fallback instead of a blank window.
+- **Failing IPC handlers**, captured centrally on the **main** side. Every
+  `ipcMain.handle` handler (install/update/delete/toggle, settings writes,
+  refresh, setup) is registered through a `handleInvoke` wrapper in
+  [`src/main/ipc.ts`](../src/main/ipc.ts) that reports any thrown error and then
+  rethrows it so the renderer still surfaces its toast. Capturing here — before
+  the error crosses IPC and is serialized down to a plain message — preserves the
+  original error class, `cause`, and native stack. Errors are **not** re-reported
+  from the renderer's mutation `onError` handlers, so there is no double-counting.
+- A small `reportError(error, { tags?, extra? })` helper exists in each process
+  ([`src/main/telemetry.ts`](../src/main/telemetry.ts),
+  [`src/renderer/telemetry.ts`](../src/renderer/telemetry.ts)) for manual capture
+  (the `ErrorBoundary` and the IPC wrapper use it).
+
+Expected, user-recoverable failures are filtered out so they don't burn quota:
+both the `handleInvoke` wrapper and the catalog resolve (`resolveCurrentState`)
+skip a `CatalogError` unless its code is `parse` (manifest schema drift, i.e. a
+real bug). Routine offline / rate-limited / HTTP / "no release yet" failures are
+`CatalogError`s and are already surfaced to the user via a toast or the catalog
+banner, so they are not sent. Quota beyond that is guarded by Sentry-side rate
+limiting and spike protection rather than more code-level classification.
+
+### Process model
+
+The **main** process owns the Sentry configuration (DSN, release, environment).
+The **renderer** SDK initializes with no options and forwards its events
+**through the main process**, giving a single ingestion path and a single place
+to gate reporting. Initialization runs as early as possible in each process — in
+the main process only **after** `app.setPath('userData', ...)`, because the SDK
+caches scope and offline events under `userData`.
+
+### Dev vs. production
+
+Sentry initializes in **packaged builds** always, and in development only when
+opted in with **`FINDIAS_SENTRY_DEV=1`** (the `npm run dev:log` script; a plain
+`npm run dev` sends nothing). Every event is tagged with an `environment` of
+`production` or `development`, so dev noise can be filtered from real user
+crashes in the Sentry UI.
+
+### Opt-out
+
+Reporting is **on by default** (opt-out), surfaced as a "Send anonymous error
+reports" toggle in Settings. The preference persists as `isErrorReportingEnabled`
+in the settings file and is mirrored into an in-memory flag the main process
+reads in Sentry's `beforeSend`, so toggling it takes effect **immediately,
+without a restart**. Because renderer events route through the main process, this
+one gate covers every process. The flag defaults to `true` for the brief window
+before settings finish loading, then is corrected from the persisted value at
+startup.
+
+### Source maps
+
+Production bundles are minified, so readable stack traces require source maps.
+`electron.vite.config.ts` emits **hidden** source maps for all three entry points
+and uploads them to Sentry during the **CI release build** via
+`@sentry/vite-plugin`. Upload is gated on a build-time auth token supplied as a
+**CI secret** (the target org/project are injected from secrets too, so the
+Sentry org identity never lands in the repo). The maps are **deleted after
+upload** and excluded from packaging (`!**/*.map` in the electron-builder
+`files`), so they never ship to users. The upload release name matches the SDK's
+runtime release (`findias@<version>`) so traces resolve.
+
+The **DSN** is committed as a constant in
+[`src/shared/sentry.ts`](../src/shared/sentry.ts). This is safe: a DSN is a
+write-only ingest key that exposes only numeric IDs and the ingest region — never
+the org slug or any credential.
 
 ## Feature flags
 
@@ -859,6 +943,8 @@ by Findias.
 interface Settings {
   gameRootPath: string | null; // the appdata folder
   shouldIncludePrereleases: boolean; // whether prereleases are eligible (default false, dev-only)
+  isModSetupCompleted: boolean; // one-time mod-archive step done for the current folder
+  isErrorReportingEnabled: boolean; // Sentry opt-out (default true); see Error reporting
   // future: UI prefs, last-used filters, etc.
 }
 
@@ -915,7 +1001,10 @@ interface AppState {
 - No automatic, unattended **mod** updating. Mod install/update/delete stay
   explicit, user-initiated actions. (The **app** does self-update via
   electron-updater — see [App self-update](#app-self-update).)
-- No telemetry or analytics.
+- No product analytics or usage tracking. The only outbound diagnostics are
+  opt-out **crash/error reports** to Sentry (see
+  [Error reporting](#error-reporting-telemetry)); Findias collects no usage
+  metrics, tracing, or session data.
 - No packing/repacking of raw mod content (handled upstream in Uiscias).
 - No management of non-`Uiscias` `.it` files.
 - No authenticated GitHub access or tokens (unauthenticated is sufficient).

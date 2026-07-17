@@ -26,6 +26,8 @@ const api: FindiasApi = {
     ipcRenderer.invoke(IpcChannels.setDisabled, modId, isDisabled),
   setShouldIncludePrereleases: (shouldIncludePrereleases) =>
     ipcRenderer.invoke(IpcChannels.setShouldIncludePrereleases, shouldIncludePrereleases),
+  setErrorReportingEnabled: (isEnabled) =>
+    ipcRenderer.invoke(IpcChannels.setErrorReportingEnabled, isEnabled),
   onDownloadProgress: (callback) => {
     const listener = (_event: IpcRendererEvent, progress: DownloadProgress): void =>
       callback(progress);

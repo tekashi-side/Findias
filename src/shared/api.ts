@@ -46,6 +46,8 @@ export interface SetupState {
    * present in the package root. Drives the second setup step.
    */
   shouldShowModArchive: boolean;
+  /** Whether anonymous error reporting is enabled (opt-out; defaults to true). */
+  isErrorReportingEnabled: boolean;
 }
 
 /** A pre-existing, non-official mod file detected in the package root. */
@@ -117,6 +119,8 @@ export interface FindiasApi {
   setDisabled(modId: string, isDisabled: boolean): Promise<ModListState>;
   /** Persist whether prereleases are eligible, then re-resolve the mod list. */
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>;
+  /** Persist and immediately apply the anonymous error-reporting opt-out. */
+  setErrorReportingEnabled(isEnabled: boolean): Promise<void>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
   /** Subscribe to app self-update status events; returns an unsubscribe function. */
@@ -148,6 +152,7 @@ export const IpcChannels = {
   deleteMod: 'mods:delete',
   setDisabled: 'mods:setDisabled',
   setShouldIncludePrereleases: 'settings:setShouldIncludePrereleases',
+  setErrorReportingEnabled: 'settings:setErrorReportingEnabled',
   downloadProgress: 'mods:downloadProgress',
   updateStatus: 'update:status',
   installUpdate: 'update:install',

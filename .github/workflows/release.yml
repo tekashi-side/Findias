@@ -79,8 +79,15 @@ jobs:
         env:
           HUSKY: 0
 
+      # Source maps are uploaded to Sentry during the build (only when the auth
+      # token is present) and deleted before packaging, so they never ship. org
+      # and project come from secrets so the Sentry org slug stays out of the repo.
       - name: Build renderer/main/preload
         run: npm run build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
 
       - name: Package Windows installer
         run: npx electron-builder --win --publish never

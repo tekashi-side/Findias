@@ -30,6 +30,12 @@ export const settingsSchema = z.object({
    * step re-checks each folder for pre-existing mods. Defaults to false.
    */
   isModSetupCompleted: z.boolean().catch(false),
+  /**
+   * Whether anonymous error reports are sent to Sentry. Opt-out: defaults to
+   * true, and the `.catch` keeps older settings files (missing the field) valid.
+   * Only has an effect in packaged builds (or a dev opt-in session).
+   */
+  isErrorReportingEnabled: z.boolean().catch(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -38,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gameRootPath: null,
   shouldIncludePrereleases: false,
   isModSetupCompleted: false,
+  isErrorReportingEnabled: true,
 };
 
 /**

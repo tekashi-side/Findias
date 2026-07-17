@@ -22,6 +22,7 @@ import { createManifestCatalogProvider } from './providers/manifestCatalog';
 import { createLoggingFetch } from './providers/loggingFetch';
 import { createPackageFolderProvider } from './providers/packageFolder';
 import { openExternalUrl } from './openExternal';
+import { reportError, setErrorReportingEnabled } from './telemetry';
 
 /**
  * Resolve the dev network logger from `FINDIAS_LOG_NETWORK` (tri-state):
@@ -75,7 +76,7 @@ const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
 
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const { gameRootPath, isModSetupCompleted } = await loadSettings();
+  const { gameRootPath, isModSetupCompleted, isErrorReportingEnabled } = await loadSettings();
   const shouldIncludePrereleases = await arePrereleasesEligible();
   if (!gameRootPath) {
     return {
@@ -83,6 +84,7 @@ const computeSetupState = async (): Promise<SetupState> => {
       isValid: false,
       shouldIncludePrereleases,
       shouldShowModArchive: false,
+      isErrorReportingEnabled,
     };
   }
   const { isOk } = await validateGameRoot(gameRootPath);
@@ -101,7 +103,13 @@ const computeSetupState = async (): Promise<SetupState> => {
       shouldShowModArchive = knownModIds !== null && (await hasForeignMods(paths, knownModIds));
     }
   }
-  return { gameRootPath, isValid: isOk, shouldIncludePrereleases, shouldShowModArchive };
+  return {
+    gameRootPath,
+    isValid: isOk,
+    shouldIncludePrereleases,
+    shouldShowModArchive,
+    isErrorReportingEnabled,
+  };
 };
 
 /** Resolve the stored game paths, throwing a clear error if setup is invalid. */
@@ -138,6 +146,13 @@ const resolveCurrentState = async (
   } catch (error) {
     const message =
       error instanceof CatalogError ? error.message : 'Could not load the mod catalog.';
+    // Report catalog format failures (schema drift or a Findias bug — the thrown
+    // CatalogError carries the Zod error as its `cause`) and any truly unexpected
+    // error. Routine, user-recoverable failures (offline, rate-limited, no
+    // release) are expected and skipped so they don't burn the free-tier quota.
+    if (!(error instanceof CatalogError) || error.code === 'parse') {
+      reportError(error, { tags: { operation: 'resolveCatalog' } });
+    }
     const { groups, metadata } = resolveModList(null, installed);
     return { groups, catalog: { isAvailable: false, error: message }, metadata };
   }
@@ -273,13 +288,38 @@ const setShouldIncludePrereleases = async (
   return resolveCurrentState(await requireGamePaths());
 };
 
+/**
+ * Register an invoke handler that reports *unexpected* errors it throws to Sentry
+ * (with full fidelity, before IPC serialization loses the class/cause) and
+ * rethrows so the renderer still gets it for the toast. A CatalogError is an
+ * expected, user-facing failure (already shown via toast/banner) and is skipped
+ * unless its code is `parse` (schema drift / a real bug) — the same predicate
+ * `resolveCurrentState` uses — so routine offline/rate-limited failures (and
+ * "Update All" bursts) don't burn the free-tier quota.
+ */
+const handleInvoke = <Args extends unknown[], Result>(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: Args) => Result | Promise<Result>,
+): void => {
+  ipcMain.handle(channel, async (event, ...args: Args) => {
+    try {
+      return await handler(event, ...args);
+    } catch (error) {
+      if (!(error instanceof CatalogError) || error.code === 'parse') {
+        reportError(error, { tags: { channel } });
+      }
+      throw error;
+    }
+  });
+};
+
 export const registerIpcHandlers = (): void => {
   // Synchronous so the preload can resolve the flags as a constant at load time.
   ipcMain.on(IpcChannels.getFeatureFlags, (event) => {
     event.returnValue = getFeatureFlags();
   });
 
-  ipcMain.handle(
+  handleInvoke(
     IpcChannels.getAppInfo,
     (): AppInfo => ({
       appVersion: app.getVersion(),
@@ -289,30 +329,34 @@ export const registerIpcHandlers = (): void => {
     }),
   );
 
-  ipcMain.handle(IpcChannels.getSetupState, () => computeSetupState());
+  handleInvoke(IpcChannels.getSetupState, () => computeSetupState());
 
-  ipcMain.handle(IpcChannels.listForeignMods, () => getForeignMods());
+  handleInvoke(IpcChannels.listForeignMods, () => getForeignMods());
 
-  ipcMain.handle(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
+  handleInvoke(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
     completeModSetup(shouldArchive),
   );
 
-  ipcMain.handle(IpcChannels.refresh, () => refresh());
+  handleInvoke(IpcChannels.refresh, () => refresh());
 
-  ipcMain.handle(IpcChannels.installOrUpdate, (event, modId: string) =>
+  handleInvoke(IpcChannels.installOrUpdate, (event, modId: string) =>
     installOrUpdate(event, modId),
   );
 
-  ipcMain.handle(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId));
+  handleInvoke(IpcChannels.deleteMod, (_event, modId: string) => deleteMod(modId));
 
-  ipcMain.handle(IpcChannels.setDisabled, (_event, modId: string, isDisabled: boolean) =>
+  handleInvoke(IpcChannels.setDisabled, (_event, modId: string, isDisabled: boolean) =>
     setDisabled(modId, isDisabled),
   );
 
-  ipcMain.handle(
+  handleInvoke(
     IpcChannels.setShouldIncludePrereleases,
     (_event, shouldIncludePrereleases: boolean) =>
       setShouldIncludePrereleases(shouldIncludePrereleases),
+  );
+
+  handleInvoke(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
+    setErrorReportingEnabled(isEnabled),
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());
@@ -327,7 +371,7 @@ export const registerIpcHandlers = (): void => {
     BrowserWindow.fromWebContents(event.sender)?.close(),
   );
 
-  ipcMain.handle(IpcChannels.chooseGameFolder, async (event): Promise<ChooseFolderResult> => {
+  handleInvoke(IpcChannels.chooseGameFolder, async (event): Promise<ChooseFolderResult> => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     const dialogOptions = {
       title: 'Select your Mabinogi game folder (appdata)',
