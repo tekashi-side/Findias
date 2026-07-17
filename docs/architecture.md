@@ -227,16 +227,26 @@ needs.
   ([`src/renderer/components/ErrorBoundary.tsx`](../src/renderer/components/ErrorBoundary.tsx))
   that reports the error (with the component stack) and shows a themed
   "something went wrong — reload" fallback instead of a blank window.
-- **Manually reported caught errors** via a small
-  `reportError(error, { tags?, extra? })` helper present in each process
+- **Failing IPC handlers**, captured centrally on the **main** side. Every
+  `ipcMain.handle` handler (install/update/delete/toggle, settings writes,
+  refresh, setup) is registered through a `handleInvoke` wrapper in
+  [`src/main/ipc.ts`](../src/main/ipc.ts) that reports any thrown error and then
+  rethrows it so the renderer still surfaces its toast. Capturing here — before
+  the error crosses IPC and is serialized down to a plain message — preserves the
+  original error class, `cause`, and native stack. Errors are **not** re-reported
+  from the renderer's mutation `onError` handlers, so there is no double-counting.
+- A small `reportError(error, { tags?, extra? })` helper exists in each process
   ([`src/main/telemetry.ts`](../src/main/telemetry.ts),
-  [`src/renderer/telemetry.ts`](../src/renderer/telemetry.ts)). It is wired into
-  the renderer mutation `onError` paths (install/update/delete/toggle, settings
-  writes) and the main-process catalog resolve. There, a `CatalogError` with a
-  `parse` code (manifest schema drift, i.e. a real bug) or any truly unexpected
-  error is captured, while routine user-recoverable failures (offline,
-  rate-limited, no release published) are intentionally **not** reported so they
-  don't burn quota.
+  [`src/renderer/telemetry.ts`](../src/renderer/telemetry.ts)) for manual capture
+  (the `ErrorBoundary` and the IPC wrapper use it).
+
+Expected, user-recoverable failures are filtered out so they don't burn quota:
+both the `handleInvoke` wrapper and the catalog resolve (`resolveCurrentState`)
+skip a `CatalogError` unless its code is `parse` (manifest schema drift, i.e. a
+real bug). Routine offline / rate-limited / HTTP / "no release yet" failures are
+`CatalogError`s and are already surfaced to the user via a toast or the catalog
+banner, so they are not sent. Quota beyond that is guarded by Sentry-side rate
+limiting and spike protection rather than more code-level classification.
 
 ### Process model
 
