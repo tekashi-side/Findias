@@ -289,9 +289,13 @@ const setShouldIncludePrereleases = async (
 };
 
 /**
- * Register an invoke handler that reports any error it throws to Sentry (with
- * full fidelity, before IPC serialization loses the class/cause) and rethrows so
- * the renderer still gets it for the toast. Covers current and future handlers.
+ * Register an invoke handler that reports *unexpected* errors it throws to Sentry
+ * (with full fidelity, before IPC serialization loses the class/cause) and
+ * rethrows so the renderer still gets it for the toast. A CatalogError is an
+ * expected, user-facing failure (already shown via toast/banner) and is skipped
+ * unless its code is `parse` (schema drift / a real bug) — the same predicate
+ * `resolveCurrentState` uses — so routine offline/rate-limited failures (and
+ * "Update All" bursts) don't burn the free-tier quota.
  */
 const handleInvoke = <Args extends unknown[], Result>(
   channel: string,
@@ -301,7 +305,9 @@ const handleInvoke = <Args extends unknown[], Result>(
     try {
       return await handler(event, ...args);
     } catch (error) {
-      reportError(error, { tags: { channel }, extra: { args } });
+      if (!(error instanceof CatalogError) || error.code === 'parse') {
+        reportError(error, { tags: { channel } });
+      }
       throw error;
     }
   });
