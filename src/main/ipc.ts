@@ -22,7 +22,7 @@ import { createManifestCatalogProvider } from './providers/manifestCatalog';
 import { createLoggingFetch } from './providers/loggingFetch';
 import { createPackageFolderProvider } from './providers/packageFolder';
 import { openExternalUrl } from './openExternal';
-import { reportError, setErrorReportingEnabled } from './telemetry';
+import { addBreadcrumb, reportError, setErrorReportingEnabled, setModContext } from './telemetry';
 
 /**
  * Resolve the dev network logger from `FINDIAS_LOG_NETWORK` (tri-state):
@@ -142,6 +142,14 @@ const resolveCurrentState = async (
       shouldForce: options.shouldForce,
     });
     const { groups, metadata } = resolveModList(catalog, installed);
+    setModContext({
+      installedCount: installed.length,
+      catalogAvailable: true,
+      shouldIncludePrereleases,
+      currentGameVersion: metadata?.currentGameVersion,
+      supportedGameVersion: metadata?.supportedGameVersion,
+      isOutdated: metadata?.isOutdated,
+    });
     return { groups, catalog: { isAvailable: true }, metadata };
   } catch (error) {
     const message =
@@ -154,6 +162,11 @@ const resolveCurrentState = async (
       reportError(error, { tags: { operation: 'resolveCatalog' } });
     }
     const { groups, metadata } = resolveModList(null, installed);
+    setModContext({
+      installedCount: installed.length,
+      catalogAvailable: false,
+      shouldIncludePrereleases,
+    });
     return { groups, catalog: { isAvailable: false, error: message }, metadata };
   }
 };
@@ -302,6 +315,10 @@ const handleInvoke = <Args extends unknown[], Result>(
   handler: (event: IpcMainInvokeEvent, ...args: Args) => Result | Promise<Result>,
 ): void => {
   ipcMain.handle(channel, async (event, ...args: Args) => {
+    // Leave a trail of recent actions so a captured error shows what led to it.
+    // Deliberately record only the channel name, not args, so a future channel
+    // that takes a path or user-entered string can't leak it into Sentry.
+    addBreadcrumb({ category: 'ipc', message: channel, level: 'info' });
     try {
       return await handler(event, ...args);
     } catch (error) {
@@ -398,4 +415,20 @@ export const registerIpcHandlers = (): void => {
     await saveSettings({ ...settings, gameRootPath: chosen, isModSetupCompleted: false });
     return { isOk: true, state: await computeSetupState() };
   });
+
+  // Dev-only telemetry self-test paths for the Settings panel. Guarded on
+  // `import.meta.env.DEV` so the whole block is dead-stripped from packaged
+  // builds — the renderer only ever calls this from the dev:log-gated panel.
+  if (import.meta.env.DEV) {
+    ipcMain.handle(
+      IpcChannels.debugTelemetry,
+      (_event, kind: 'report' | 'throw' | 'nativeCrash') => {
+        if (kind === 'report') return reportError(new Error('TEST main manual report'));
+        if (kind === 'nativeCrash') return process.crash();
+        setTimeout(() => {
+          throw new Error('TEST main uncaught');
+        });
+      },
+    );
+  }
 };

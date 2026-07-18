@@ -43,7 +43,7 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
-    "dev:log": "cross-env FINDIAS_SENTRY_DEV=1 electron-vite dev",
+    "dev:log": "cross-env VITE_FINDIAS_SENTRY_DEV=1 electron-vite dev",
     "start": "electron-vite preview",
     "build": "electron-vite build",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",

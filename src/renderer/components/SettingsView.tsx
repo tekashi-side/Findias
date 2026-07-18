@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/item';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SentryTestPanel from './SentryTestPanel';
 
 type SettingsViewProps = {
   setup: SetupState;
@@ -206,6 +207,11 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
           </ItemActions>
         </Item>
       </ItemGroup>
+
+      {import.meta.env.DEV && import.meta.env.VITE_FINDIAS_SENTRY_DEV === '1' && (
+        <SentryTestPanel setup={setup} />
+      )}
+
       <p className="mt-auto text-center text-xs text-muted-foreground">
         Findias v{appInfo?.appVersion ?? '…'}
       </p>

@@ -4,7 +4,7 @@ import { buildAppMenu } from './appMenu';
 import { registerIpcHandlers } from './ipc';
 import { initUpdater } from './updater';
 import { openExternalUrl } from './openExternal';
-import { initTelemetry, syncErrorReportingFromSettings } from './telemetry';
+import { initTelemetry } from './telemetry';
 
 /**
  * Whether a navigation target is "internal" (the app navigating within itself)
@@ -34,7 +34,7 @@ if (!app.isPackaged) {
 
 // Initialize error reporting as early as possible, but only after userData is set
 // (Sentry caches scope/offline events there). No-op unless packaged or opted in
-// via FINDIAS_SENTRY_DEV=1. The renderer routes its events through this process.
+// via VITE_FINDIAS_SENTRY_DEV=1. The renderer routes its events through this process.
 initTelemetry();
 
 /** Block Ctrl/Cmd+wheel page zoom; keyboard zoom is omitted from the app menu. */
@@ -98,9 +98,6 @@ const createWindow = (): void => {
 };
 
 void app.whenReady().then(() => {
-  // Apply the persisted error-reporting opt-out to the live Sentry gate.
-  void syncErrorReportingFromSettings();
-
   Menu.setApplicationMenu(buildAppMenu());
   registerIpcHandlers();
   createWindow();
