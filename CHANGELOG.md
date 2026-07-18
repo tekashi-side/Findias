@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.17.0](https://github.com/tekashi-side/Findias/compare/v1.16.0...v1.17.0) (2026-07-18)
+
+
+### Features
+
+* enhance Sentry error reporting in IPC and renderer components ([68e0a78](https://github.com/tekashi-side/Findias/commit/68e0a781de3bdf22436c63e223a7bbef01d417cc))
+
+
+### Fixes
+
+* implement orphan group ID namespace to prevent collisions with catalog groups ([fbc7241](https://github.com/tekashi-side/Findias/commit/fbc724192659319ba3e6f90a5e985c206ec2daa5))
+
 ## [1.16.0](https://github.com/tekashi-side/Findias/compare/v1.15.0...v1.16.0) (2026-07-18)
 
 
