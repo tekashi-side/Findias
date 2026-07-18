@@ -1,5 +1,5 @@
 import { useEffect, useState, type FC } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Monitor, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ChooseFolderResult, SetupState } from '@shared/api';
@@ -40,10 +40,6 @@ const errorMessage = (error: unknown): string =>
 const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
-  const { data: appInfo } = useQuery({
-    queryKey: ['appInfo'],
-    queryFn: () => window.findias.getAppInfo(),
-  });
   const isPrereleasesEnabled = useFeatureFlag('prereleases');
   const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
     setup.shouldIncludePrereleases,
@@ -104,117 +100,117 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const validationError = result && !result.isOk && !result.isCanceled ? result.error : undefined;
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
-      <h1 className="font-heading text-3xl font-semibold">Settings</h1>
+    <div className="flex h-full min-h-0 flex-col p-6">
+      <h1 className="shrink-0 pb-6 font-heading text-3xl font-semibold">Settings</h1>
 
-      <ItemGroup className="max-w-2xl [&_[data-slot=item-description]]:line-clamp-none">
-        <Item variant="outline" className="items-start">
-          <ItemContent>
-            <ItemTitle>Game folder</ItemTitle>
-            <ItemDescription>
-              The Mabinogi <code className="rounded bg-muted px-1 py-0.5 text-xs">appdata</code>{' '}
-              folder Findias manages mods in.
-            </ItemDescription>
-            <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
-
-            {validationError && (
-              <Alert variant="destructive">
-                <AlertDescription>{validationError}</AlertDescription>
-              </Alert>
-            )}
-            {choose.isError && (
-              <Alert variant="destructive">
-                <AlertDescription>Something went wrong opening the folder picker.</AlertDescription>
-              </Alert>
-            )}
-          </ItemContent>
-
-          <ItemActions>
-            <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
-              {choose.isPending ? 'Opening…' : 'Change game folder'}
-            </Button>
-          </ItemActions>
-        </Item>
-
-        <Item variant="outline" className="items-start">
-          <ItemContent>
-            <ItemTitle>Appearance</ItemTitle>
-            <ItemDescription>
-              Choose a color theme, or follow your operating system setting.
-            </ItemDescription>
-          </ItemContent>
-
-          <ItemActions>
-            <Tabs
-              value={theme}
-              onValueChange={(next) => {
-                if (isTheme(next)) setTheme(next);
-              }}
-            >
-              <TabsList>
-                {THEMES.map((value) => {
-                  const Icon = THEME_ICONS[value];
-                  return (
-                    <TabsTrigger key={value} value={value}>
-                      <Icon className="size-4" />
-                      {THEME_LABELS[value]}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
-            </Tabs>
-          </ItemActions>
-        </Item>
-
-        {isPrereleasesEnabled && (
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ItemGroup className="w-full [&_[data-slot=item-description]]:line-clamp-none">
           <Item variant="outline" className="items-start">
             <ItemContent>
-              <ItemTitle>Include prereleases</ItemTitle>
+              <ItemTitle>Game folder</ItemTitle>
               <ItemDescription>
-                When fetching the mod catalog from GitHub, count prerelease Uiscias builds as well
-                as stable ones. New manifests are often published on prereleases first, so this is
-                usually required to see the latest mods.
+                The Mabinogi <code className="rounded bg-muted px-1 py-0.5 text-xs">appdata</code>{' '}
+                folder Findias manages mods in.
+              </ItemDescription>
+              <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
+
+              {validationError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{validationError}</AlertDescription>
+                </Alert>
+              )}
+              {choose.isError && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Something went wrong opening the folder picker.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </ItemContent>
+
+            <ItemActions>
+              <Button variant="outline" onClick={() => choose.mutate()} disabled={choose.isPending}>
+                {choose.isPending ? 'Opening…' : 'Change game folder'}
+              </Button>
+            </ItemActions>
+          </Item>
+
+          <Item variant="outline" className="items-start">
+            <ItemContent>
+              <ItemTitle>Appearance</ItemTitle>
+              <ItemDescription>
+                Choose a color theme, or follow your operating system setting.
+              </ItemDescription>
+            </ItemContent>
+
+            <ItemActions>
+              <Tabs
+                value={theme}
+                onValueChange={(next) => {
+                  if (isTheme(next)) setTheme(next);
+                }}
+              >
+                <TabsList>
+                  {THEMES.map((value) => {
+                    const Icon = THEME_ICONS[value];
+                    return (
+                      <TabsTrigger key={value} value={value}>
+                        <Icon className="size-4" />
+                        {THEME_LABELS[value]}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </Tabs>
+            </ItemActions>
+          </Item>
+
+          <Item variant="outline" className="items-start">
+            <ItemContent>
+              <ItemTitle>Send anonymous error reports</ItemTitle>
+              <ItemDescription>
+                Automatically report crashes and errors to help fix bugs. Reports include diagnostic
+                details such as error messages and stack traces, but no personal data.
               </ItemDescription>
             </ItemContent>
 
             <ItemActions>
               <Switch
-                id="include-prereleases"
-                checked={shouldIncludePrereleases}
-                onCheckedChange={handlePrereleaseChange}
-                disabled={prerelease.isPending}
+                id="error-reporting"
+                checked={isErrorReportingEnabled}
+                onCheckedChange={handleErrorReportingChange}
+                disabled={errorReporting.isPending}
               />
             </ItemActions>
           </Item>
-        )}
 
-        <Item variant="outline" className="items-start">
-          <ItemContent>
-            <ItemTitle>Send anonymous error reports</ItemTitle>
-            <ItemDescription>
-              Automatically report crashes and errors to help fix bugs. Reports include diagnostic
-              details such as error messages and stack traces, but no personal data.
-            </ItemDescription>
-          </ItemContent>
+          {isPrereleasesEnabled && (
+            <Item variant="outline" className="items-start">
+              <ItemContent>
+                <ItemTitle>Include prereleases</ItemTitle>
+                <ItemDescription>
+                  When fetching the mod catalog from GitHub, count prerelease Uiscias builds as well
+                  as stable ones. New manifests are often published on prereleases first, so this is
+                  usually required to see the latest mods.
+                </ItemDescription>
+              </ItemContent>
 
-          <ItemActions>
-            <Switch
-              id="error-reporting"
-              checked={isErrorReportingEnabled}
-              onCheckedChange={handleErrorReportingChange}
-              disabled={errorReporting.isPending}
-            />
-          </ItemActions>
-        </Item>
-      </ItemGroup>
+              <ItemActions>
+                <Switch
+                  id="include-prereleases"
+                  checked={shouldIncludePrereleases}
+                  onCheckedChange={handlePrereleaseChange}
+                  disabled={prerelease.isPending}
+                />
+              </ItemActions>
+            </Item>
+          )}
 
-      {import.meta.env.DEV && import.meta.env.VITE_FINDIAS_SENTRY_DEV === '1' && (
-        <SentryTestPanel setup={setup} />
-      )}
-
-      <p className="mt-auto text-center text-xs text-muted-foreground">
-        Findias v{appInfo?.appVersion ?? '…'}
-      </p>
+          {import.meta.env.DEV && import.meta.env.VITE_FINDIAS_SENTRY_DEV === '1' && (
+            <SentryTestPanel setup={setup} />
+          )}
+        </ItemGroup>
+      </div>
     </div>
   );
 };

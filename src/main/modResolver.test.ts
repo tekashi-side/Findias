@@ -233,6 +233,39 @@ describe('resolveModList', () => {
     });
   });
 
+  it('keeps an orphan groupId distinct from a catalog group that reuses its modId', () => {
+    // A mod once shipped standalone as UisciasStatus_*.it (modId "Status") is now
+    // re-published as the variant group "Status". The installed file is an orphan,
+    // and its group must not share a groupId with the catalog "Status" group — a
+    // collision would produce duplicate React keys and broken list rendering.
+    const statusGroup: CatalogGroup = {
+      groupId: 'Status',
+      modName: 'Status',
+      findiasTags: [],
+      hasVariants: true,
+      isMutuallyExclusive: true,
+      variants: [variant('StatusBlueManaShield', 2), variant('StatusNoBlueManaShield', 2)],
+    };
+    const result = resolveModList(catalogOf([statusGroup]), [installed('Status', 1, true)]);
+
+    const groupIds = result.groups.map((g) => g.groupId);
+    expect(new Set(groupIds).size).toBe(groupIds.length);
+
+    const catalogRow = result.groups.find((g) => g.groupId === 'Status')!;
+    expect(catalogRow.hasVariants).toBe(true);
+
+    const orphanRow = result.groups.find((g) => g.groupId !== 'Status')!;
+    expect(orphanRow).toMatchObject({
+      hasVariants: false,
+      installedVariantId: 'Status',
+    });
+    expect(orphanRow.variants[0]).toMatchObject({
+      modId: 'Status',
+      state: { isInCatalog: false, presence: 'enabled' },
+      actions: ['disable', 'delete'],
+    });
+  });
+
   it('pins orphans to the bottom, below catalog groups, each sorted by name', () => {
     const result = resolveModList(
       catalogOf([soloGroup(variant('Zeta', 1)), soloGroup(variant('Alpha', 1))]),
