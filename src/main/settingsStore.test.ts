@@ -26,6 +26,7 @@ describe('parseSettings', () => {
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
+      installId: null,
     });
   });
 
@@ -35,6 +36,7 @@ describe('parseSettings', () => {
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
+      installId: null,
     });
   });
 
@@ -44,6 +46,7 @@ describe('parseSettings', () => {
       shouldIncludePrereleases: true,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
+      installId: null,
     });
   });
 
@@ -53,6 +56,7 @@ describe('parseSettings', () => {
       shouldIncludePrereleases: false,
       isModSetupCompleted: true,
       isErrorReportingEnabled: true,
+      installId: null,
     });
   });
 
@@ -62,6 +66,7 @@ describe('parseSettings', () => {
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: false,
+      installId: null,
     });
   });
 
@@ -109,12 +114,14 @@ describe('loadSettings / saveSettings', () => {
       shouldIncludePrereleases: true,
       isModSetupCompleted: true,
       isErrorReportingEnabled: false,
+      installId: 'a1b2c3d4',
     });
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
       isModSetupCompleted: true,
       isErrorReportingEnabled: false,
+      installId: 'a1b2c3d4',
     });
   });
 
@@ -125,6 +132,7 @@ describe('loadSettings / saveSettings', () => {
       shouldIncludePrereleases: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
+      installId: null,
     });
   });
 

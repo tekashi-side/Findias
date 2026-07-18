@@ -21,9 +21,18 @@ export const initTelemetry = (): void => {
 };
 
 /**
- * Manually report a caught error with optional tags/extra context. A no-op when
- * Sentry isn't initialized or reporting is off (gated in the main process).
+ * Manually report a caught error with optional tags/extra context, returning the
+ * Sentry event id so user feedback can be associated with it. A no-op (empty id)
+ * when Sentry isn't initialized or reporting is off (gated in the main process).
  */
-export const reportError = (error: unknown, context?: ReportContext): void => {
+export const reportError = (error: unknown, context?: ReportContext): string =>
   Sentry.captureException(error, context);
+
+/**
+ * Send free-text user feedback, optionally linked to a prior error event. Sends
+ * its own envelope (not through the main-process `beforeSend` gate), so callers
+ * MUST only invoke this when the user has NOT opted out of error reporting.
+ */
+export const sendUserFeedback = (message: string, associatedEventId?: string): void => {
+  Sentry.captureFeedback({ message, associatedEventId });
 };

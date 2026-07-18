@@ -142,6 +142,7 @@ export const settingsSchema = z.object({
   shouldIncludePrereleases: z.boolean().catch(false),
   isModSetupCompleted: z.boolean().catch(false),
   isErrorReportingEnabled: z.boolean().catch(true), // opt-out; see Error reporting
+  installId: z.string().nullable().catch(null), // anonymous Sentry user.id; see Error reporting
 });
 export type Settings = z.infer<typeof settingsSchema>;
 ```
@@ -248,6 +249,40 @@ real bug). Routine offline / rate-limited / HTTP / "no release yet" failures are
 banner, so they are not sent. Quota beyond that is guarded by Sentry-side rate
 limiting and spike protection rather than more code-level classification.
 
+### Context on events
+
+Each captured error carries state that makes it debuggable without a repro:
+
+- **Custom tags & context** — `setModContext` in
+  [`src/main/telemetry.ts`](../src/main/telemetry.ts) attaches the current/
+  supported game version, the outdated flag, the installed-mod count, catalog
+  availability, and the prerelease setting as tags plus a `findias` context block.
+  It is refreshed from `resolveCurrentState` on every mod-list resolve (both the
+  catalog-available and soft-degrade branches).
+- **Breadcrumbs** — the `handleInvoke` wrapper drops an `ipc` breadcrumb per
+  invoked channel, so a captured error shows the trail of recent user actions
+  that led to it.
+
+### Release health & install id
+
+The Electron SDK's `MainProcessSession` integration is on by default, so Sentry
+reports **release health** (session counts, crash-free rate). Sessions are keyed
+to an **anonymous install id** — a random UUID generated lazily on first
+telemetry init, persisted as `installId` in the settings file, and set as the
+Sentry `user.id` via `initialScope`. It contains no personal data; it only lets
+release health measure per-user adoption and crash-free **users**.
+
+### Crash feedback
+
+When a render crash hits the `ErrorBoundary` and reporting is enabled, the
+fallback offers a small feedback textarea. Submitting calls `sendUserFeedback`
+([`src/renderer/telemetry.ts`](../src/renderer/telemetry.ts)), which sends a
+Sentry feedback envelope associated with the crash's event id. The boundary sits
+above the React Query provider, so it reads the opt-out directly via
+`window.findias.getSetupState()` and only shows the form when reporting is
+enabled — feedback bypasses the `beforeSend` gate, so this UI gate is what keeps
+it honest.
+
 ### Process model
 
 The **main** process owns the Sentry configuration (DSN, release, environment).
@@ -271,10 +306,16 @@ Reporting is **on by default** (opt-out), surfaced as a "Send anonymous error
 reports" toggle in Settings. The preference persists as `isErrorReportingEnabled`
 in the settings file and is mirrored into an in-memory flag the main process
 reads in Sentry's `beforeSend`, so toggling it takes effect **immediately,
-without a restart**. Because renderer events route through the main process, this
-one gate covers every process. The flag defaults to `true` for the brief window
-before settings finish loading, then is corrected from the persisted value at
-startup.
+without a restart**, for errors. Because renderer events route through the main
+process, this one gate covers every process for error events.
+
+The flag is seeded synchronously at init from the persisted value
+(`loadSettingsSync`), so there is no "default-on" window before settings load.
+**Sessions** (release health) are the exception to the runtime gate: there is no
+`beforeSendSession` hook, so they can only be gated at init — when the user is
+opted out, `initTelemetry` filters the `MainProcessSession` integration out
+entirely, so no session data is emitted. A mid-session toggle therefore stops
+error reporting immediately but only stops sessions on the **next launch**.
 
 ### Source maps
 

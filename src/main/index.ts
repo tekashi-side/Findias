@@ -4,7 +4,7 @@ import { buildAppMenu } from './appMenu';
 import { registerIpcHandlers } from './ipc';
 import { initUpdater } from './updater';
 import { openExternalUrl } from './openExternal';
-import { initTelemetry, syncErrorReportingFromSettings } from './telemetry';
+import { initTelemetry } from './telemetry';
 
 /**
  * Whether a navigation target is "internal" (the app navigating within itself)
@@ -98,9 +98,6 @@ const createWindow = (): void => {
 };
 
 void app.whenReady().then(() => {
-  // Apply the persisted error-reporting opt-out to the live Sentry gate.
-  void syncErrorReportingFromSettings();
-
   Menu.setApplicationMenu(buildAppMenu());
   registerIpcHandlers();
   createWindow();

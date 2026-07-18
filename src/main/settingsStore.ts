@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
 import { z } from 'zod';
@@ -36,6 +36,13 @@ export const settingsSchema = z.object({
    * Only has an effect in packaged builds (or a dev opt-in session).
    */
   isErrorReportingEnabled: z.boolean().catch(true),
+  /**
+   * Anonymous, randomly-generated install identifier used as the Sentry `user.id`
+   * so release-health can report per-user adoption and crash-free rates. Contains
+   * no personal data. Generated lazily on first telemetry init; `null` until then
+   * (and the `.catch` keeps older settings files valid).
+   */
+  installId: z.string().nullable().catch(null),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -45,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   shouldIncludePrereleases: false,
   isModSetupCompleted: false,
   isErrorReportingEnabled: true,
+  installId: null,
 };
 
 /**
@@ -68,6 +76,19 @@ export const loadSettings = async (): Promise<Settings> => {
   try {
     const raw = await fs.readFile(settingsPath(), 'utf-8');
     return parseSettings(JSON.parse(raw));
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+};
+
+/**
+ * Synchronously load persisted settings. Used only at telemetry init, which runs
+ * before the app is ready and must decide session tracking / the install id
+ * before Sentry starts. Returns defaults if the file is missing or corrupt.
+ */
+export const loadSettingsSync = (): Settings => {
+  try {
+    return parseSettings(JSON.parse(readFileSync(settingsPath(), 'utf-8')));
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
