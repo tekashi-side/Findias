@@ -34,7 +34,7 @@ if (!app.isPackaged) {
 
 // Initialize error reporting as early as possible, but only after userData is set
 // (Sentry caches scope/offline events there). No-op unless packaged or opted in
-// via FINDIAS_SENTRY_DEV=1. The renderer routes its events through this process.
+// via VITE_FINDIAS_SENTRY_DEV=1. The renderer routes its events through this process.
 initTelemetry();
 
 /** Block Ctrl/Cmd+wheel page zoom; keyboard zoom is omitted from the app menu. */

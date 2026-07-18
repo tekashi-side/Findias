@@ -13,8 +13,8 @@ export interface ReportContext {
  *
  * This runs unconditionally, but in a plain `npm run dev` session the main
  * process never initializes Sentry (it only does so when packaged or with
- * `FINDIAS_SENTRY_DEV=1`), so renderer events have no transport and are silently
- * dropped — i.e. reporting is effectively off in dev without gating here.
+ * `VITE_FINDIAS_SENTRY_DEV=1`), so renderer events have no transport and are
+ * silently dropped — i.e. reporting is effectively off in dev without gating here.
  */
 export const initTelemetry = (): void => {
   Sentry.init();

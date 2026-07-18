@@ -295,10 +295,26 @@ caches scope and offline events under `userData`.
 ### Dev vs. production
 
 Sentry initializes in **packaged builds** always, and in development only when
-opted in with **`FINDIAS_SENTRY_DEV=1`** (the `npm run dev:log` script; a plain
-`npm run dev` sends nothing). Every event is tagged with an `environment` of
-`production` or `development`, so dev noise can be filtered from real user
-crashes in the Sentry UI.
+opted in with **`VITE_FINDIAS_SENTRY_DEV=1`** (the `npm run dev:log` script; a
+plain `npm run dev` sends nothing). Every event is tagged with an `environment`
+of `production` or `development`, so dev noise can be filtered from real user
+crashes in the Sentry UI. The `VITE_` prefix lets the renderer read the same flag
+via `import.meta.env` to gate the dev-only self-test panel (see below).
+
+### Self-test panel
+
+A dev-only panel at the bottom of Settings
+([`src/renderer/components/SentryTestPanel.tsx`](../src/renderer/components/SentryTestPanel.tsx))
+exposes one button per capture path — manual report, uncaught exception, and
+unhandled rejection in the renderer; a render crash caught by the `ErrorBoundary`;
+and manual report, uncaught exception, and native crash (`process.crash()`) in
+the main process. The three main-process paths route through a single dev-only
+`debugTelemetry` IPC channel; the handler in [`src/main/ipc.ts`](../src/main/ipc.ts)
+is registered inside an `import.meta.env.DEV` guard. The panel is mounted only when
+`import.meta.env.DEV && import.meta.env.VITE_FINDIAS_SENTRY_DEV === '1'`, so it
+appears exactly in an `npm run dev:log` session — the same condition under which
+main-process Sentry is live, so renderer events actually flush. Both the panel and
+the IPC handler are dead-stripped from packaged builds.
 
 ### Opt-out
 

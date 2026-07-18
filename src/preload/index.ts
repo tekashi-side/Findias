@@ -43,6 +43,7 @@ const api: FindiasApi = {
   openExternal: (url) => ipcRenderer.send(IpcChannels.openExternal, url),
   minimizeWindow: () => ipcRenderer.send(IpcChannels.windowMinimize),
   closeWindow: () => ipcRenderer.send(IpcChannels.windowClose),
+  debugTelemetry: (kind) => ipcRenderer.invoke(IpcChannels.debugTelemetry, kind),
 };
 
 contextBridge.exposeInMainWorld('findias', api);

@@ -30,9 +30,13 @@ export interface ModContext {
 
 /**
  * Whether Sentry should initialize at all: packaged builds always, or an
- * explicit dev opt-in via `FINDIAS_SENTRY_DEV=1` (see the `dev:log` npm script).
+ * explicit dev opt-in via `VITE_FINDIAS_SENTRY_DEV=1` (see the `dev:log` npm
+ * script). The `VITE_` prefix lets the renderer read the same flag via
+ * `import.meta.env` to gate the dev-only self-test panel; here in main we read
+ * the raw `process.env`, which is unaffected by Vite's prefix filtering.
  */
-const shouldInitialize = (): boolean => app.isPackaged || process.env.FINDIAS_SENTRY_DEV === '1';
+const shouldInitialize = (): boolean =>
+  app.isPackaged || process.env.VITE_FINDIAS_SENTRY_DEV === '1';
 
 /** Persist a freshly-generated install id without clobbering a concurrently-set one. */
 const persistInstallId = async (installId: string): Promise<void> => {

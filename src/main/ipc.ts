@@ -413,4 +413,20 @@ export const registerIpcHandlers = (): void => {
     await saveSettings({ ...settings, gameRootPath: chosen, isModSetupCompleted: false });
     return { isOk: true, state: await computeSetupState() };
   });
+
+  // Dev-only telemetry self-test paths for the Settings panel. Guarded on
+  // `import.meta.env.DEV` so the whole block is dead-stripped from packaged
+  // builds — the renderer only ever calls this from the dev:log-gated panel.
+  if (import.meta.env.DEV) {
+    ipcMain.handle(
+      IpcChannels.debugTelemetry,
+      (_event, kind: 'report' | 'throw' | 'nativeCrash') => {
+        if (kind === 'report') return reportError(new Error('TEST main manual report'));
+        if (kind === 'nativeCrash') return process.crash();
+        setTimeout(() => {
+          throw new Error('TEST main uncaught');
+        });
+      },
+    );
+  }
 };

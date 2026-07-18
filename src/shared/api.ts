@@ -137,6 +137,13 @@ export interface FindiasApi {
   minimizeWindow(): void;
   /** Close the application window. */
   closeWindow(): void;
+  /**
+   * Dev-only: trigger a main-process telemetry test path (manual report, an
+   * uncaught exception, or a native crash). The handler is only registered in
+   * development builds; the renderer only calls it from the dev-only self-test
+   * panel.
+   */
+  debugTelemetry(kind: 'report' | 'throw' | 'nativeCrash'): Promise<void>;
 }
 
 /** IPC channel names, kept in one place to avoid string drift across processes. */
@@ -159,4 +166,5 @@ export const IpcChannels = {
   openExternal: 'shell:openExternal',
   windowMinimize: 'window:minimize',
   windowClose: 'window:close',
+  debugTelemetry: 'debug:telemetry',
 } as const;
