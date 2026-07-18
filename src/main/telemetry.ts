@@ -12,6 +12,15 @@ import { loadSettings, loadSettingsSync, saveSettings } from './settingsStore';
  */
 let isErrorReportingEnabled = true;
 
+/**
+ * Name of the `@sentry/electron` integration that emits release-health sessions.
+ * The session opt-out works by filtering this out at init, so it is coupled to
+ * the SDK's integration name — {@link initTelemetry} asserts (in dev) that the
+ * filter actually removed it, so a future rename fails loudly instead of
+ * silently re-enabling sessions for opted-out users.
+ */
+const MAIN_PROCESS_SESSION = 'MainProcessSession';
+
 /** Structured context attached to a manually captured error. */
 export interface ReportContext {
   tags?: Record<string, string | number | boolean>;
@@ -70,9 +79,16 @@ export const initTelemetry = (): void => {
     initialScope: { user: { id: installId } },
     // Sessions can only be gated at init (no runtime hook), so drop the session
     // integration entirely when the user has opted out.
-    integrations: isErrorReportingEnabled
-      ? undefined
-      : (defaults) => defaults.filter((integration) => integration.name !== 'MainProcessSession'),
+    integrations: (defaults) => {
+      if (isErrorReportingEnabled) return defaults;
+      const filtered = defaults.filter((integration) => integration.name !== MAIN_PROCESS_SESSION);
+      if (filtered.length === defaults.length && !app.isPackaged) {
+        console.warn(
+          `[telemetry] '${MAIN_PROCESS_SESSION}' integration not found; session opt-out may be ineffective (SDK upgrade?).`,
+        );
+      }
+      return filtered;
+    },
     beforeSend: (event) => (isErrorReportingEnabled ? event : null),
   });
 };
@@ -105,10 +121,11 @@ export const addBreadcrumb = (breadcrumb: Sentry.Breadcrumb): void => {
 export const setModContext = (context: ModContext): void => {
   Sentry.setTag('catalog_available', context.catalogAvailable);
   Sentry.setTag('prereleases', context.shouldIncludePrereleases);
-  if (context.currentGameVersion) Sentry.setTag('current_game_version', context.currentGameVersion);
-  if (context.supportedGameVersion) {
-    Sentry.setTag('supported_game_version', context.supportedGameVersion);
-  }
-  if (context.isOutdated !== undefined) Sentry.setTag('is_outdated', context.isOutdated);
+  // Set these unconditionally: tags live on the global scope, so passing
+  // `undefined` (e.g. on the catalog-unavailable branch) clears a value left
+  // over from a prior successful resolve instead of leaving it stale.
+  Sentry.setTag('current_game_version', context.currentGameVersion);
+  Sentry.setTag('supported_game_version', context.supportedGameVersion);
+  Sentry.setTag('is_outdated', context.isOutdated);
   Sentry.setContext('findias', { ...context });
 };

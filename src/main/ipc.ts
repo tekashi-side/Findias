@@ -316,7 +316,9 @@ const handleInvoke = <Args extends unknown[], Result>(
 ): void => {
   ipcMain.handle(channel, async (event, ...args: Args) => {
     // Leave a trail of recent actions so a captured error shows what led to it.
-    addBreadcrumb({ category: 'ipc', message: channel, level: 'info', data: { args } });
+    // Deliberately record only the channel name, not args, so a future channel
+    // that takes a path or user-entered string can't leak it into Sentry.
+    addBreadcrumb({ category: 'ipc', message: channel, level: 'info' });
     try {
       return await handler(event, ...args);
     } catch (error) {
