@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.0](https://github.com/tekashi-side/Findias/compare/v1.15.0...v1.16.0) (2026-07-18)
+
+
+### Features
+
+* add installId for anonymous user tracking and enhance telemetry context ([56e9aad](https://github.com/tekashi-side/Findias/commit/56e9aadb258940db8e8cc53aa122bc1c5f619dfb))
+* update Sentry integration for development with new telemetry self-test panel ([f21de67](https://github.com/tekashi-side/Findias/commit/f21de67314c8c64afef67eeaa9caf1d3ebb6fb1a))
+
 ## [1.15.0](https://github.com/tekashi-side/Findias/compare/v1.14.0...v1.15.0) (2026-07-17)
 
 
