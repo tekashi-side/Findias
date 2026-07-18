@@ -1,12 +1,12 @@
 import { useState, type FC } from 'react';
 import type { SetupState } from '@shared/api';
 import { Button } from '@/components/ui/button';
-import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
+import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
 import { reportError } from '@/telemetry';
 
 /** Throws during render so the app-level ErrorBoundary catches it. */
 const Bomb = (): never => {
-  throw new Error('TEST render crash (ErrorBoundary)');
+  throw new Error('Sentry test: render crash (ErrorBoundary)');
 };
 
 type SentryTestPanelProps = {
@@ -24,7 +24,7 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
   const [shouldCrash, setShouldCrash] = useState(false);
 
   return (
-    <ItemGroup className="max-w-2xl">
+    <>
       {shouldCrash && <Bomb />}
       <Item variant="outline" className="items-start">
         <ItemContent>
@@ -36,7 +36,7 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => reportError(new Error('TEST renderer manual report'))}
+              onClick={() => reportError(new Error('Sentry test: renderer manual report'))}
             >
               Manual (renderer)
             </Button>
@@ -45,7 +45,7 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
               size="sm"
               onClick={() =>
                 setTimeout(() => {
-                  throw new Error('TEST renderer uncaught');
+                  throw new Error('Sentry test: renderer uncaught');
                 })
               }
             >
@@ -55,7 +55,7 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
               variant="outline"
               size="sm"
               onClick={() => {
-                void Promise.reject(new Error('TEST unhandled rejection'));
+                void Promise.reject(new Error('Sentry test: unhandled rejection'));
               }}
             >
               Unhandled rejection
@@ -87,7 +87,7 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
           </div>
         </ItemContent>
       </Item>
-    </ItemGroup>
+    </>
   );
 };
 
