@@ -173,6 +173,17 @@ const buildVariantRow = (
   };
 };
 
+/**
+ * Namespace prefix for orphan group IDs. An orphan's `groupId` would otherwise
+ * be its `modId`, which can collide with a catalog group's `groupId` — e.g. a
+ * mod once shipped standalone as `UisciasStatus_*.it` (modId `Status`) that is
+ * later re-published as the variant group `Status`. Two rows sharing a
+ * `groupId` produce duplicate React keys and broken list reconciliation, so we
+ * keep the orphan identity in its own namespace. Only the display/React key is
+ * namespaced; actions still key off the variant's real `modId`.
+ */
+const ORPHAN_GROUP_ID_PREFIX = 'orphan:';
+
 /** Build a row for an installed mod absent from the catalog (enable/disable + delete). */
 const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGroupRow => {
   const primary = installedGroup.enabledMod ?? installedGroup.disabledMod;
@@ -197,7 +208,7 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
     conflicts: [],
   };
   return {
-    groupId: modId,
+    groupId: `${ORPHAN_GROUP_ID_PREFIX}${modId}`,
     name,
     tags: [],
     hasVariants: false,
