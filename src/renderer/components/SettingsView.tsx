@@ -112,7 +112,15 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
                 The Mabinogi <code className="rounded bg-muted px-1 py-0.5 text-xs">appdata</code>{' '}
                 folder Findias manages mods in.
               </ItemDescription>
-              <span className="text-xs break-all text-muted-foreground">{setup.gameRootPath}</span>
+              <span className="text-xs break-all text-muted-foreground">
+                <span className="font-semibold">Game location:</span> {setup.gameRootPath}
+              </span>
+              {setup.gameLauncher && (
+                <span className="text-xs text-muted-foreground">
+                  <span className="font-semibold">Detected launcher:</span>{' '}
+                  {setup.gameLauncher === 'steam' ? 'Steam' : 'Nexon Launcher'}
+                </span>
+              )}
 
               {validationError && (
                 <Alert variant="destructive">

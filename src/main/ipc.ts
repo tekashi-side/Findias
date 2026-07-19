@@ -7,11 +7,13 @@ import {
   type ForeignMod,
   type GamePaths,
   type SetupState,
+  type StartGameResult,
 } from '../shared/api';
 import type { ModListState } from '../shared/modList';
 import { loadSettings, saveSettings } from './settingsStore';
 import { getFeatureFlags, isFeatureEnabled } from './featureFlags';
 import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation';
+import { detectLauncher, startGame } from './gameLauncher';
 import { catalogModIds, resolveModList } from './modResolver';
 import { installOrUpdateMod } from './modInstaller';
 import { archiveForeignMods, hasForeignMods, listForeignMods } from './modArchive';
@@ -85,6 +87,7 @@ const computeSetupState = async (): Promise<SetupState> => {
       shouldIncludePrereleases,
       shouldShowModArchive: false,
       isErrorReportingEnabled,
+      gameLauncher: null,
     };
   }
   const { isOk } = await validateGameRoot(gameRootPath);
@@ -109,6 +112,7 @@ const computeSetupState = async (): Promise<SetupState> => {
     shouldIncludePrereleases,
     shouldShowModArchive,
     isErrorReportingEnabled,
+    gameLauncher: detectLauncher(gameRootPath),
   };
 };
 
@@ -347,6 +351,16 @@ export const registerIpcHandlers = (): void => {
   );
 
   handleInvoke(IpcChannels.getSetupState, () => computeSetupState());
+
+  handleInvoke(IpcChannels.startGame, async (): Promise<StartGameResult> => {
+    const { gameRootPath } = await loadSettings();
+    const result = await startGame(gameRootPath);
+    // On success, quit so Findias isn't running alongside the game. Deferred a
+    // tick so the launcher hand-off completes and the renderer's invoke settles
+    // before the app exits.
+    if (result.isOk) setTimeout(() => app.quit(), 100);
+    return result;
+  });
 
   handleInvoke(IpcChannels.listForeignMods, () => getForeignMods());
 

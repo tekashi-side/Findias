@@ -16,6 +16,7 @@ const api: FindiasApi = {
   getAppInfo: () => ipcRenderer.invoke(IpcChannels.getAppInfo),
   getSetupState: () => ipcRenderer.invoke(IpcChannels.getSetupState),
   chooseGameFolder: () => ipcRenderer.invoke(IpcChannels.chooseGameFolder),
+  startGame: () => ipcRenderer.invoke(IpcChannels.startGame),
   listForeignMods: () => ipcRenderer.invoke(IpcChannels.listForeignMods),
   completeModSetup: (shouldArchive) =>
     ipcRenderer.invoke(IpcChannels.completeModSetup, shouldArchive),
