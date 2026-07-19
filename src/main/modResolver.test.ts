@@ -6,13 +6,20 @@ import { resolveModList } from './modResolver';
 const variant = (
   modId: string,
   version: number,
-  opts: { size?: number; usedFiles?: string[]; updateType?: string; name?: string } = {},
+  opts: {
+    size?: number;
+    usedFiles?: string[];
+    updateType?: string;
+    name?: string;
+    updatedAt?: string;
+  } = {},
 ): CatalogVariant => ({
   modId,
   modName: opts.name ?? modId,
   fileName: `uiscias${modId}_${version}.it`,
   version,
   size: opts.size ?? 10,
+  updatedAt: opts.updatedAt ?? '2026-07-16T15:29:10.000Z',
   updateType: opts.updateType ?? 'stable',
   usedFiles: opts.usedFiles ?? [],
   modAuthor: 'Root50199',
@@ -280,6 +287,18 @@ describe('resolveModList', () => {
 
     const orphan = resolveModList(catalogOf([]), [installed('Bar', 1, true)]);
     expect(firstVariant(orphan).size).toBeNull();
+  });
+
+  it('carries the catalog updatedAt through, and leaves it undefined for orphans', () => {
+    const withDate = resolveModList(
+      catalogOf([soloGroup(variant('Foo', 3, { updatedAt: '2026-07-16T15:29:10.000Z' }))]),
+      [],
+    );
+    expect(firstVariant(withDate).updatedAt).toBe('2026-07-16T15:29:10.000Z');
+
+    // Orphans have no catalog entry, so they never carry a date.
+    const orphan = resolveModList(catalogOf([]), [installed('Bar', 1, true)]);
+    expect(firstVariant(orphan).updatedAt).toBeUndefined();
   });
 
   it('returns orphan groups and null metadata when the catalog is unavailable', () => {

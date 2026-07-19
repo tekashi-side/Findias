@@ -162,6 +162,7 @@ const buildVariantRow = (
     installedVersion: primary?.version ?? null,
     size: variant.size,
     fileName: variant.fileName,
+    updatedAt: variant.updatedAt,
     updateType: variant.updateType,
     actions,
     conflicts,

@@ -4,7 +4,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ModGroupRow, ModVariantRow } from '@shared/modList';
 import StatusChip from './StatusChip';
-import { formatBytes } from '../format';
+import { formatBytes, formatDate } from '../format';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Carousel,
@@ -25,14 +25,16 @@ type ModDetailProps = {
   group: ModGroupRow | null;
 };
 
-/** Build the "release vX / installed vY / size" summary line for a variant. */
+/** Build the "release vX / installed vY / size / updated" summary line for a variant. */
 const versionSummary = (variant: ModVariantRow): string => {
   const release =
     variant.releaseVersion === null ? 'Not in release' : `Release v${variant.releaseVersion}`;
   const installed =
     variant.installedVersion === null ? 'Not installed' : `Installed v${variant.installedVersion}`;
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
-  return `${release} • ${installed}${size}`;
+  const updatedDate = variant.updatedAt ? formatDate(variant.updatedAt) : '';
+  const updated = updatedDate ? ` • Updated ${updatedDate}` : '';
+  return `${release} • ${installed}${size}${updated}`;
 };
 
 /** A single carousel image with its own loading skeleton and error fallback. */
