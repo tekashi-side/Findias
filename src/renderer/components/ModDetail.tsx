@@ -1,4 +1,5 @@
 import type { FC } from 'react';
+import { Files, Info } from 'lucide-react';
 import type { ModGroupRow, ModVariantRow } from '@shared/modList';
 import ModDetailBody from './ModDetailBody';
 import ModDetailDataFiles from './ModDetailDataFiles';
@@ -53,8 +54,14 @@ const ModDetail: FC<ModDetailProps> = ({ variant, group }) => {
       >
         <div className="shrink-0 px-6 pt-6">
           <TabsList>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="dataFiles">Data Files</TabsTrigger>
+            <TabsTrigger value="details">
+              <Info className="size-4" />
+              Details
+            </TabsTrigger>
+            <TabsTrigger value="dataFiles">
+              <Files className="size-4" />
+              Data Files
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent value="details" className="min-h-0">
