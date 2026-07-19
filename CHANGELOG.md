@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.0](https://github.com/tekashi-side/Findias/compare/v1.18.0...v1.19.0) (2026-07-19)
+
+
+### Features
+
+* add updatedAt field to mod variants and implement date formatting ([754845f](https://github.com/tekashi-side/Findias/commit/754845f0f8730d4cc7e5c4c4847561876fb9f7c0))
+
 ## [1.18.0](https://github.com/tekashi-side/Findias/compare/v1.17.0...v1.18.0) (2026-07-19)
 
 
