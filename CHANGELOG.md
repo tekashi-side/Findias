@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.20.0](https://github.com/tekashi-side/Findias/compare/v1.19.0...v1.20.0) (2026-07-19)
+
+
+### Features
+
+* add usedFiles to mod variants and implement Data Files tab in ModDetail ([0d6aeeb](https://github.com/tekashi-side/Findias/commit/0d6aeeb05d13cd65dea75791d69941d08543a50a))
+* enhance ModDetail component with icons for tabs ([9ebf3d7](https://github.com/tekashi-side/Findias/commit/9ebf3d74fa541d2cacff55f22031015356d2ce37))
+* update badge variant and remove redundant text in version summary ([dae8e85](https://github.com/tekashi-side/Findias/commit/dae8e85178864cd3056ae7ef0fcfd7ecc0a1c2b4))
+
 ## [1.19.0](https://github.com/tekashi-side/Findias/compare/v1.18.0...v1.19.0) (2026-07-19)
 
 
