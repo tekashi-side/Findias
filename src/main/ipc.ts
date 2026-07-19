@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import {
   IpcChannels,
@@ -347,6 +348,8 @@ export const registerIpcHandlers = (): void => {
       electronVersion: process.versions.electron,
       chromeVersion: process.versions.chrome,
       nodeVersion: process.versions.node,
+      platform: process.platform,
+      osVersion: os.release(),
     }),
   );
 

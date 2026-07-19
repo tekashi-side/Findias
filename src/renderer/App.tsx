@@ -3,15 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import SetupView from './components/SetupView';
 import MainView from './components/MainView';
 import SettingsView from './components/SettingsView';
+import FeedbackView from './components/FeedbackView';
 import TitleBar from './components/TitleBar';
 import { useAppUpdate } from './hooks/useAppUpdate';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 import { Toaster } from '@/components/ui/sonner';
 
-/** Root view: reads setup state, then routes to {@link SetupView}, {@link MainView}, or {@link SettingsView}. */
+/** Which full-screen overlay (if any) replaces the main mod view. */
+type Overlay = 'none' | 'settings' | 'feedback';
+
+/** Root view: reads setup state, then routes to {@link SetupView}, {@link MainView}, {@link SettingsView}, or {@link FeedbackView}. */
 const App: FC = () => {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay>('none');
 
   useAppUpdate();
 
@@ -21,6 +25,12 @@ const App: FC = () => {
   });
 
   const isSettingsAvailable = Boolean(data?.isValid) && !data?.shouldShowModArchive;
+  const isSettingsOpen = overlay === 'settings';
+  const isFeedbackOpen = overlay === 'feedback';
+
+  /** Toggle an overlay on, or back to the main view if it's already open. */
+  const toggleOverlay = (target: Exclude<Overlay, 'none'>): void =>
+    setOverlay((current) => (current === target ? 'none' : target));
 
   /** Wrap content with the persistent frameless title bar shell. */
   const shell = (content: ReactNode): ReactNode => (
@@ -28,7 +38,9 @@ const App: FC = () => {
       <TitleBar
         isSettingsAvailable={isSettingsAvailable}
         isSettingsOpen={isSettingsOpen}
-        onToggleSettings={() => setIsSettingsOpen((isOpen) => !isOpen)}
+        onToggleSettings={() => toggleOverlay('settings')}
+        isFeedbackOpen={isFeedbackOpen}
+        onToggleFeedback={() => toggleOverlay('feedback')}
       />
       <div className="min-h-0 flex-1">{content}</div>
       <Toaster />
@@ -55,7 +67,9 @@ const App: FC = () => {
 
   if (!data.isValid || data.shouldShowModArchive) return shell(<SetupView setup={data} />);
 
-  return shell(isSettingsOpen ? <SettingsView setup={data} /> : <MainView />);
+  if (isSettingsOpen) return shell(<SettingsView setup={data} />);
+  if (isFeedbackOpen) return shell(<FeedbackView />);
+  return shell(<MainView />);
 };
 
 export default App;

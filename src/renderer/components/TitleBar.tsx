@@ -1,15 +1,19 @@
 import type { FC } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Minus, Settings, X } from 'lucide-react';
+import { MessageSquareHeart, Minus, Settings, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type TitleBarProps = {
-  /** Whether the settings toggle is meaningful (true once setup is valid). */
+  /** Whether the settings/feedback toggles are meaningful (true once setup is valid). */
   isSettingsAvailable: boolean;
   /** Whether the settings screen is currently shown. */
   isSettingsOpen: boolean;
   /** Toggle the settings screen on/off. */
   onToggleSettings: () => void;
+  /** Whether the feedback screen is currently shown. */
+  isFeedbackOpen: boolean;
+  /** Toggle the feedback screen on/off. */
+  onToggleFeedback: () => void;
 };
 
 /**
@@ -17,7 +21,13 @@ type TitleBarProps = {
  * and settings/minimize/close controls on the right. The bar itself is a drag
  * region (`-webkit-app-region: drag`); the buttons opt out so they stay clickable.
  */
-const TitleBar: FC<TitleBarProps> = ({ isSettingsAvailable, isSettingsOpen, onToggleSettings }) => {
+const TitleBar: FC<TitleBarProps> = ({
+  isSettingsAvailable,
+  isSettingsOpen,
+  onToggleSettings,
+  isFeedbackOpen,
+  onToggleFeedback,
+}) => {
   const { data: appInfo } = useQuery({
     queryKey: ['appInfo'],
     queryFn: () => window.findias.getAppInfo(),
@@ -31,15 +41,26 @@ const TitleBar: FC<TitleBarProps> = ({ isSettingsAvailable, isSettingsOpen, onTo
           v{appInfo?.appVersion ?? '…'}
         </span>
         {isSettingsAvailable && (
-          <Button
-            variant={isSettingsOpen ? 'secondary' : 'ghost'}
-            size="icon-sm"
-            aria-label="Settings"
-            aria-pressed={isSettingsOpen}
-            onClick={onToggleSettings}
-          >
-            <Settings className="size-4" />
-          </Button>
+          <>
+            <Button
+              variant={isSettingsOpen ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              aria-label="Settings"
+              aria-pressed={isSettingsOpen}
+              onClick={onToggleSettings}
+            >
+              <Settings className="size-4" />
+            </Button>
+            <Button
+              variant={isFeedbackOpen ? 'secondary' : 'ghost'}
+              size="icon-sm"
+              aria-label="Feedback"
+              aria-pressed={isFeedbackOpen}
+              onClick={onToggleFeedback}
+            >
+              <MessageSquareHeart className="size-4" />
+            </Button>
+          </>
         )}
         <Button
           variant="ghost"

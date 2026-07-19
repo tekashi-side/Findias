@@ -1,0 +1,39 @@
+name: Bug Report
+description: Report a problem or unexpected behavior in Findias.
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please describe what happened so we can reproduce and fix it.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, including what you expected to happen instead.
+      placeholder: When I clicked..., Findias...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the problem?
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See the error
+    validations:
+      required: false
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Filled in automatically by Findias. Please leave this as-is; it helps us debug.
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |
+        Tip: you can attach screenshots or short screen recordings by dragging files into any text area above.

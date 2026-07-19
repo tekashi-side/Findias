@@ -100,7 +100,7 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const validationError = result && !result.isOk && !result.isCanceled ? result.error : undefined;
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-6">
+    <div className="mx-auto flex h-full min-h-0 w-full max-w-[46rem] flex-col p-6">
       <h1 className="shrink-0 pb-6 font-heading text-3xl font-semibold">Settings</h1>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

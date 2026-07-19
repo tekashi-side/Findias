@@ -16,6 +16,10 @@ export interface AppInfo {
   electronVersion: string;
   chromeVersion: string;
   nodeVersion: string;
+  /** OS platform identifier (e.g. `win32`, `darwin`, `linux`). */
+  platform: string;
+  /** OS release/kernel version string (e.g. `10.0.26200`). */
+  osVersion: string;
 }
 
 /** Resolved game-folder paths derived from the chosen root. */
