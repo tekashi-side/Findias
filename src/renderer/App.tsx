@@ -49,7 +49,7 @@ const App: FC = () => {
 
   if (isLoading) {
     return shell(
-      <div className="mx-auto flex max-w-md justify-center px-4 py-12">
+      <div className="flex h-full items-center justify-center px-4">
         <Spinner className="size-8" />
       </div>,
     );
