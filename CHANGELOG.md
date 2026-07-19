@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.0](https://github.com/tekashi-side/Findias/compare/v1.21.0...v1.22.0) (2026-07-19)
+
+
+### Features
+
+* enhance FeedbackView with character counters and editable diagnostics ([0e530bc](https://github.com/tekashi-side/Findias/commit/0e530bce6a035d0e6d54171967ebdcfbe1e1cca9))
+
 ## [1.21.0](https://github.com/tekashi-side/Findias/compare/v1.20.0...v1.21.0) (2026-07-19)
 
 
