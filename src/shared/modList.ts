@@ -83,6 +83,8 @@ export interface ModVariantRow {
   updateType: string | null;
   /** Valid actions for this row, in display order. */
   actions: ModAction[];
+  /** Repo-relative game files this variant modifies, in manifest order. Empty for orphans. */
+  usedFiles: string[];
   /**
    * Currently-enabled mods (from other groups) that share `usedFiles` with this
    * variant. When non-empty, any action that would enable this mod is removed
