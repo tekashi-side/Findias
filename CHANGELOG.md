@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/tekashi-side/Findias/compare/v1.17.0...v1.18.0) (2026-07-19)
+
+
+### Features
+
+* implement game launcher detection and start functionality ([45b2031](https://github.com/tekashi-side/Findias/commit/45b20312f2140cecccd69efa0027713690f7e0f4))
+
 ## [1.17.0](https://github.com/tekashi-side/Findias/compare/v1.16.0...v1.17.0) (2026-07-18)
 
 
