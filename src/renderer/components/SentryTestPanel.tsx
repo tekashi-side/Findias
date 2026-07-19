@@ -1,4 +1,5 @@
 import { useState, type FC } from 'react';
+import { toast } from 'sonner';
 import type { SetupState } from '@shared/api';
 import { Button } from '@/components/ui/button';
 import { Item, ItemContent, ItemDescription, ItemTitle } from '@/components/ui/item';
@@ -83,6 +84,9 @@ const SentryTestPanel: FC<SentryTestPanelProps> = ({ setup }) => {
               onClick={() => void window.findias.debugTelemetry('nativeCrash')}
             >
               Native crash - closes app
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => toast('This is a test toast.')}>
+              Test toast
             </Button>
           </div>
         </ItemContent>

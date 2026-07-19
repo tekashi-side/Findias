@@ -40,7 +40,16 @@ const LauncherBar: FC<LauncherBarProps> = ({
   const hasUpdates = updateCount > 0;
 
   return (
-    <div className="flex shrink-0 items-center justify-end gap-2 px-6 py-4">
+    <div className="flex shrink-0 items-center gap-2 px-6 py-4">
+      <Button onClick={onStartGame} disabled={isActionInProgress || isStarting}>
+        {isStarting ? (
+          <Spinner data-icon="inline-start" aria-hidden />
+        ) : (
+          <Play data-icon="inline-start" aria-hidden />
+        )}
+        Start Game
+      </Button>
+
       <Button
         variant={hasUpdates ? 'default' : 'secondary'}
         className={cn(hasUpdates && 'bg-emerald-600 text-white hover:bg-emerald-600/90')}
@@ -63,15 +72,6 @@ const LauncherBar: FC<LauncherBarProps> = ({
             Up to date
           </>
         )}
-      </Button>
-
-      <Button onClick={onStartGame} disabled={isActionInProgress || isStarting}>
-        {isStarting ? (
-          <Spinner data-icon="inline-start" aria-hidden />
-        ) : (
-          <Play data-icon="inline-start" aria-hidden />
-        )}
-        Start Game
       </Button>
     </div>
   );
