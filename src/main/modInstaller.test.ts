@@ -15,6 +15,7 @@ const entryOf = (modId: string, version: number, ...payload: number[]): CatalogV
   fileName: `uiscias${modId}_${version}.it`,
   version,
   size: payload.length,
+  updatedAt: '2026-07-16T15:29:10.000Z',
   updateType: 'stable',
   usedFiles: [],
   modAuthor: 'Root50199',

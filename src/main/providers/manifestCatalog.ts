@@ -38,6 +38,7 @@ const makeVariant = (
   fileName: variant.fileName,
   version: variant.version,
   size: variant.size,
+  updatedAt: variant.updatedAt,
   updateType: variant.updateType,
   usedFiles: variant.usedFiles,
   modAuthor: variant.modAuthor,

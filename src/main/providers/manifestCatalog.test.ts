@@ -24,6 +24,7 @@ const manifest = {
           fileName: 'uisciasAchievmentUnhide_5.it',
           version: 5,
           size: 20838,
+          updatedAt: '2026-07-16T15:29:10.000Z',
           updateType: 'volatile',
           usedFiles: ['data/db/AchievementTable.xml'],
           modAuthor: 'Root50199',
@@ -45,6 +46,7 @@ const manifest = {
           fileName: 'uisciasBriHpBars1And2_3.it',
           version: 3,
           size: 1106734,
+          updatedAt: '2026-07-11T23:55:45.000Z',
           updateType: 'volatile',
           usedFiles: ['data/db/Race.xml'],
           modAuthor: 'Root50199',
@@ -55,6 +57,7 @@ const manifest = {
           fileName: 'uisciasBriHpBars1And3_3.it',
           version: 3,
           size: 1106735,
+          updatedAt: '2026-07-11T23:55:45.000Z',
           updateType: 'volatile',
           usedFiles: ['data/db/Race.xml'],
           modAuthor: 'Root50199',
@@ -127,6 +130,7 @@ describe('ManifestCatalogProvider', () => {
       modId: 'AchievmentUnhide',
       version: 5,
       size: 20838,
+      updatedAt: '2026-07-16T15:29:10.000Z',
       updateType: 'volatile',
       usedFiles: ['data/db/AchievementTable.xml'],
       modAuthor: 'Root50199',
@@ -181,6 +185,17 @@ describe('ManifestCatalogProvider', () => {
     expect(catalog.groups[0].variants[0].images).toBeUndefined();
     expect(catalog.groups[1].variants[0].modAdditionalCredits).toBeUndefined();
     expect(catalog.groups[1].variants[0].recentUpdateNotes).toBeUndefined();
+  });
+
+  it('rejects a manifest whose variant is missing updatedAt', async () => {
+    const { updatedAt: _updatedAt, ...variantWithoutDate } = manifest.modList[0].variants[0];
+    const missing = {
+      ...manifest,
+      modList: [{ ...manifest.modList[0], variants: [variantWithoutDate] }],
+    };
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets), missing);
+    const provider = createManifestCatalogProvider({ fetchFn });
+    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
   });
 
   it('resolves variant bytes from the matching .it asset url', async () => {

@@ -74,6 +74,11 @@ export interface ModVariantRow {
   size: number | null;
   /** Canonical release file name, when known. */
   fileName: string | null;
+  /**
+   * UTC ISO-8601 instant the mod was last repacked, from the catalog. Absent for
+   * orphans and for manifests published before this field existed.
+   */
+  updatedAt?: string;
   /** Freshness class (`stable` | `volatile`), or null for orphans. */
   updateType: string | null;
   /** Valid actions for this row, in display order. */

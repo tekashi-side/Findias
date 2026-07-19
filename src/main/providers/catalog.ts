@@ -16,6 +16,8 @@ export interface CatalogVariant {
   fileName: string;
   version: number;
   size: number;
+  /** UTC ISO-8601 instant the mod was last repacked (always present in the manifest). */
+  updatedAt: string;
   /** Freshness class (`stable` | `volatile`); kept as a string for leniency. */
   updateType: string;
   /** Repo-relative game files this variant modifies; drives conflict detection. */

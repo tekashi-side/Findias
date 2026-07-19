@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { Info } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
-import { formatBytes } from '../format';
+import { formatBytes, formatDate } from '../format';
 import StatusChip from './StatusChip';
 import ModActions from './ModActions';
 import ModProgressBar from './ModProgressBar';
@@ -35,14 +35,16 @@ type ModListItemProps = {
   onSelect?: (modId: string) => void;
 };
 
-/** Build the one-line "release vX • installed vY • size" summary for a variant. */
+/** Build the one-line "release vX • installed vY • size • updated" summary for a variant. */
 const versionSummary = (variant: ModVariantRow): string => {
   const release =
     variant.releaseVersion === null ? 'Not in release' : `Release v${variant.releaseVersion}`;
   const installed =
     variant.installedVersion === null ? 'Not installed' : `Installed v${variant.installedVersion}`;
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
-  return `${release} • ${installed}${size}`;
+  const updatedDate = variant.updatedAt ? formatDate(variant.updatedAt) : '';
+  const updated = updatedDate ? ` • Updated ${updatedDate}` : '';
+  return `${release} • ${installed}${size}${updated}`;
 };
 
 /**
