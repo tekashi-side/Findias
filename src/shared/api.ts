@@ -28,6 +28,25 @@ export interface GamePaths {
 }
 
 /**
+ * Which storefront/launcher the game was installed through. Inferred from the
+ * chosen game folder path (never persisted), so it can't drift from the folder.
+ */
+export type GameLauncher = 'steam' | 'nexon';
+
+/**
+ * Result of a Start Game request. On success the main process quits Findias, so
+ * the renderer only ever acts on a failure (showing a toast).
+ */
+export type StartGameResult =
+  | { isOk: true; launcher: GameLauncher }
+  | {
+      isOk: false;
+      /** `no-game-folder`: setup is invalid. `launch-failed`: the OS had no handler. */
+      reason: 'no-game-folder' | 'launch-failed';
+      launcher?: GameLauncher;
+    };
+
+/**
  * Whether Findias is ready to operate. The app is gated until a game folder is
  * both chosen and still valid (its `package` subfolder exists).
  */
@@ -48,6 +67,12 @@ export interface SetupState {
   shouldShowModArchive: boolean;
   /** Whether anonymous error reporting is enabled (opt-out; defaults to true). */
   isErrorReportingEnabled: boolean;
+  /**
+   * The launcher inferred from the game folder path, or null when no folder is
+   * set. Read-only and derived (never persisted); used to display the detected
+   * launcher in settings.
+   */
+  gameLauncher: GameLauncher | null;
 }
 
 /** A pre-existing, non-official mod file detected in the package root. */
@@ -101,6 +126,12 @@ export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>;
   getSetupState(): Promise<SetupState>;
   chooseGameFolder(): Promise<ChooseFolderResult>;
+  /**
+   * Launch Mabinogi via the inferred launcher's protocol URI. On success the
+   * main process quits Findias; on failure it resolves with a `launch-failed`
+   * (or `no-game-folder`) result so the renderer can show a toast.
+   */
+  startGame(): Promise<StartGameResult>;
   /** List pre-existing, non-official mods in the package root (for the archive step). */
   listForeignMods(): Promise<ForeignMod[]>;
   /**
@@ -152,6 +183,7 @@ export const IpcChannels = {
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
   chooseGameFolder: 'setup:chooseGameFolder',
+  startGame: 'game:start',
   listForeignMods: 'setup:listForeignMods',
   completeModSetup: 'setup:completeModSetup',
   refresh: 'mods:refresh',

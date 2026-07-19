@@ -433,6 +433,7 @@ src/
 │  ├─ modInstaller.ts        # orchestrate install / update / delete / disable
 │  ├─ downloader.ts          # stream → temp file → atomic rename + progress
 │  ├─ updater.ts             # electron-updater wrapper (app self-update)
+│  ├─ gameLauncher.ts        # infer Steam/Nexon from path; launch via protocol URI (+ .test.ts)
 │  └─ providers/             # swappable source seams (the DI boundary)
 │     ├─ catalog.ts              # ModCatalogProvider contract + Catalog/Group/Variant + CatalogError
 │     ├─ manifestSchema.ts       # copied lenient zod schema for manifestCatalog.json
@@ -495,9 +496,12 @@ All renderer↔main communication goes through a single typed API exposed on
 // Shape exposed by the preload (illustrative, not final)
 interface FindiasApi {
   // settings & setup
-  getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, shouldIncludePrereleases, shouldShowModArchive }
+  getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, shouldIncludePrereleases, shouldShowModArchive, gameLauncher }
   chooseGameFolder(): Promise<ChooseFolderResult>; // { isOk, isCanceled?, error?, state? }
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>; // persist + re-resolve
+
+  // launch
+  startGame(): Promise<StartGameResult>; // open the game via the inferred launcher's protocol URI, then quit
 
   // catalog
   refresh(): Promise<ModListState>; // scan disk + fetch manifest + resolve
@@ -811,6 +815,85 @@ is replaced (see [Source abstraction](#source-abstraction-swappable-providers)).
   only move individual `.it` files in and out of it; the folder itself persists
   even when empty.
 
+## Launching the game
+
+Findias starts Mabinogi from the main view's launcher bar ("Start Game"). The
+launch is deliberately **indirect**: Findias never spawns the game (or a
+launcher) as a child process — it hands a first-party **protocol URI** to the OS
+and then quits. This reuses the exact mechanism a desktop shortcut or a store
+"Play" button uses, and keeps Findias out of the game's process tree.
+
+### Which launcher (inferred, never stored)
+
+Mabinogi ships through two storefronts, each installed under a recognizable
+`appdata` layout:
+
+- **Steam:** `...\steamapps\common\Mabinogi\appdata`
+- **Nexon Launcher:** `...\Nexon\Library\mabinogi\appdata`
+
+`detectLauncher(gameRootPath)` ([`src/main/gameLauncher.ts`](../src/main/gameLauncher.ts))
+infers the launcher purely from the already-stored game folder: if any path
+segment is `steamapps` it is a Steam install, otherwise Nexon. This is robust to
+custom Steam library drives (e.g. `D:\SteamLibrary\steamapps\...`) and is
+recomputed on every call, so **nothing about the launcher is persisted** — there
+is no separate setting that could drift from the chosen game folder. The inferred
+value is surfaced (read-only) on `SetupState.gameLauncher` for display in Settings.
+
+### How it launches (protocol URIs)
+
+Both launchers expose a first-party URL protocol that the OS routes to the
+registered handler regardless of where the launcher is installed, so **no
+launcher install path is ever needed or stored**:
+
+| Launcher | URI                        | ID source                |
+| -------- | -------------------------- | ------------------------ |
+| Steam    | `steam://rungameid/212200` | Mabinogi's Steam AppID   |
+| Nexon    | `nxl://launch/10200`       | Mabinogi's Nexon game ID |
+
+`startGame(gameRootPath)` detects the launcher, `await`s `shell.openExternal(uri)`,
+and maps the outcome to a `StartGameResult`:
+
+- **resolves** → `{ isOk: true, launcher }`; the IPC layer then quits Findias.
+- **rejects** (no handler registered — launcher not installed / protocol broken)
+  → `{ isOk: false, reason: 'launch-failed', launcher }`; Findias stays open and
+  the renderer shows a toast.
+- no game folder → `{ isOk: false, reason: 'no-game-folder' }`.
+
+### Quit-on-launch
+
+On success the `startGame` IPC handler ([`src/main/ipc.ts`](../src/main/ipc.ts))
+schedules `app.quit()` after a short delay so Findias isn't running alongside the
+game. The delay is **not** needed to complete the hand-off — that already
+finished when `shell.openExternal` resolved — it only lets the IPC reply flush
+back to the renderer before the process exits.
+
+### Security & anti-cheat posture
+
+The launch path is intentionally conservative and adds **no detection/ban risk
+over launching manually**:
+
+- **First-party mechanism only.** `steam://` is Steam's documented browser
+  protocol (the same one store pages, shortcuts, and Discord use); `nxl://launch/<id>`
+  is exactly what the Nexon Launcher registers and what its own desktop shortcuts
+  invoke. Findias is not bypassing anything — it goes _through_ the official
+  launcher, which still boots normally (including any anti-cheat).
+- **Never a child process.** `shell.openExternal` asks the OS shell to invoke the
+  handler, so the launcher/game is parented by the OS, not by Findias. There is no
+  process-tree link and no injection, memory reading, or file handles into the
+  game — the launch is indistinguishable from a manual one.
+- **Not the game executable.** Findias never shells out to `mabinogi.exe` (direct
+  launch was retired by Nexon in 2017); it only triggers the launcher, the
+  officially supported entry point.
+- **Out of the way during play.** Quitting on launch means Findias is not a
+  concurrent third-party process while the game (and its anti-cheat) runs.
+- **Locked-down `openExternal`.** The two URIs are hard-coded and non-parameterized
+  in `gameLauncher.ts`; the shared [`openExternal.ts`](../src/main/openExternal.ts)
+  helper (used for mod-README links) still allows only `http:`/`https:`, so
+  untrusted content can never fire a custom scheme.
+
+Any residual ban considerations belong to the **mods themselves** (client
+modification), not to how the game is started.
+
 ## Filename grammar and mod identity
 
 Findias standardizes on the managed convention from
@@ -1051,6 +1134,7 @@ interface AppState {
 | `Downloader`              | —                       | Stream a source's bytes to a temp file with progress + atomic rename.                                                                                                                         |
 | `ModInstaller`            | —                       | Orchestrate install / update(replace) / delete / disable via the providers + `ModStore`.                                                                                                      |
 | `Updater`                 | —                       | electron-updater wrapper: check the Findias releases feed, surface update events over IPC.                                                                                                    |
+| `GameLauncher`            | —                       | Infer the launcher (Steam/Nexon) from the game path and launch the game via its first-party protocol URI (`shell.openExternal`); no child process, no stored launcher paths.                  |
 | `ipc`                     | —                       | Register `ipcMain.handle` endpoints; emit progress + update events; return fresh state.                                                                                                       |
 
 ## Out of scope (technical)

@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpCircle, CircleCheck, CircleX, RefreshCw, X } from 'lucide-react';
+import { CircleX, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
@@ -8,6 +8,7 @@ import ModList from './ModList';
 import ModDetail from './ModDetail';
 import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
 import TagFilter from './TagFilter';
+import LauncherBar from './LauncherBar';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
@@ -92,6 +93,20 @@ const MainView: FC = () => {
       window.findias.setDisabled(modId, isDisabled),
     onSuccess: seedModList,
     onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  // On success the main process quits Findias, so only failures are handled here.
+  const start = useMutation({
+    mutationFn: () => window.findias.startGame(),
+    onSuccess: (result) => {
+      if (result.isOk) return;
+      toast.error(
+        result.reason === 'no-game-folder'
+          ? 'No game folder is set. Choose your Mabinogi folder in Settings.'
+          : "Couldn't open your game launcher. Make sure Steam or the Nexon Launcher is installed.",
+      );
+    },
+    onError: () => toast.error('Could not start the game.'),
   });
 
   /** Dispatch a row's action to the matching mutation. */
@@ -194,168 +209,161 @@ const MainView: FC = () => {
   }, [groups, selectedModId]);
 
   return (
-    <div className="flex h-full">
-      <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
-        <div className="flex shrink-0 items-center gap-2">
-          <InputGroup className="grow">
-            <InputGroupInput
-              placeholder="Search for mods"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label="Clear search"
-                  onClick={() => setSearch('')}
-                >
-                  <CircleX />
-                </InputGroupButton>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-          <Button
-            className="bg-emerald-600 text-white hover:bg-emerald-600/90"
-            onClick={() => void handleUpdateAll()}
-            disabled={updateCount === 0 || isFetching || isBusy || isUpdatingAll}
-          >
-            {isUpdatingAll ? (
-              <>
-                <Spinner data-icon="inline-start" aria-hidden />
-                Updating… ({updateAllProgress.done}/{updateAllProgress.total})
-              </>
-            ) : updateCount === 0 ? (
-              <>
-                <CircleCheck data-icon="inline-start" aria-hidden />
-                Up to date
-              </>
-            ) : (
-              <>
-                <ArrowUpCircle data-icon="inline-start" aria-hidden />
-                Update All Mods ({updateCount})
-              </>
-            )}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => void refetch()}
-            disabled={isFetching || isBusy || isUpdatingAll}
-          >
-            {isFetching ? (
-              <Spinner data-icon="inline-start" aria-hidden />
-            ) : (
-              <RefreshCw data-icon="inline-start" aria-hidden />
-            )}
-            {isFetching ? 'Refreshing' : 'Refresh'}
-          </Button>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex h-full flex-col">
+      <div className="flex min-h-0 flex-1">
+        <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
           <div className="flex shrink-0 items-center gap-2">
-            <ModTabs value={tab} onValueChange={setTab} groups={groups} />
-            <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
+            <InputGroup className="grow">
+              <InputGroupInput
+                placeholder="Search for mods"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    aria-label="Clear search"
+                    onClick={() => setSearch('')}
+                  >
+                    <CircleX />
+                  </InputGroupButton>
+                </InputGroupAddon>
+              )}
+            </InputGroup>
+            <Button
+              variant="outline"
+              onClick={() => void refetch()}
+              disabled={isFetching || isBusy || isUpdatingAll}
+            >
+              {isFetching ? (
+                <Spinner data-icon="inline-start" aria-hidden />
+              ) : (
+                <RefreshCw data-icon="inline-start" aria-hidden />
+              )}
+              {isFetching ? 'Refreshing' : 'Refresh'}
+            </Button>
           </div>
 
-          {isLoading && (
-            <div className="flex shrink-0 justify-center py-12">
-              <Spinner className="size-8" />
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex shrink-0 items-center gap-2">
+              <ModTabs value={tab} onValueChange={setTab} groups={groups} />
+              <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
             </div>
-          )}
 
-          {isError && (
-            <Alert variant="destructive" className="shrink-0">
-              <AlertDescription>
-                {error instanceof Error ? error.message : 'Failed to load the mod list.'}
-              </AlertDescription>
-              <AlertAction>
-                <Button variant="outline" size="sm" onClick={() => void refetch()}>
-                  Retry
-                </Button>
-              </AlertAction>
-            </Alert>
-          )}
-
-          {data && isOutdated && !isOutdatedDismissed && (
-            <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
-              <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
-                New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
-              </AlertDescription>
-              <AlertAction>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
-                  aria-label="Dismiss"
-                  onClick={() => setIsOutdatedDismissed(true)}
-                >
-                  <X className="size-4" />
-                </Button>
-              </AlertAction>
-            </Alert>
-          )}
-
-          {data && !data.catalog.isAvailable && (
-            <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
-              <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
-                {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the mods
-                already on disk.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {data && groups.length === 0 && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>No mods to show</EmptyTitle>
-                <EmptyDescription>
-                  {data.catalog.isAvailable
-                    ? 'No compatible mods were found in the latest Uiscias release.'
-                    : 'No managed mods are installed.'}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-
-          {data && groups.length > 0 && filteredGroups.length === 0 && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>No matches</EmptyTitle>
-                <EmptyDescription>
-                  {deferredSearch.trim() ? (
-                    <>No mods match &ldquo;{deferredSearch.trim()}&rdquo; in this view.</>
-                  ) : (
-                    'No mods match the current filters.'
-                  )}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-
-          {filteredGroups.length > 0 && (
-            <ScrollArea className="-mr-3 min-h-0 flex-1">
-              <div className="pr-3">
-                <ModList
-                  groups={filteredGroups}
-                  busyModId={busyModId}
-                  progressByMod={progressByMod}
-                  isOutdated={isOutdated}
-                  isLocked={isUpdatingAll}
-                  onAction={handleAction}
-                  selectedModId={selectedModId}
-                  onSelect={setSelectedModId}
-                />
+            {isLoading && (
+              <div className="flex shrink-0 justify-center py-12">
+                <Spinner className="size-8" />
               </div>
-            </ScrollArea>
-          )}
+            )}
+
+            {isError && (
+              <Alert variant="destructive" className="shrink-0">
+                <AlertDescription>
+                  {error instanceof Error ? error.message : 'Failed to load the mod list.'}
+                </AlertDescription>
+                <AlertAction>
+                  <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                    Retry
+                  </Button>
+                </AlertAction>
+              </Alert>
+            )}
+
+            {data && isOutdated && !isOutdatedDismissed && (
+              <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
+                <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+                  New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
+                </AlertDescription>
+                <AlertAction>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
+                    aria-label="Dismiss"
+                    onClick={() => setIsOutdatedDismissed(true)}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </AlertAction>
+              </Alert>
+            )}
+
+            {data && !data.catalog.isAvailable && (
+              <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
+                <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+                  {data.catalog.error ?? 'The mod catalog is currently unavailable.'} Showing the
+                  mods already on disk.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {data && groups.length === 0 && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No mods to show</EmptyTitle>
+                  <EmptyDescription>
+                    {data.catalog.isAvailable
+                      ? 'No compatible mods were found in the latest Uiscias release.'
+                      : 'No managed mods are installed.'}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+
+            {data && groups.length > 0 && filteredGroups.length === 0 && (
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No matches</EmptyTitle>
+                  <EmptyDescription>
+                    {deferredSearch.trim() ? (
+                      <>No mods match &ldquo;{deferredSearch.trim()}&rdquo; in this view.</>
+                    ) : (
+                      'No mods match the current filters.'
+                    )}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+
+            {filteredGroups.length > 0 && (
+              <ScrollArea className="-mr-3 min-h-0 flex-1">
+                <div className="pr-3">
+                  <ModList
+                    groups={filteredGroups}
+                    busyModId={busyModId}
+                    progressByMod={progressByMod}
+                    isOutdated={isOutdated}
+                    isLocked={isUpdatingAll}
+                    onAction={handleAction}
+                    selectedModId={selectedModId}
+                    onSelect={setSelectedModId}
+                  />
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+        </div>
+
+        <Separator orientation="vertical" />
+
+        <div className="h-full w-[35%] min-w-0">
+          <ModDetail variant={selected?.variant ?? null} group={selected?.group ?? null} />
         </div>
       </div>
 
-      <Separator orientation="vertical" />
+      <Separator />
 
-      <div className="h-full w-[35%] min-w-0">
-        <ModDetail variant={selected?.variant ?? null} group={selected?.group ?? null} />
-      </div>
+      <LauncherBar
+        updateCount={updateCount}
+        isUpdatingAll={isUpdatingAll}
+        updateAllProgress={updateAllProgress}
+        isBusy={isBusy}
+        isFetching={isFetching}
+        isStarting={start.isPending}
+        onUpdateAll={() => void handleUpdateAll()}
+        onStartGame={() => start.mutate()}
+      />
     </div>
   );
 };

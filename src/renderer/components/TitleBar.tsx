@@ -25,7 +25,7 @@ const TitleBar: FC<TitleBarProps> = ({ isSettingsAvailable, isSettingsOpen, onTo
 
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-b pr-1 pl-3 [-webkit-app-region:drag]">
-      <span className="text-sm font-medium text-muted-foreground select-none">Findias</span>
+      <span className="text-base font-bold text-muted-foreground select-none">Findias</span>
       <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
         <span className="mr-1 text-xs text-muted-foreground/40 tabular-nums select-none">
           v{appInfo?.appVersion ?? '…'}
