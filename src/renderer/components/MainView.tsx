@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleX, RefreshCw, X } from 'lucide-react';
+import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
@@ -11,7 +11,14 @@ import TagFilter from './TagFilter';
 import LauncherBar from './LauncherBar';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import {
   InputGroup,
   InputGroupAddon,
@@ -208,6 +215,14 @@ const MainView: FC = () => {
     return null;
   }, [groups, selectedModId]);
 
+  const trimmedSearch = deferredSearch.trim();
+  const hasSearchOrTags = Boolean(trimmedSearch) || selectedTags.length > 0;
+
+  const handleClearFilters = (): void => {
+    setSearch('');
+    setSelectedTags([]);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
@@ -301,6 +316,9 @@ const MainView: FC = () => {
             {data && groups.length === 0 && (
               <Empty>
                 <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <PackageOpen />
+                  </EmptyMedia>
                   <EmptyTitle>No mods to show</EmptyTitle>
                   <EmptyDescription>
                     {data.catalog.isAvailable
@@ -314,15 +332,27 @@ const MainView: FC = () => {
             {data && groups.length > 0 && filteredGroups.length === 0 && (
               <Empty>
                 <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <SearchX />
+                  </EmptyMedia>
                   <EmptyTitle>No matches</EmptyTitle>
                   <EmptyDescription>
-                    {deferredSearch.trim() ? (
-                      <>No mods match &ldquo;{deferredSearch.trim()}&rdquo; in this view.</>
+                    {trimmedSearch ? (
+                      <>No mods match &ldquo;{trimmedSearch}&rdquo; in this view.</>
+                    ) : selectedTags.length > 0 ? (
+                      'No mods match the selected tags.'
                     ) : (
-                      'No mods match the current filters.'
+                      'No mods in this view.'
                     )}
                   </EmptyDescription>
                 </EmptyHeader>
+                {hasSearchOrTags && (
+                  <EmptyContent>
+                    <Button variant="outline" onClick={handleClearFilters}>
+                      Clear filters
+                    </Button>
+                  </EmptyContent>
+                )}
               </Empty>
             )}
 
