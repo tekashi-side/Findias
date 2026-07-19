@@ -165,6 +165,7 @@ const buildVariantRow = (
     updatedAt: variant.updatedAt,
     updateType: variant.updateType,
     actions,
+    usedFiles: variant.usedFiles,
     conflicts,
     modAuthor: variant.modAuthor,
     modAdditionalCredits: variant.modAdditionalCredits,
@@ -206,6 +207,7 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
     fileName: primary?.fileName ?? null,
     updateType: null,
     actions: isEnabled ? ['disable', 'delete'] : ['enable', 'delete'],
+    usedFiles: [],
     conflicts: [],
   };
   return {
