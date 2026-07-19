@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.21.0](https://github.com/tekashi-side/Findias/compare/v1.20.0...v1.21.0) (2026-07-19)
+
+
+### Features
+
+* add feedback and bug report templates, enhance feedback functionality ([1c6973d](https://github.com/tekashi-side/Findias/commit/1c6973d97dc971c815dd9c4a84481cb1aa3c8c75))
+* enhance MainView and ModDetail components with new icons and filter functionality ([5ac7325](https://github.com/tekashi-side/Findias/commit/5ac732567e5c1b6ee849d8d2c238201c61101812))
+
+
+### Fixes
+
+* update loading spinner alignment in App component for improved UI consistency ([51a59d7](https://github.com/tekashi-side/Findias/commit/51a59d7d4933cc4ac4aebb6f0405df24bd56186f))
+
 ## [1.20.0](https://github.com/tekashi-side/Findias/compare/v1.19.0...v1.20.0) (2026-07-19)
 
 
