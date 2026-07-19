@@ -60,6 +60,19 @@ export const getIssuesPageUrl = (type: FeedbackType): string => {
   return `https://github.com/${target.owner}/${target.repo}/issues`;
 };
 
+/**
+ * Character caps for the user-editable fields. These keep the built URL well
+ * under {@link MAX_URL_LENGTH} even after percent-encoding inflates the text,
+ * and reinforce that the in-app form is a lightweight starter (the full issue
+ * is finished on GitHub). The URL-length guard in {@link buildIssueUrl} remains
+ * the hard backstop.
+ */
+export const FIELD_LIMITS = {
+  title: 150,
+  body: 4000,
+  diagnostics: 3000,
+} as const;
+
 /** Values the user (and app) supply for a new issue. */
 export type IssueUrlInput = {
   title: string;

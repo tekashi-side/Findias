@@ -1,9 +1,10 @@
-import { useMemo, useState, type FC, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FC, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { ModListState } from '@shared/modList';
 import {
   buildIssueUrl,
+  FIELD_LIMITS,
   formatDiagnostics,
   getIssuesPageUrl,
   getRepoName,
@@ -13,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -82,6 +84,13 @@ const ExternalLink: FC<{ href: string; children: ReactNode }> = ({ href, childre
   </a>
 );
 
+/** A small "current/max" character counter shown alongside a field's label. */
+const CharCount: FC<{ current: number; max: number }> = ({ current, max }) => (
+  <span className="text-xs tabular-nums text-muted-foreground/70">
+    {current}/{max}
+  </span>
+);
+
 /** Flatten a resolved mod list into the installed mods shown in diagnostics. */
 const collectInstalledMods = (modList: ModListState | undefined): DiagnosticsMod[] => {
   if (!modList) return [];
@@ -115,7 +124,7 @@ const FeedbackView: FC = () => {
 
   // Diagnostics read the last resolved mod list from the cache (seeded by the
   // main view) rather than triggering a fetch of their own.
-  const diagnostics = useMemo(() => {
+  const computedDiagnostics = useMemo(() => {
     if (!appInfo) return '';
     const modList = queryClient.getQueryData<ModListState>(['modList']);
     return formatDiagnostics({
@@ -126,6 +135,21 @@ const FeedbackView: FC = () => {
       installedMods: collectInstalledMods(modList),
     });
   }, [appInfo, queryClient]);
+
+  // The diagnostics are editable so users can redact anything they'd rather not
+  // share. Seed (and keep in sync with) the computed value until the user edits,
+  // after which their version wins.
+  const [diagnostics, setDiagnostics] = useState('');
+  const [isDiagnosticsEdited, setIsDiagnosticsEdited] = useState(false);
+
+  useEffect(() => {
+    if (!isDiagnosticsEdited) setDiagnostics(computedDiagnostics);
+  }, [computedDiagnostics, isDiagnosticsEdited]);
+
+  const restoreDiagnostics = (): void => {
+    setDiagnostics(computedDiagnostics);
+    setIsDiagnosticsEdited(false);
+  };
 
   const isSubmittable = title.trim().length > 0 && body.trim().length > 0;
 
@@ -147,8 +171,8 @@ const FeedbackView: FC = () => {
         attach files, and submit.
       </p>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="flex w-full flex-col gap-6">
+      <ScrollArea className="-mx-6 min-h-0 flex-1">
+        <div className="flex w-full flex-col gap-6 px-6">
           <div className="flex flex-col gap-2">
             <Label htmlFor="feedback-type">Type</Label>
             <Select value={type} onValueChange={(next) => setType(next as FeedbackType)}>
@@ -163,7 +187,7 @@ const FeedbackView: FC = () => {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground/70">
               {config.description} Sent to the{' '}
               <ExternalLink href={getIssuesPageUrl(type)}>
                 {getRepoName(type)} GitHub Issues
@@ -173,39 +197,68 @@ const FeedbackView: FC = () => {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="feedback-title">Title</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="feedback-title">Title</Label>
+              <CharCount current={title.length} max={FIELD_LIMITS.title} />
+            </div>
             <Input
               id="feedback-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder={config.titlePlaceholder}
+              maxLength={FIELD_LIMITS.title}
             />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="feedback-body">{config.bodyLabel}</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="feedback-body">{config.bodyLabel}</Label>
+              <CharCount current={body.length} max={FIELD_LIMITS.body} />
+            </div>
             <Textarea
               id="feedback-body"
               value={body}
               onChange={(event) => setBody(event.target.value)}
               placeholder={config.bodyPlaceholder}
-              className="min-h-32"
+              maxLength={FIELD_LIMITS.body}
+              className="min-h-24"
             />
           </div>
 
           {isBugReport && (
             <div className="flex flex-col gap-2">
-              <Label>Diagnostics included</Label>
-              <p className="text-sm text-muted-foreground">
-                Attached automatically to help us debug. No personal data is included.
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="feedback-diagnostics">Diagnostics included</Label>
+                <div className="flex items-center gap-3">
+                  {isDiagnosticsEdited && (
+                    <button
+                      type="button"
+                      onClick={restoreDiagnostics}
+                      className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-primary"
+                    >
+                      Restore defaults
+                    </button>
+                  )}
+                  <CharCount current={diagnostics.length} max={FIELD_LIMITS.diagnostics} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground/70">
+                Attached to help us debug. Edit or remove anything you'd rather not share.
               </p>
-              <pre className="overflow-x-auto rounded-2xl bg-muted p-3 text-xs whitespace-pre-wrap text-muted-foreground">
-                {diagnostics || 'Gathering diagnostics...'}
-              </pre>
+              <Textarea
+                id="feedback-diagnostics"
+                value={diagnostics}
+                onChange={(event) => {
+                  setDiagnostics(event.target.value);
+                  setIsDiagnosticsEdited(true);
+                }}
+                maxLength={FIELD_LIMITS.diagnostics}
+                className="min-h-20 font-mono text-xs"
+              />
             </div>
           )}
         </div>
-      </div>
+      </ScrollArea>
 
       <div className="flex shrink-0 justify-end pt-6">
         <Button onClick={handleSubmit} disabled={!isSubmittable}>
