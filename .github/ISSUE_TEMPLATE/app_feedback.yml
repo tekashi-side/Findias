@@ -1,0 +1,21 @@
+name: App Feedback
+description: Share feedback, ideas, or suggestions about the Findias app.
+title: '[Feedback]: '
+labels: ['feedback']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to share your feedback about Findias!
+  - type: textarea
+    id: summary
+    attributes:
+      label: Your feedback
+      description: What would you like to share? Ideas, suggestions, or general feedback are all welcome.
+      placeholder: I'd love it if Findias could...
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Tip: you can attach screenshots or short screen recordings by dragging files into the text area above.

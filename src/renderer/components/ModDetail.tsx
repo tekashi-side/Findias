@@ -1,9 +1,15 @@
 import type { FC } from 'react';
-import { Files, Info } from 'lucide-react';
+import { Files, Info, PanelRightOpen } from 'lucide-react';
 import type { ModGroupRow, ModVariantRow } from '@shared/modList';
 import ModDetailBody from './ModDetailBody';
 import ModDetailDataFiles from './ModDetailDataFiles';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -27,6 +33,9 @@ const ModDetail: FC<ModDetailProps> = ({ variant, group }) => {
       <div className="flex h-full items-center justify-center p-6">
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <PanelRightOpen />
+            </EmptyMedia>
             <EmptyTitle>No mod selected</EmptyTitle>
             <EmptyDescription>Select a mod to view its contents.</EmptyDescription>
           </EmptyHeader>
