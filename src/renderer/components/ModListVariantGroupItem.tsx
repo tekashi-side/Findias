@@ -71,7 +71,7 @@ const ModListVariantGroupItem: FC<ModListVariantGroupItemProps> = ({
             {group.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {group.tags.map((tag) => (
-                  <Badge key={tag} variant="outline">
+                  <Badge key={tag} variant="secondary">
                     {tag}
                   </Badge>
                 ))}

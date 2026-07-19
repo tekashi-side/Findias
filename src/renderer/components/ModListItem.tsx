@@ -43,7 +43,7 @@ const versionSummary = (variant: ModVariantRow): string => {
     variant.installedVersion === null ? 'Not installed' : `Installed v${variant.installedVersion}`;
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
   const updatedDate = variant.updatedAt ? formatDate(variant.updatedAt) : '';
-  const updated = updatedDate ? ` • Updated ${updatedDate}` : '';
+  const updated = updatedDate ? ` • ${updatedDate}` : '';
   return `${release} • ${installed}${size}${updated}`;
 };
 
@@ -120,7 +120,7 @@ const ModListItem: FC<ModListItemProps> = ({
               </Badge>
             )}
             {tags?.map((tag) => (
-              <Badge key={tag} variant="outline">
+              <Badge key={tag} variant="secondary">
                 {tag}
               </Badge>
             ))}
