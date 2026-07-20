@@ -37,6 +37,7 @@ export const manifestVariantSchema = z.object({
   usedFiles: z.array(z.string()),
   modAuthor: z.string().min(1),
   updatedAt: z.string().min(1),
+  downloadCount: z.number().int().nonnegative(),
   // Optional: a producer omits these when the mod's config leaves them unset.
   modAdditionalCredits: z.string().min(1).optional(),
   recentUpdateNotes: z.string().min(1).optional(),

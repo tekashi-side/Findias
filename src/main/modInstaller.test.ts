@@ -19,6 +19,7 @@ const entryOf = (modId: string, version: number, ...payload: number[]): CatalogV
   updateType: 'stable',
   usedFiles: [],
   modAuthor: 'Root50199',
+  downloadCount: 0,
   fetchBytes: async (): Promise<ReadableStream<Uint8Array>> =>
     new ReadableStream({
       start(controller) {

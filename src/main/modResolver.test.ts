@@ -12,6 +12,7 @@ const variant = (
     updateType?: string;
     name?: string;
     updatedAt?: string;
+    downloadCount?: number;
   } = {},
 ): CatalogVariant => ({
   modId,
@@ -23,6 +24,7 @@ const variant = (
   updateType: opts.updateType ?? 'stable',
   usedFiles: opts.usedFiles ?? [],
   modAuthor: 'Root50199',
+  downloadCount: opts.downloadCount ?? 0,
   fetchBytes: async (): Promise<ReadableStream<Uint8Array>> => new ReadableStream<Uint8Array>(),
 });
 
@@ -87,6 +89,15 @@ describe('resolveModList', () => {
       actions: ['install'],
       conflicts: [],
     });
+  });
+
+  it('carries a catalog variant downloadCount onto the row (and leaves orphans undefined)', () => {
+    const withCount: CatalogVariant = { ...variant('Foo', 3), downloadCount: 60 };
+    const result = resolveModList(catalogOf([soloGroup(withCount)]), [foreign('Legacy_1.it')]);
+    expect(firstVariant(result).downloadCount).toBe(60);
+    // The orphan group (from the foreign file) has no catalog entry, so no count.
+    const orphan = result.groups.find((g) => g.groupId.startsWith('orphan:'));
+    expect(orphan?.variants[0].downloadCount).toBeUndefined();
   });
 
   it('surfaces variant docs + author metadata on the row', () => {

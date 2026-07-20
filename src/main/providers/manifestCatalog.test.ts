@@ -28,6 +28,7 @@ const manifest = {
           updateType: 'volatile',
           usedFiles: ['data/db/AchievementTable.xml'],
           modAuthor: 'Root50199',
+          downloadCount: 60,
           modAdditionalCredits: 'Original concept by Neko',
           recentUpdateNotes: 'Rebuilt for game 1.2.4',
         },
@@ -50,6 +51,7 @@ const manifest = {
           updateType: 'volatile',
           usedFiles: ['data/db/Race.xml'],
           modAuthor: 'Root50199',
+          downloadCount: 45,
         },
         {
           modId: 'BriHpBars1And3',
@@ -61,6 +63,7 @@ const manifest = {
           updateType: 'volatile',
           usedFiles: ['data/db/Race.xml'],
           modAuthor: 'Root50199',
+          downloadCount: 38,
         },
       ],
     },
@@ -187,11 +190,48 @@ describe('ManifestCatalogProvider', () => {
     expect(catalog.groups[1].variants[0].recentUpdateNotes).toBeUndefined();
   });
 
+  it('maps each variant lifetime downloadCount from the manifest', async () => {
+    const withDownloads = {
+      ...manifest,
+      modList: [
+        {
+          ...manifest.modList[0],
+          variants: [{ ...manifest.modList[0].variants[0], downloadCount: 123 }],
+        },
+        {
+          ...manifest.modList[1],
+          variants: [
+            { ...manifest.modList[1].variants[0], downloadCount: 456 },
+            { ...manifest.modList[1].variants[1], downloadCount: 789 },
+          ],
+        },
+      ],
+    };
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets), withDownloads);
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    const catalog = await provider.getCatalog(true);
+    expect(catalog.groups[0].variants[0].downloadCount).toBe(123);
+    expect(catalog.groups[1].variants.map((v) => v.downloadCount)).toEqual([456, 789]);
+  });
+
   it('rejects a manifest whose variant is missing updatedAt', async () => {
     const { updatedAt: _updatedAt, ...variantWithoutDate } = manifest.modList[0].variants[0];
     const missing = {
       ...manifest,
       modList: [{ ...manifest.modList[0], variants: [variantWithoutDate] }],
+    };
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets), missing);
+    const provider = createManifestCatalogProvider({ fetchFn });
+    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
+  });
+
+  it('rejects a manifest whose variant is missing downloadCount', async () => {
+    const { downloadCount: _downloadCount, ...variantWithoutCount } =
+      manifest.modList[0].variants[0];
+    const missing = {
+      ...manifest,
+      modList: [{ ...manifest.modList[0], variants: [variantWithoutCount] }],
     };
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), missing);
     const provider = createManifestCatalogProvider({ fetchFn });

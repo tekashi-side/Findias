@@ -164,6 +164,7 @@ const buildVariantRow = (
     fileName: variant.fileName,
     updatedAt: variant.updatedAt,
     updateType: variant.updateType,
+    downloadCount: variant.downloadCount,
     actions,
     usedFiles: variant.usedFiles,
     conflicts,

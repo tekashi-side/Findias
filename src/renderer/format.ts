@@ -9,6 +9,13 @@ export const formatDate = (iso: string): string => {
   return Number.isNaN(date.getTime()) ? '' : dateFormatter.format(date);
 };
 
+/** Format a download count compactly for the user's locale (e.g. "1.2K", "60"). */
+const downloadFormatter = new Intl.NumberFormat(undefined, {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+});
+export const formatDownloads = (count: number): string => downloadFormatter.format(count);
+
 /** Format a byte count as a short human-readable string (e.g. "1.1 MB"). */
 export const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;

@@ -4,7 +4,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ModGroupRow, ModVariantRow } from '@shared/modList';
 import StatusChip from './StatusChip';
-import { formatBytes, formatDate } from '../format';
+import { formatBytes, formatDate, formatDownloads } from '../format';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -26,7 +26,11 @@ const versionSummary = (variant: ModVariantRow): string => {
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
   const updatedDate = variant.updatedAt ? formatDate(variant.updatedAt) : '';
   const updated = updatedDate ? ` • ${updatedDate}` : '';
-  return `${release} • ${installed}${size}${updated}`;
+  const downloads =
+    variant.downloadCount === undefined
+      ? ''
+      : ` • ${formatDownloads(variant.downloadCount)} downloads`;
+  return `${release} • ${installed}${size}${updated}${downloads}`;
 };
 
 /** A single carousel image with its own loading skeleton and error fallback. */

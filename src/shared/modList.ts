@@ -81,6 +81,8 @@ export interface ModVariantRow {
   updatedAt?: string;
   /** Freshness class (`stable` | `volatile`), or null for orphans. */
   updateType: string | null;
+  /** Lifetime downloads across every released version of this variant. */
+  downloadCount?: number;
   /** Valid actions for this row, in display order. */
   actions: ModAction[];
   /** Repo-relative game files this variant modifies, in manifest order. Empty for orphans. */
