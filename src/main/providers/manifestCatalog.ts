@@ -42,6 +42,7 @@ const makeVariant = (
   updateType: variant.updateType,
   usedFiles: variant.usedFiles,
   modAuthor: variant.modAuthor,
+  downloadCount: variant.downloadCount,
   modAdditionalCredits: variant.modAdditionalCredits,
   recentUpdateNotes: variant.recentUpdateNotes,
   readme: variant.readme,

@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import { Info } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
-import { formatBytes, formatDate } from '../format';
+import { formatBytes, formatDate, formatDownloads } from '../format';
 import StatusChip from './StatusChip';
 import ModActions from './ModActions';
 import ModProgressBar from './ModProgressBar';
@@ -44,7 +44,11 @@ const versionSummary = (variant: ModVariantRow): string => {
   const size = variant.size === null ? '' : ` • ${formatBytes(variant.size)}`;
   const updatedDate = variant.updatedAt ? formatDate(variant.updatedAt) : '';
   const updated = updatedDate ? ` • ${updatedDate}` : '';
-  return `${release} • ${installed}${size}${updated}`;
+  const downloads =
+    variant.downloadCount === undefined
+      ? ''
+      : ` • ${formatDownloads(variant.downloadCount)} downloads`;
+  return `${release} • ${installed}${size}${updated}${downloads}`;
 };
 
 /**

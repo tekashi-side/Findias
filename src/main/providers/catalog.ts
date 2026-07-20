@@ -23,6 +23,8 @@ export interface CatalogVariant {
   /** Repo-relative game files this variant modifies; drives conflict detection. */
   usedFiles: string[];
   modAuthor: string;
+  /** Lifetime downloads across every released version of this variant. */
+  downloadCount: number;
   /** Additional credits, when the manifest provides them. */
   modAdditionalCredits?: string;
   /** Recent update notes, when the manifest provides them. */
