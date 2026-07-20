@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.0](https://github.com/tekashi-side/Findias/compare/v1.22.0...v1.23.0) (2026-07-20)
+
+
+### Features
+
+* add download count to mod variants and update related components ([60196aa](https://github.com/tekashi-side/Findias/commit/60196aa69881528c20e10dd2c8e5ebd3904d2060))
+
 ## [1.22.0](https://github.com/tekashi-side/Findias/compare/v1.21.0...v1.22.0) (2026-07-19)
 
 
