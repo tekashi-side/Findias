@@ -573,6 +573,7 @@ interface CatalogVariant {
   fileName: string; // target file name in package/
   version: number;
   size: number;
+  downloadCount: number; // lifetime downloads across all versions (baked in by Uiscias)
   updateType: string; // stable | volatile (freshness class)
   usedFiles: string[]; // files this mod modifies → conflict detection
   // The provider returns a way to fetch bytes without leaking source details:
@@ -702,6 +703,7 @@ Example of the manifest shape we depend on:
           "fileName": "UisciasBriHpBars1And2_00003.it",
           "version": 3,
           "size": 1106734,
+          "downloadCount": 45,
           "updateType": "volatile",
           "usedFiles": ["data/db/Race.xml"],
           "modAuthor": "Root50199",
@@ -997,9 +999,36 @@ The resulting `ModListState` is `{ groups, catalog, metadata }`. Each
 `ModGroupRow` carries `groupId`, group `name`, `tags`, `hasVariants`,
 `isMutuallyExclusive`, `installedVariantId`, and its `variants`; each
 `ModVariantRow` carries display name, versions, size, `fileName`, `updateType`,
-`tags`, `state`, `actions`, and `conflicts`.
+`tags`, `state`, `actions`, `conflicts`, and `downloadCount` (see
+[Download counts](#download-counts)).
 
-## Core flows
+## Download counts
+
+Each variant shows a **lifetime download total** — the sum of downloads across
+every version of that variant ever released (for a non-variant mod, its single
+variant's total is the mod's total). It is rendered next to the version summary
+in both the mod list (`ModListItem`) and the detail view (`ModDetailBody`),
+formatted compactly via `formatDownloads` (`Intl.NumberFormat` compact notation,
+e.g. `1.2K`).
+
+Consistent with design goals #1 and #3 (no hosting cost, no server/database),
+**Findias computes nothing and makes no extra requests for this.** The number is
+produced entirely upstream: Uiscias's CI aggregates GitHub's per-release-asset
+`download_count` into a per-variant lifetime total and bakes it into each
+variant's `downloadCount` in `manifestCatalog.json`, refreshing it nightly (see
+the Uiscias `architecture.md` "Download counts" section). Findias just reads the
+field off the manifest it already fetches — the count rides along the existing
+catalog fetch and caching, adding zero API calls.
+
+Data flow through Findias:
+
+- `manifestSchema.ts` validates `downloadCount` as a required non-negative
+  integer on each manifest variant (Uiscias always emits it), and it is carried
+  onto `CatalogVariant.downloadCount`.
+- `ModResolver` copies it onto each `ModVariantRow`. On the row DTO it is
+  **optional**, because an **orphan** (installed but absent from the catalog) has
+  no catalog entry and therefore no count; the UI simply omits the figure for
+  those. Every catalog-backed variant has it.
 
 ### Launch / refresh
 
