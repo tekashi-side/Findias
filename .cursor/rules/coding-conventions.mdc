@@ -1,0 +1,94 @@
+---
+description: Coding conventions — arrow functions, React/FC, shadcn CLI, CSS flexbox, boolean naming, TypeScript
+alwaysApply: true
+---
+# Coding Conventions
+
+## Prefer arrow functions
+
+Use arrow functions over the `function` keyword wherever possible — for
+components, handlers, callbacks, and module helpers. They're more concise and
+keep `this` lexical.
+
+```tsx
+// ❌ BAD
+function ModList(props: ModListProps) { /* ... */ }
+function handleClick() { /* ... */ }
+
+// ✅ GOOD
+const ModList = (props: ModListProps) => { /* ... */ };
+const handleClick = () => { /* ... */ };
+```
+
+Exceptions: type-level `function` overloads and cases that genuinely need
+hoisting or a named `this` binding.
+
+## React
+
+- Functional components only; no class components.
+- **Type components with `FC`** wherever possible. For a component with props,
+ use the generic `FC<ComponentProps>` and define the props as a named
+ `type`/`interface`. `FC` supplies the return type, so don't also annotate a
+ return type on the component.
+- Extract reusable logic into custom hooks (`useXxx`).
+- Keep components small and focused; lift shared state up, don't prop-drill deeply.
+- Type props with an explicit `type`/`interface`; destructure in the signature.
+
+```tsx
+import type { FC } from 'react'
+
+// ✅ GOOD — no props
+const SetupGate: FC = () => { /* ... */ };
+
+// ✅ GOOD — with props via the FC generic
+type ModRowProps = { mod: ModView };
+const ModRow: FC<ModRowProps> = ({ mod }) => { /* ... */ };
+```
+
+## Components / shadcn
+
+- When you need a new shadcn/ui primitive, **add it via the CLI** rather than
+ hand-writing it:
+
+ ```bash
+ npx shadcn@latest add <name>
+ ```
+
+ This keeps generated components faithful to the configured style and
+ `components.json` aliases. Only hand-edit a component *after* the CLI has
+ generated it.
+
+## CSS / layout
+
+- When modifying layout via CSS, **prefer flexbox** whenever possible. Reach for
+ other layout mechanisms (grid, absolute positioning, floats, margins for
+ alignment) only when flexbox genuinely can't express the layout.
+
+## Boolean naming
+
+Name every boolean **variable**, **property**, and **parameter** with an
+`is`, `has`, `should`, or `will` prefix so the name reads as a yes/no question.
+
+| Prefix | Use for | Examples |
+| ---- | ----- | --- |
+| `is` | Current state or condition | `isReleased`, `isDisabled`, `isValid` |
+| `has` | Possession or presence of something | `hasVariants`, `hasConflict`, `hasUpdate` |
+| `should` | Recommended or conditional behavior | `shouldIncludePrereleases`, `shouldRetry` |
+| `will` | Expected future outcome | `willReload`, `willAutoSwitch` |
+
+```typescript
+// ❌ BAD
+const released = mod.status === 'released';
+type ModRowProps = { disabled: boolean; valid: boolean };
+
+// ✅ GOOD
+const isReleased = mod.status === 'released';
+type ModRowProps = { isDisabled: boolean; isValid: boolean };
+```
+
+## TypeScript
+
+- Name things clearly; prefer full words over abbreviations.
+- Keep modules focused — one main concern per file.
+- Prefer `const`; reach for `let` only when reassignment is required.
+- Co-locate small helpers near their use; share cross-cutting types via the shared layer.

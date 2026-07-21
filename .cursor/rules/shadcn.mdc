@@ -1,0 +1,34 @@
+---
+description: Ask before modifying stock shadcn/ui primitives under src/renderer/components/ui/**
+alwaysApply: true
+---
+# Ask before modifying stock shadcn components
+
+The vendored shadcn/ui primitives in `src/renderer/components/ui/**` are
+**CLI-generated from our preset** (see [`docs/shadcn.md`](../../docs/shadcn.md)).
+A re-theme (`shadcn apply`) reinstalls them, so any hand-edit silently drifts from —
+or gets clobbered by — the source of truth. Treat them as generated, not hand-authored.
+
+## The rule
+
+**Before editing ANY file under `src/renderer/components/ui/**`, STOP and ask me
+first.** In the same message, tell me:
+
+1. Which primitive(s) you want to change and the exact diff.
+2. Why the change is necessary.
+3. What non-invasive alternatives you considered (see below).
+
+Do not make the edit until I explicitly approve it.
+
+## Prefer these over editing the primitive
+
+- **Pass `className`** at the call site — the primitives merge it via `cn(...)`,
+ so most tweaks (spacing, sizing, positioning) need zero edits to `ui/**`.
+- **Wrap** the primitive in an app-level component under `components/` (not `ui/`).
+- **Re-theme** through the documented preset flow if the change is design-wide.
+
+## If I approve an edit
+
+Record it in the "Local modifications to re-apply on reinstall" list in
+[`docs/shadcn.md`](../../docs/shadcn.md), with the reason, so a future re-theme
+re-applies it. An undocumented deviation is a bug.

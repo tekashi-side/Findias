@@ -1,0 +1,58 @@
+---
+description: TypeScript best practices for Findias (main/preload/renderer)
+alwaysApply: true
+---
+
+# TypeScript Standards
+
+## No `as` type assertions
+
+Never use `as SomeType` to override the compiler — it silently lies about a
+value's shape and defers crashes to runtime. Fix the type at its source instead.
+
+`as const` is fine (it narrows/freezes, it doesn't override). `as unknown as T`
+double-casts are banned too.
+
+```typescript
+// ❌ BAD — lying to the compiler
+const user = JSON.parse(raw) as User;
+const el = document.querySelector('.btn') as HTMLButtonElement;
+const cfg = data as unknown as Config;
+
+// ✅ GOOD — validate / narrow, or type the source
+const user = parseUser(JSON.parse(raw)); // returns User, throws on mismatch
+const el = document.querySelector<HTMLButtonElement>('.btn'); // generic, not assertion
+if (el instanceof HTMLButtonElement) { /* narrowed */ }
+
+// ✅ GOOD — `as const` is allowed
+const MODES = ['install', 'remove'] as const;
+```
+
+Prefer type guards (`instanceof`, `in`, `typeof`), discriminated unions, and
+validation functions over assertions. Reserve `as` only for genuinely
+unavoidable interop, and add a comment explaining why.
+
+## Prefer precise types over `any`
+
+- Use `unknown` for untrusted input, then narrow. Never use `any` to silence errors.
+- Avoid non-null assertions (`value!`); guard explicitly instead.
+
+```typescript
+// ❌ BAD
+function handle(payload: any) { return payload.id; }
+
+// ✅ GOOD
+function handle(payload: unknown) {
+  if (typeof payload === 'object' && payload !== null && 'id' in payload) {
+    return payload.id;
+  }
+  throw new Error('Invalid payload');
+}
+```
+
+## General conventions
+
+- Type all exported/public function signatures explicitly; let inference handle locals.
+- Prefer `type`/`interface` and discriminated unions over loose object shapes.
+- Use `readonly` and `const` by default; avoid mutation where practical.
+- No `// @ts-ignore`; use `// @ts-expect-error` with a reason if truly needed.
