@@ -1,5 +1,5 @@
 import { useState, type FC } from 'react';
-import { Info } from 'lucide-react';
+import { Info, TriangleAlert } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ModGroupRow, ModVariantRow } from '@shared/modList';
@@ -185,6 +185,17 @@ const ModDetailBody: FC<ModDetailBodyProps> = ({ variant, group, className }) =>
             </Markdown>
           </div>
         </>
+      ) : !variant.state.isInCatalog ? (
+        <Alert className="border-amber-500/30 text-amber-700 dark:text-amber-400">
+          <TriangleAlert />
+          <AlertTitle>Not provided by Uiscias</AlertTitle>
+          <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+            This mod is installed on your system but isn&apos;t part of the official Uiscias
+            catalog. Findias can&apos;t verify its contents, deliver updates, or guarantee it
+            won&apos;t conflict with Uiscias mods. Unless you&apos;re certain you need it, disable
+            or delete it using the actions in the mod list.
+          </AlertDescription>
+        </Alert>
       ) : (
         <p className="text-sm text-muted-foreground">No description available for this mod.</p>
       )}
