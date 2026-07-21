@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DownloadProgress } from '@shared/api';
+import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
@@ -35,12 +35,17 @@ const MOD_LIST_KEY = ['modList'] as const;
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'The action failed.';
 
+type MainViewProps = {
+  /** The current setup state, passed down (already loaded) from the app root. */
+  setup: SetupState;
+};
+
 /**
  * The primary screen once setup is valid: search and refresh, load/error/catalog
  * banners, the scrollable mod list, and toast notifications for failed
  * install/update/delete/toggle actions.
  */
-const MainView: FC = () => {
+const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
   const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
@@ -60,18 +65,14 @@ const MainView: FC = () => {
     queryFn: () => window.findias.refresh(),
   });
 
-  // Dedupes with App's identical query; used to seed the "Start game
-  // automatically" switch from the persisted setting.
-  const { data: setup } = useQuery({
-    queryKey: ['setupState'],
-    queryFn: () => window.findias.getSetupState(),
-  });
-
   // Optimistic mirror of the persisted setting so the switch responds instantly.
-  const [shouldStartGameAutomatically, setShouldStartGameAutomatically] = useState(true);
+  // Seeded from the (already-loaded) setup prop so the first render is correct.
+  const [shouldStartGameAutomatically, setShouldStartGameAutomatically] = useState(
+    setup.shouldStartGameAutomatically,
+  );
   useEffect(() => {
-    if (setup) setShouldStartGameAutomatically(setup.shouldStartGameAutomatically);
-  }, [setup]);
+    setShouldStartGameAutomatically(setup.shouldStartGameAutomatically);
+  }, [setup.shouldStartGameAutomatically]);
 
   const startGameAutomatically = useMutation({
     mutationFn: (shouldStart: boolean) => window.findias.setStartGameAutomatically(shouldStart),
