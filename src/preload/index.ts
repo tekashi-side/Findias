@@ -45,6 +45,13 @@ const api: FindiasApi = {
   installUpdate: () => ipcRenderer.send(IpcChannels.installUpdate),
   openExternal: (url) => ipcRenderer.send(IpcChannels.openExternal, url),
   minimizeWindow: () => ipcRenderer.send(IpcChannels.windowMinimize),
+  toggleMaximizeWindow: () => ipcRenderer.send(IpcChannels.windowToggleMaximize),
+  onWindowMaximizeChanged: (callback) => {
+    const listener = (_event: IpcRendererEvent, isMaximized: boolean): void =>
+      callback(isMaximized);
+    ipcRenderer.on(IpcChannels.windowMaximizeChanged, listener);
+    return () => ipcRenderer.removeListener(IpcChannels.windowMaximizeChanged, listener);
+  },
   closeWindow: () => ipcRenderer.send(IpcChannels.windowClose),
   debugTelemetry: (kind) => ipcRenderer.invoke(IpcChannels.debugTelemetry, kind),
 };

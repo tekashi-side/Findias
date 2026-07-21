@@ -208,3 +208,30 @@ Providers/resolver/installer have unit tests. ✅
   apply the toggle optimistically in the mutation's `onMutate` via
   `queryClient.setQueryData(...)` (Option B), dropping the local state + effect
   entirely. Should be done consistently across all toggles in one pass.
+
+## Tech debt — temporary `install-electron` postinstall
+
+`package.json` carries a `"postinstall": "install-electron"` script that we want
+to **remove once electron-vite ships Electron 42 support**.
+
+**Why we need it today.** Electron 42 [removed the automatic binary download from
+its own `postinstall`](https://www.electronjs.org/blog/electron-42-0) (supply-chain
+hardening), so a fresh `npm install` no longer creates `node_modules/electron/dist`
+or `path.txt`. Electron 42 instead expects the binary to be fetched lazily on the
+first `require('electron')` (or via the `install-electron` bin it now ships).
+electron-vite 5.0.0 doesn't do that: its `getElectronPath()` reads `path.txt`
+directly and throws `Error: Electron uninstall` when it's missing, without
+triggering the lazy install. Net result: on any cold clone, `npm run dev` fails.
+Our `postinstall` restores install-time binary download so clean clones and CI
+"just work" — the same workaround other Electron 42 projects are using.
+
+**When we'll remove it.** electron-vite already has an open PR
+([alex8088/electron-vite#905](https://github.com/alex8088/electron-vite/pull/905))
+that lazily runs `install.js` from `getElectronPath()` for Electron ≥ 42. Once that
+merges and we bump electron-vite to a release that includes it, delete the
+`postinstall` line — the tooling will handle the download itself and the script
+becomes redundant.
+
+> Caveats while it's in place: Electron's `install.js` has reported zip-extraction
+> issues on **Node 24+** (Node 22 is safe), and **pnpm** users must allow the
+> script to run (e.g. `"onlyBuiltDependencies": ["electron"]`).

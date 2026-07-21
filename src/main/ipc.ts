@@ -416,6 +416,13 @@ export const registerIpcHandlers = (): void => {
     BrowserWindow.fromWebContents(event.sender)?.minimize(),
   );
 
+  ipcMain.on(IpcChannels.windowToggleMaximize, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
+  });
+
   ipcMain.on(IpcChannels.windowClose, (event) =>
     BrowserWindow.fromWebContents(event.sender)?.close(),
   );
