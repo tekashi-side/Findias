@@ -861,6 +861,27 @@ and maps the outcome to a `StartGameResult`:
   the renderer shows a toast.
 - no game folder → `{ isOk: false, reason: 'no-game-folder' }`.
 
+### Working-directory redirect (Nexon only)
+
+The Nexon Launcher's updater writes two throwaway files —
+`nexon_updater_stdout.log` / `nexon_updater_stderr.log` — relative to the current
+working directory it inherits from whoever launched it. Because Findias hands off
+via the OS shell, the launched updater inherits **Findias's** `cwd`, which would
+otherwise drop those logs into the Findias install directory.
+
+To keep them out, `startGame` changes `cwd` immediately before
+`shell.openExternal` **for Nexon launches only**:
+
+- Nexon Launcher install dir if it exists (`%ProgramFiles(x86)%\Nexon\Nexon Launcher`),
+  so the logs land where a normal Nexon self-launch would put them; otherwise
+- the OS temp dir as a fallback.
+
+The previous `cwd` is restored in a `finally` (this matters on the
+`launch-failed` path, where Findias stays open). **Steam launches are left
+completely untouched** — no `cwd` change — since they don't exhibit this
+behavior. Worst case (target dir not writable) the log write silently fails and
+no file is created; it is never written into the Findias install dir.
+
 ### Quit-on-launch
 
 On success the `startGame` IPC handler ([`src/main/ipc.ts`](../src/main/ipc.ts))

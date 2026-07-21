@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { shell } from 'electron';
 import type { GameLauncher, StartGameResult } from '../shared/api';
 
@@ -30,6 +33,23 @@ export const detectLauncher = (gameRootPath: string): GameLauncher => {
   return segments.includes('steamapps') ? 'steam' : 'nexon';
 };
 
+/** Default Nexon Launcher install dir, resolved via env (never hard-coded drive). */
+const resolveNexonLauncherDir = (): string => {
+  const base =
+    process.env['ProgramFiles(x86)'] ?? process.env.ProgramFiles ?? 'C:\\Program Files (x86)';
+  return join(base, 'Nexon', 'Nexon Launcher');
+};
+
+/**
+ * Where the Nexon updater should drop its logs: the launcher's own folder when
+ * present (matches a normal Nexon self-launch), otherwise the throwaway temp dir.
+ * Never the Findias install dir.
+ */
+export const resolveNexonLogCwd = (): string => {
+  const nexonDir = resolveNexonLauncherDir();
+  return existsSync(nexonDir) ? nexonDir : tmpdir();
+};
+
 /**
  * Launch Mabinogi through the inferred launcher's protocol URI.
  * `shell.openExternal` rejects when no handler is registered (the launcher isn't
@@ -39,10 +59,30 @@ export const detectLauncher = (gameRootPath: string): GameLauncher => {
 export const startGame = async (gameRootPath: string | null): Promise<StartGameResult> => {
   if (!gameRootPath) return { isOk: false, reason: 'no-game-folder' };
   const launcher = detectLauncher(gameRootPath);
+
+  // Nexon only: relocate cwd so the updater's stray logs don't land in Findias'
+  // install dir. Steam launches are untouched.
+  const previousCwd = launcher === 'nexon' ? process.cwd() : null;
+  if (launcher === 'nexon') {
+    try {
+      process.chdir(resolveNexonLogCwd());
+    } catch {
+      // If the redirect fails, fall through and launch from the current cwd.
+    }
+  }
+
   try {
     await shell.openExternal(LAUNCHER_URI[launcher]);
     return { isOk: true, launcher };
   } catch {
     return { isOk: false, reason: 'launch-failed', launcher };
+  } finally {
+    if (previousCwd) {
+      try {
+        process.chdir(previousCwd);
+      } catch {
+        // Best-effort restore; ignore.
+      }
+    }
   }
 };
