@@ -179,11 +179,12 @@ const MainView: FC = () => {
   /**
    * Sequentially update every mod that has an update available. The list is
    * snapshotted up front because each mutation reseeds the cache (and thus
-   * `groups`). Failures don't abort the batch; a summary is reported at the end.
+   * `groups`). Failures don't abort the batch. Returns whether every update
+   * succeeded so the caller can gate the follow-on launch.
    */
-  const handleUpdateAll = async (): Promise<void> => {
+  const handleUpdateAll = async (): Promise<boolean> => {
     const ids = updatableModIds;
-    if (ids.length === 0) return;
+    if (ids.length === 0) return true;
     isUpdatingAllRef.current = true;
     setIsUpdatingAll(true);
     setUpdateAllProgress({ done: 0, total: ids.length });
@@ -201,12 +202,23 @@ const MainView: FC = () => {
       isUpdatingAllRef.current = false;
       setIsUpdatingAll(false);
     }
-    const succeeded = ids.length - failed.length;
-    if (failed.length === 0) {
-      toast.success(`Updated ${succeeded} ${succeeded === 1 ? 'mod' : 'mods'}.`);
-    } else {
+    // On full success stay silent: the combined action launches and quits, so a
+    // success toast would only flash before the app closes. Only report
+    // failures, which also explains why the launch was aborted.
+    if (failed.length > 0) {
+      const succeeded = ids.length - failed.length;
       toast.error(`Updated ${succeeded} of ${ids.length} mods. ${failed.length} failed.`);
     }
+    return failed.length === 0;
+  };
+
+  /** Update all mods (if any), then launch. Aborts the launch if any update failed. */
+  const handleUpdateAndStart = async (): Promise<void> => {
+    if (updateCount > 0) {
+      const didAllSucceed = await handleUpdateAll();
+      if (!didAllSucceed) return;
+    }
+    start.mutate();
   };
 
   // Every tag present across the catalog, deduped and sorted, for the tag filter.
@@ -419,8 +431,7 @@ const MainView: FC = () => {
         isFetching={isFetching}
         isStarting={start.isPending}
         shouldStartGameAutomatically={shouldStartGameAutomatically}
-        onUpdateAll={() => void handleUpdateAll()}
-        onStartGame={() => start.mutate()}
+        onUpdateAndStart={() => void handleUpdateAndStart()}
         onStartGameAutomaticallyChange={handleStartGameAutomaticallyChange}
       />
     </div>
