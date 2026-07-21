@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { shell } from 'electron';
 
 // gameLauncher imports `shell` from electron at module load; stub it so the
@@ -59,7 +60,9 @@ describe('resolveNexonLogCwd', () => {
 
   it('returns the Nexon Launcher dir when it exists', () => {
     vi.mocked(existsSync).mockReturnValue(true);
-    expect(resolveNexonLogCwd()).toBe('C:\\Program Files (x86)\\Nexon\\Nexon Launcher');
+    // Build the expected path with the same `join` the code uses, so the
+    // separator matches the host OS (backslash on Windows, forward slash in CI).
+    expect(resolveNexonLogCwd()).toBe(join('C:\\Program Files (x86)', 'Nexon', 'Nexon Launcher'));
   });
 
   it('falls back to the OS temp dir when the Nexon Launcher dir is missing', () => {
