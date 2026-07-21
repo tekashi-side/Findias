@@ -1,7 +1,9 @@
 import type { FC } from 'react';
 import { ArrowUpCircle, CircleCheck, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 type LauncherBarProps = {
@@ -17,8 +19,11 @@ type LauncherBarProps = {
   isFetching: boolean;
   /** Whether a Start Game request is in flight. */
   isStarting: boolean;
+  /** Whether "Start Game" launches the game directly (vs. opening the launcher only). */
+  shouldStartGameAutomatically: boolean;
   onUpdateAll: () => void;
   onStartGame: () => void;
+  onStartGameAutomaticallyChange: (shouldStartGameAutomatically: boolean) => void;
 };
 
 /**
@@ -33,8 +38,10 @@ const LauncherBar: FC<LauncherBarProps> = ({
   isBusy,
   isFetching,
   isStarting,
+  shouldStartGameAutomatically,
   onUpdateAll,
   onStartGame,
+  onStartGameAutomaticallyChange,
 }) => {
   const isActionInProgress = isBusy || isUpdatingAll || isFetching;
   const hasUpdates = updateCount > 0;
@@ -73,6 +80,16 @@ const LauncherBar: FC<LauncherBarProps> = ({
           </>
         )}
       </Button>
+
+      <div className="flex items-center gap-2">
+        <Switch
+          id="start-game-automatically"
+          checked={shouldStartGameAutomatically}
+          onCheckedChange={onStartGameAutomaticallyChange}
+          disabled={isStarting}
+        />
+        <Label htmlFor="start-game-automatically">Start game automatically</Label>
+      </div>
     </div>
   );
 };

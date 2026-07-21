@@ -847,19 +847,33 @@ Both launchers expose a first-party URL protocol that the OS routes to the
 registered handler regardless of where the launcher is installed, so **no
 launcher install path is ever needed or stored**:
 
-| Launcher | URI                        | ID source                |
-| -------- | -------------------------- | ------------------------ |
-| Steam    | `steam://rungameid/212200` | Mabinogi's Steam AppID   |
-| Nexon    | `nxl://launch/10200`       | Mabinogi's Nexon game ID |
+| Launcher | Direct-launch URI          | Launcher-only URI   | ID source                |
+| -------- | -------------------------- | ------------------- | ------------------------ |
+| Steam    | `steam://rungameid/212200` | `steam://rungameid` | Mabinogi's Steam AppID   |
+| Nexon    | `nxl://launch/10200`       | `nxl://launch`      | Mabinogi's Nexon game ID |
 
-`startGame(gameRootPath)` detects the launcher, `await`s `shell.openExternal(uri)`,
-and maps the outcome to a `StartGameResult`:
+`startGame(gameRootPath, shouldStartGameAutomatically)` detects the launcher,
+`await`s `shell.openExternal(uri)`, and maps the outcome to a `StartGameResult`:
 
 - **resolves** → `{ isOk: true, launcher }`; the IPC layer then quits Findias.
 - **rejects** (no handler registered — launcher not installed / protocol broken)
   → `{ isOk: false, reason: 'launch-failed', launcher }`; Findias stays open and
   the renderer shows a toast.
 - no game folder → `{ isOk: false, reason: 'no-game-folder' }`.
+
+### Start automatically vs. launcher only
+
+The persisted `shouldStartGameAutomatically` setting (defaults to `true`,
+surfaced on `SetupState` and toggled by the switch in the launcher bar) selects
+which URI is used:
+
+- **on** → the direct-launch URI (scheme + game id) boots Mabinogi straight away.
+- **off** → the bare scheme opens only the launcher, letting the user start the
+  game themselves when ready.
+
+Both URI forms are composed entirely from module constants (never caller input),
+so this stays a safe, non-parameterized use of `shell.openExternal`. Either way,
+a successful hand-off still quits Findias.
 
 ### Working-directory redirect (Nexon only)
 

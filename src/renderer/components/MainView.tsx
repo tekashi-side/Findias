@@ -60,6 +60,33 @@ const MainView: FC = () => {
     queryFn: () => window.findias.refresh(),
   });
 
+  // Dedupes with App's identical query; used to seed the "Start game
+  // automatically" switch from the persisted setting.
+  const { data: setup } = useQuery({
+    queryKey: ['setupState'],
+    queryFn: () => window.findias.getSetupState(),
+  });
+
+  // Optimistic mirror of the persisted setting so the switch responds instantly.
+  const [shouldStartGameAutomatically, setShouldStartGameAutomatically] = useState(true);
+  useEffect(() => {
+    if (setup) setShouldStartGameAutomatically(setup.shouldStartGameAutomatically);
+  }, [setup]);
+
+  const startGameAutomatically = useMutation({
+    mutationFn: (shouldStart: boolean) => window.findias.setStartGameAutomatically(shouldStart),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  /** Optimistically reflect the auto-start toggle, then persist it. */
+  const handleStartGameAutomaticallyChange = (shouldStart: boolean): void => {
+    setShouldStartGameAutomatically(shouldStart);
+    startGameAutomatically.mutate(shouldStart);
+  };
+
   useEffect(() => {
     return window.findias.onDownloadProgress((progress) => {
       setProgressByMod((prev) => ({ ...prev, [progress.modId]: progress }));
@@ -391,8 +418,10 @@ const MainView: FC = () => {
         isBusy={isBusy}
         isFetching={isFetching}
         isStarting={start.isPending}
+        shouldStartGameAutomatically={shouldStartGameAutomatically}
         onUpdateAll={() => void handleUpdateAll()}
         onStartGame={() => start.mutate()}
+        onStartGameAutomaticallyChange={handleStartGameAutomaticallyChange}
       />
     </div>
   );

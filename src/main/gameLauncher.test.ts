@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { shell } from 'electron';
 
 // gameLauncher imports `shell` from electron at module load; stub it so the
 // module can be imported without a running Electron runtime. detectLauncher is
@@ -11,7 +12,7 @@ vi.mock('electron', () => ({ shell: { openExternal: vi.fn() } }));
 // the tests control whether that dir "exists".
 vi.mock('node:fs', () => ({ existsSync: vi.fn() }));
 
-import { detectLauncher, resolveNexonLogCwd } from './gameLauncher';
+import { detectLauncher, resolveNexonLogCwd, startGame } from './gameLauncher';
 
 describe('detectLauncher', () => {
   it('detects Steam from a default Steam library path', () => {
@@ -64,5 +65,47 @@ describe('resolveNexonLogCwd', () => {
   it('falls back to the OS temp dir when the Nexon Launcher dir is missing', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     expect(resolveNexonLogCwd()).toBe(tmpdir());
+  });
+});
+
+describe('startGame', () => {
+  const STEAM_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata';
+  const NEXON_PATH = 'C:\\Nexon\\Library\\mabinogi\\appdata';
+
+  beforeEach(() => {
+    vi.mocked(shell.openExternal).mockReset().mockResolvedValue(undefined);
+    // Nexon launches relocate cwd for the updater's logs; keep that a no-op here.
+    vi.spyOn(process, 'chdir').mockImplementation(() => {});
+    vi.mocked(existsSync).mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('launches Steam directly when auto-start is on', async () => {
+    await startGame(STEAM_PATH, true);
+    expect(shell.openExternal).toHaveBeenCalledWith('steam://rungameid/212200');
+  });
+
+  it('opens only the Steam client when auto-start is off', async () => {
+    await startGame(STEAM_PATH, false);
+    expect(shell.openExternal).toHaveBeenCalledWith('steam://rungameid');
+  });
+
+  it('launches Nexon directly when auto-start is on', async () => {
+    await startGame(NEXON_PATH, true);
+    expect(shell.openExternal).toHaveBeenCalledWith('nxl://launch/10200');
+  });
+
+  it('opens only the Nexon Launcher when auto-start is off', async () => {
+    await startGame(NEXON_PATH, false);
+    expect(shell.openExternal).toHaveBeenCalledWith('nxl://launch');
+  });
+
+  it('returns a no-game-folder result without launching when no path is set', async () => {
+    const result = await startGame(null, true);
+    expect(result).toEqual({ isOk: false, reason: 'no-game-folder' });
+    expect(shell.openExternal).not.toHaveBeenCalled();
   });
 });
