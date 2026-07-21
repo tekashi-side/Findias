@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.24.0](https://github.com/tekashi-side/Findias/compare/v1.23.0...v1.24.0) (2026-07-21)
+
+
+### Features
+
+* add "Start Game Automatically" setting to control game launch behavior ([371045b](https://github.com/tekashi-side/Findias/commit/371045bc861571d92303bcf76d90486c05b79780))
+* add alert for mods not included in the Uiscias catalog ([d2980cd](https://github.com/tekashi-side/Findias/commit/d2980cdb9db1f3cb026772d8c44ac9de0634eef1))
+* implement working-directory redirect for Nexon Launcher to manage log file locations ([8b6208c](https://github.com/tekashi-side/Findias/commit/8b6208ca62886a796c201d45c113ec080fafdea3))
+
+
+### Fixes
+
+* ensure correct path separator in Nexon Launcher directory resolution test ([f6d7cfd](https://github.com/tekashi-side/Findias/commit/f6d7cfd524d7a36b79f1e610b5bc7aeb14a9ea20))
+
 ## [1.23.0](https://github.com/tekashi-side/Findias/compare/v1.22.0...v1.23.0) (2026-07-20)
 
 
