@@ -847,19 +847,54 @@ Both launchers expose a first-party URL protocol that the OS routes to the
 registered handler regardless of where the launcher is installed, so **no
 launcher install path is ever needed or stored**:
 
-| Launcher | URI                        | ID source                |
-| -------- | -------------------------- | ------------------------ |
-| Steam    | `steam://rungameid/212200` | Mabinogi's Steam AppID   |
-| Nexon    | `nxl://launch/10200`       | Mabinogi's Nexon game ID |
+| Launcher | Direct-launch URI          | Launcher-only URI   | ID source                |
+| -------- | -------------------------- | ------------------- | ------------------------ |
+| Steam    | `steam://rungameid/212200` | `steam://rungameid` | Mabinogi's Steam AppID   |
+| Nexon    | `nxl://launch/10200`       | `nxl://launch`      | Mabinogi's Nexon game ID |
 
-`startGame(gameRootPath)` detects the launcher, `await`s `shell.openExternal(uri)`,
-and maps the outcome to a `StartGameResult`:
+`startGame(gameRootPath, shouldStartGameAutomatically)` detects the launcher,
+`await`s `shell.openExternal(uri)`, and maps the outcome to a `StartGameResult`:
 
 - **resolves** → `{ isOk: true, launcher }`; the IPC layer then quits Findias.
 - **rejects** (no handler registered — launcher not installed / protocol broken)
   → `{ isOk: false, reason: 'launch-failed', launcher }`; Findias stays open and
   the renderer shows a toast.
 - no game folder → `{ isOk: false, reason: 'no-game-folder' }`.
+
+### Start automatically vs. launcher only
+
+The persisted `shouldStartGameAutomatically` setting (defaults to `true`,
+surfaced on `SetupState` and toggled by the switch in the launcher bar) selects
+which URI is used:
+
+- **on** → the direct-launch URI (scheme + game id) boots Mabinogi straight away.
+- **off** → the bare scheme opens only the launcher, letting the user start the
+  game themselves when ready.
+
+Both URI forms are composed entirely from module constants (never caller input),
+so this stays a safe, non-parameterized use of `shell.openExternal`. Either way,
+a successful hand-off still quits Findias.
+
+### Working-directory redirect (Nexon only)
+
+The Nexon Launcher's updater writes two throwaway files —
+`nexon_updater_stdout.log` / `nexon_updater_stderr.log` — relative to the current
+working directory it inherits from whoever launched it. Because Findias hands off
+via the OS shell, the launched updater inherits **Findias's** `cwd`, which would
+otherwise drop those logs into the Findias install directory.
+
+To keep them out, `startGame` changes `cwd` immediately before
+`shell.openExternal` **for Nexon launches only**:
+
+- Nexon Launcher install dir if it exists (`%ProgramFiles(x86)%\Nexon\Nexon Launcher`),
+  so the logs land where a normal Nexon self-launch would put them; otherwise
+- the OS temp dir as a fallback.
+
+The previous `cwd` is restored in a `finally` (this matters on the
+`launch-failed` path, where Findias stays open). **Steam launches are left
+completely untouched** — no `cwd` change — since they don't exhibit this
+behavior. Worst case (target dir not writable) the log write silently fails and
+no file is created; it is never written into the Findias install dir.
 
 ### Quit-on-launch
 

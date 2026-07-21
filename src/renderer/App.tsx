@@ -69,7 +69,7 @@ const App: FC = () => {
 
   if (isSettingsOpen) return shell(<SettingsView setup={data} />);
   if (isFeedbackOpen) return shell(<FeedbackView />);
-  return shell(<MainView />);
+  return shell(<MainView setup={data} />);
 };
 
 export default App;

@@ -43,6 +43,12 @@ export const settingsSchema = z.object({
    * (and the `.catch` keeps older settings files valid).
    */
   installId: z.string().nullable().catch(null),
+  /**
+   * Whether "Start Game" launches the game directly (true) or only opens the
+   * launcher (false), letting the user start the game themselves. Defaults to
+   * true; the `.catch` keeps older settings files (missing the field) valid.
+   */
+  shouldStartGameAutomatically: z.boolean().catch(true),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
@@ -53,6 +59,7 @@ export const DEFAULT_SETTINGS: Settings = {
   isModSetupCompleted: false,
   isErrorReportingEnabled: true,
   installId: null,
+  shouldStartGameAutomatically: true,
 };
 
 /**

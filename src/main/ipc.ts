@@ -79,7 +79,12 @@ const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
 
 /** Resolve the current setup state by re-validating the stored path on disk. */
 const computeSetupState = async (): Promise<SetupState> => {
-  const { gameRootPath, isModSetupCompleted, isErrorReportingEnabled } = await loadSettings();
+  const {
+    gameRootPath,
+    isModSetupCompleted,
+    isErrorReportingEnabled,
+    shouldStartGameAutomatically,
+  } = await loadSettings();
   const shouldIncludePrereleases = await arePrereleasesEligible();
   if (!gameRootPath) {
     return {
@@ -89,6 +94,7 @@ const computeSetupState = async (): Promise<SetupState> => {
       shouldShowModArchive: false,
       isErrorReportingEnabled,
       gameLauncher: null,
+      shouldStartGameAutomatically,
     };
   }
   const { isOk } = await validateGameRoot(gameRootPath);
@@ -114,6 +120,7 @@ const computeSetupState = async (): Promise<SetupState> => {
     shouldShowModArchive,
     isErrorReportingEnabled,
     gameLauncher: detectLauncher(gameRootPath),
+    shouldStartGameAutomatically,
   };
 };
 
@@ -356,8 +363,8 @@ export const registerIpcHandlers = (): void => {
   handleInvoke(IpcChannels.getSetupState, () => computeSetupState());
 
   handleInvoke(IpcChannels.startGame, async (): Promise<StartGameResult> => {
-    const { gameRootPath } = await loadSettings();
-    const result = await startGame(gameRootPath);
+    const { gameRootPath, shouldStartGameAutomatically } = await loadSettings();
+    const result = await startGame(gameRootPath, shouldStartGameAutomatically);
     // On success, quit so Findias isn't running alongside the game. Deferred a
     // tick so the launcher hand-off completes and the renderer's invoke settles
     // before the app exits.
@@ -391,6 +398,14 @@ export const registerIpcHandlers = (): void => {
 
   handleInvoke(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
     setErrorReportingEnabled(isEnabled),
+  );
+
+  handleInvoke(
+    IpcChannels.setStartGameAutomatically,
+    async (_event, shouldStartGameAutomatically: boolean) => {
+      const settings = await loadSettings();
+      await saveSettings({ ...settings, shouldStartGameAutomatically });
+    },
   );
 
   ipcMain.on(IpcChannels.installUpdate, () => quitAndInstallUpdate());

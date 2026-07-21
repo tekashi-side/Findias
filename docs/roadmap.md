@@ -198,3 +198,13 @@ Providers/resolver/installer have unit tests. ✅
 - Source-of-truth swaps (a source-tree catalog, or a local `installedMods.json`
   with richer metadata) — already accommodated by the provider interfaces.
 - A shared `@uiscias/schema` package to replace the copied manifest schema.
+- **Settings-toggle state pattern refactor.** Today each settings switch (e.g.
+  `shouldStartGameAutomatically`, `shouldIncludePrereleases`, `isErrorReportingEnabled`
+  in `SettingsView`/`MainView`) keeps a local `useState` mirror of the persisted
+  value synced via `useEffect` (Option A). This works, but duplicates the source of
+  truth and is easy to get subtly wrong (e.g. seeding from a constant re-introduces a
+  brief wrong-state flash on remount). Consider migrating these to a single source of
+  truth: drive each switch directly from the `['setupState']` React Query cache and
+  apply the toggle optimistically in the mutation's `onMutate` via
+  `queryClient.setQueryData(...)` (Option B), dropping the local state + effect
+  entirely. Should be done consistently across all toggles in one pass.

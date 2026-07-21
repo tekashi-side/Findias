@@ -77,6 +77,11 @@ export interface SetupState {
    * launcher in settings.
    */
   gameLauncher: GameLauncher | null;
+  /**
+   * Whether "Start Game" launches the game directly (true) or only opens the
+   * launcher (false). Persisted; defaults to true. Drives the LauncherBar switch.
+   */
+  shouldStartGameAutomatically: boolean;
 }
 
 /** A pre-existing, non-official mod file detected in the package root. */
@@ -156,6 +161,11 @@ export interface FindiasApi {
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>;
   /** Persist and immediately apply the anonymous error-reporting opt-out. */
   setErrorReportingEnabled(isEnabled: boolean): Promise<void>;
+  /**
+   * Persist whether "Start Game" launches the game directly or only opens the
+   * launcher. Applied on the next Start Game request.
+   */
+  setStartGameAutomatically(shouldStartGameAutomatically: boolean): Promise<void>;
   /** Subscribe to download progress; returns an unsubscribe function. */
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
   /** Subscribe to app self-update status events; returns an unsubscribe function. */
@@ -196,6 +206,7 @@ export const IpcChannels = {
   setDisabled: 'mods:setDisabled',
   setShouldIncludePrereleases: 'settings:setShouldIncludePrereleases',
   setErrorReportingEnabled: 'settings:setErrorReportingEnabled',
+  setStartGameAutomatically: 'settings:setStartGameAutomatically',
   downloadProgress: 'mods:downloadProgress',
   updateStatus: 'update:status',
   installUpdate: 'update:install',

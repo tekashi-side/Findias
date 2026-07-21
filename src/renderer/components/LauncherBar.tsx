@@ -1,7 +1,9 @@
 import type { FC } from 'react';
-import { ArrowUpCircle, CircleCheck, Play } from 'lucide-react';
+import { ArrowUpCircle, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 type LauncherBarProps = {
@@ -17,14 +19,18 @@ type LauncherBarProps = {
   isFetching: boolean;
   /** Whether a Start Game request is in flight. */
   isStarting: boolean;
-  onUpdateAll: () => void;
-  onStartGame: () => void;
+  /** Whether "Start Game" launches the game directly (vs. opening the launcher only). */
+  shouldStartGameAutomatically: boolean;
+  /** Update all mods (if any are available), then launch the game. */
+  onUpdateAndStart: () => void;
+  onStartGameAutomaticallyChange: (shouldStartGameAutomatically: boolean) => void;
 };
 
 /**
- * Full-width bar pinned to the bottom of the main view. Hosts the primary
- * "Start Game" action alongside the relocated "Update All Mods" button. Every
- * control is disabled while any mod operation is in progress.
+ * Full-width bar pinned to the bottom of the main view. Hosts a single combined
+ * action that updates all mods (when any are available) and then launches the
+ * game, plus the "Start game automatically" switch. The action is disabled while
+ * any mod operation or launch is in progress.
  */
 const LauncherBar: FC<LauncherBarProps> = ({
   updateCount,
@@ -33,46 +39,45 @@ const LauncherBar: FC<LauncherBarProps> = ({
   isBusy,
   isFetching,
   isStarting,
-  onUpdateAll,
-  onStartGame,
+  shouldStartGameAutomatically,
+  onUpdateAndStart,
+  onStartGameAutomaticallyChange,
 }) => {
   const isActionInProgress = isBusy || isUpdatingAll || isFetching;
   const hasUpdates = updateCount > 0;
+  const isGreen = hasUpdates || isUpdatingAll;
+  const showSpinner = isUpdatingAll || isStarting;
+  const ActionIcon = hasUpdates ? ArrowUpCircle : Play;
 
   return (
     <div className="flex shrink-0 items-center gap-2 px-6 py-4">
-      <Button onClick={onStartGame} disabled={isActionInProgress || isStarting}>
-        {isStarting ? (
+      <Button
+        variant="default"
+        className={cn(isGreen && 'bg-emerald-600 text-white hover:bg-emerald-600/90')}
+        onClick={onUpdateAndStart}
+        disabled={isActionInProgress || isStarting}
+      >
+        {showSpinner ? (
           <Spinner data-icon="inline-start" aria-hidden />
         ) : (
-          <Play data-icon="inline-start" aria-hidden />
+          <ActionIcon data-icon="inline-start" aria-hidden />
         )}
-        Start Game
+        {isUpdatingAll
+          ? `Updating… (${updateAllProgress.done}/${updateAllProgress.total})`
+          : hasUpdates
+            ? 'Update All Mods & Start Game'
+            : 'Start Game'}
       </Button>
 
-      <Button
-        variant={hasUpdates ? 'default' : 'secondary'}
-        className={cn(hasUpdates && 'bg-emerald-600 text-white hover:bg-emerald-600/90')}
-        onClick={onUpdateAll}
-        disabled={!hasUpdates || isActionInProgress}
-      >
-        {isUpdatingAll ? (
-          <>
-            <Spinner data-icon="inline-start" aria-hidden />
-            Updating… ({updateAllProgress.done}/{updateAllProgress.total})
-          </>
-        ) : hasUpdates ? (
-          <>
-            <ArrowUpCircle data-icon="inline-start" aria-hidden />
-            Update All Mods ({updateCount})
-          </>
-        ) : (
-          <>
-            <CircleCheck data-icon="inline-start" aria-hidden />
-            Up to date
-          </>
-        )}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="start-game-automatically"
+          checked={shouldStartGameAutomatically}
+          onCheckedChange={onStartGameAutomaticallyChange}
+          disabled={isStarting}
+        />
+        <Label htmlFor="start-game-automatically">Start game automatically</Label>
+      </div>
     </div>
   );
 };

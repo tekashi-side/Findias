@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { DownloadProgress } from '@shared/api';
+import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
@@ -35,12 +35,17 @@ const MOD_LIST_KEY = ['modList'] as const;
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : 'The action failed.';
 
+type MainViewProps = {
+  /** The current setup state, passed down (already loaded) from the app root. */
+  setup: SetupState;
+};
+
 /**
  * The primary screen once setup is valid: search and refresh, load/error/catalog
  * banners, the scrollable mod list, and toast notifications for failed
  * install/update/delete/toggle actions.
  */
-const MainView: FC = () => {
+const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
   const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
@@ -59,6 +64,29 @@ const MainView: FC = () => {
     queryKey: MOD_LIST_KEY,
     queryFn: () => window.findias.refresh(),
   });
+
+  // Optimistic mirror of the persisted setting so the switch responds instantly.
+  // Seeded from the (already-loaded) setup prop so the first render is correct.
+  const [shouldStartGameAutomatically, setShouldStartGameAutomatically] = useState(
+    setup.shouldStartGameAutomatically,
+  );
+  useEffect(() => {
+    setShouldStartGameAutomatically(setup.shouldStartGameAutomatically);
+  }, [setup.shouldStartGameAutomatically]);
+
+  const startGameAutomatically = useMutation({
+    mutationFn: (shouldStart: boolean) => window.findias.setStartGameAutomatically(shouldStart),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  /** Optimistically reflect the auto-start toggle, then persist it. */
+  const handleStartGameAutomaticallyChange = (shouldStart: boolean): void => {
+    setShouldStartGameAutomatically(shouldStart);
+    startGameAutomatically.mutate(shouldStart);
+  };
 
   useEffect(() => {
     return window.findias.onDownloadProgress((progress) => {
@@ -152,11 +180,12 @@ const MainView: FC = () => {
   /**
    * Sequentially update every mod that has an update available. The list is
    * snapshotted up front because each mutation reseeds the cache (and thus
-   * `groups`). Failures don't abort the batch; a summary is reported at the end.
+   * `groups`). Failures don't abort the batch. Returns whether every update
+   * succeeded so the caller can gate the follow-on launch.
    */
-  const handleUpdateAll = async (): Promise<void> => {
+  const handleUpdateAll = async (): Promise<boolean> => {
     const ids = updatableModIds;
-    if (ids.length === 0) return;
+    if (ids.length === 0) return true;
     isUpdatingAllRef.current = true;
     setIsUpdatingAll(true);
     setUpdateAllProgress({ done: 0, total: ids.length });
@@ -174,12 +203,23 @@ const MainView: FC = () => {
       isUpdatingAllRef.current = false;
       setIsUpdatingAll(false);
     }
-    const succeeded = ids.length - failed.length;
-    if (failed.length === 0) {
-      toast.success(`Updated ${succeeded} ${succeeded === 1 ? 'mod' : 'mods'}.`);
-    } else {
+    // On full success stay silent: the combined action launches and quits, so a
+    // success toast would only flash before the app closes. Only report
+    // failures, which also explains why the launch was aborted.
+    if (failed.length > 0) {
+      const succeeded = ids.length - failed.length;
       toast.error(`Updated ${succeeded} of ${ids.length} mods. ${failed.length} failed.`);
     }
+    return failed.length === 0;
+  };
+
+  /** Update all mods (if any), then launch. Aborts the launch if any update failed. */
+  const handleUpdateAndStart = async (): Promise<void> => {
+    if (updateCount > 0) {
+      const didAllSucceed = await handleUpdateAll();
+      if (!didAllSucceed) return;
+    }
+    start.mutate();
   };
 
   // Every tag present across the catalog, deduped and sorted, for the tag filter.
@@ -391,8 +431,9 @@ const MainView: FC = () => {
         isBusy={isBusy}
         isFetching={isFetching}
         isStarting={start.isPending}
-        onUpdateAll={() => void handleUpdateAll()}
-        onStartGame={() => start.mutate()}
+        shouldStartGameAutomatically={shouldStartGameAutomatically}
+        onUpdateAndStart={() => void handleUpdateAndStart()}
+        onStartGameAutomaticallyChange={handleStartGameAutomaticallyChange}
       />
     </div>
   );
