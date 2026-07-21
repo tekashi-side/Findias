@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.25.0](https://github.com/tekashi-side/Findias/compare/v1.24.0...v1.25.0) (2026-07-21)
+
+
+### Features
+
+* implement window maximize toggle functionality and update IPC communication ([7aab731](https://github.com/tekashi-side/Findias/commit/7aab731aefcfaa8cedcddff861812a3fc7641701))
+
+
+### Fixes
+
+* ensuring post-install installs electron for fresh clones ([879fa49](https://github.com/tekashi-side/Findias/commit/879fa494740b97788e5f5728bf43e5b14a46a073))
+* updating gitignore to add cursor rules ([254fb0a](https://github.com/tekashi-side/Findias/commit/254fb0a49757309adacc2870112a1f465f4440c0))
+
 ## [1.24.0](https://github.com/tekashi-side/Findias/compare/v1.23.0...v1.24.0) (2026-07-21)
 
 
