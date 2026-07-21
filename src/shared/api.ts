@@ -180,6 +180,10 @@ export interface FindiasApi {
   openExternal(url: string): void;
   /** Minimize the application window. */
   minimizeWindow(): void;
+  /** Toggle maximize / restore on the application window. */
+  toggleMaximizeWindow(): void;
+  /** Subscribe to maximize-state changes; returns an unsubscribe function. */
+  onWindowMaximizeChanged(callback: (isMaximized: boolean) => void): () => void;
   /** Close the application window. */
   closeWindow(): void;
   /**
@@ -212,6 +216,8 @@ export const IpcChannels = {
   installUpdate: 'update:install',
   openExternal: 'shell:openExternal',
   windowMinimize: 'window:minimize',
+  windowToggleMaximize: 'window:toggleMaximize',
+  windowMaximizeChanged: 'window:maximizeChanged',
   windowClose: 'window:close',
   debugTelemetry: 'debug:telemetry',
 } as const;

@@ -1,10 +1,14 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, Menu, type WebContents } from 'electron';
+import { IpcChannels } from '../shared/api';
 import { buildAppMenu } from './appMenu';
 import { registerIpcHandlers } from './ipc';
 import { initUpdater } from './updater';
 import { openExternalUrl } from './openExternal';
 import { initTelemetry } from './telemetry';
+
+const WINDOW_WIDTH = 1366;
+const WINDOW_HEIGHT = 852;
 
 /**
  * Whether a navigation target is "internal" (the app navigating within itself)
@@ -48,16 +52,13 @@ const blockCtrlWheelZoom = (webContents: WebContents): void => {
 
 const createWindow = (): void => {
   const window = new BrowserWindow({
-    // width: 1600,
-    // height: 900,
-    width: 1366,
-    height: 852,
-    // height: 768,
-    // width: 1280,
-    // height: 720,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
+    minWidth: WINDOW_WIDTH,
+    minHeight: WINDOW_HEIGHT,
     useContentSize: true,
-    resizable: false,
-    maximizable: false,
+    resizable: true,
+    maximizable: true,
     fullscreenable: false,
     // Frameless: no native menu bar (autoHideMenuBar would be a no-op).
     frame: false,
@@ -72,6 +73,12 @@ const createWindow = (): void => {
   });
 
   window.on('ready-to-show', () => window.show());
+
+  const sendMaximizeChanged = (): void => {
+    window.webContents.send(IpcChannels.windowMaximizeChanged, window.isMaximized());
+  };
+  window.on('maximize', sendMaximizeChanged);
+  window.on('unmaximize', sendMaximizeChanged);
 
   blockCtrlWheelZoom(window.webContents);
 

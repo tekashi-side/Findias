@@ -1,6 +1,6 @@
-import type { FC } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MessageSquareHeart, Minus, Settings, X } from 'lucide-react';
+import { Copy, MessageSquareHeart, Minus, Settings, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type TitleBarProps = {
@@ -28,15 +28,25 @@ const TitleBar: FC<TitleBarProps> = ({
   isFeedbackOpen,
   onToggleFeedback,
 }) => {
+  const [isMaximized, setIsMaximized] = useState(false);
+
   const { data: appInfo } = useQuery({
     queryKey: ['appInfo'],
     queryFn: () => window.findias.getAppInfo(),
   });
 
+  useEffect(() => window.findias.onWindowMaximizeChanged(setIsMaximized), []);
+
   return (
-    <div className="flex h-9 shrink-0 items-center justify-between border-b pr-1 pl-3 [-webkit-app-region:drag]">
+    <div
+      className="flex h-9 shrink-0 items-center justify-between border-b pr-1 pl-3 [-webkit-app-region:drag]"
+      onDoubleClick={() => window.findias.toggleMaximizeWindow()}
+    >
       <span className="text-base font-bold text-muted-foreground select-none">Findias</span>
-      <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
+      <div
+        className="flex items-center gap-0.5 [-webkit-app-region:no-drag]"
+        onDoubleClick={(event) => event.stopPropagation()}
+      >
         <span className="mr-1 text-xs text-muted-foreground/40 tabular-nums select-none">
           v{appInfo?.appVersion ?? '…'}
         </span>
@@ -69,6 +79,14 @@ const TitleBar: FC<TitleBarProps> = ({
           onClick={() => window.findias.minimizeWindow()}
         >
           <Minus className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={isMaximized ? 'Restore' : 'Maximize'}
+          onClick={() => window.findias.toggleMaximizeWindow()}
+        >
+          {isMaximized ? <Copy className="size-4" /> : <Square className="size-4" />}
         </Button>
         <Button
           variant="ghost"
