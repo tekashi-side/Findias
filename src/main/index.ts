@@ -41,6 +41,12 @@ if (!app.isPackaged) {
 // via VITE_FINDIAS_SENTRY_DEV=1. The renderer routes its events through this process.
 initTelemetry();
 
+/** Dev-only window icon; packaged Windows builds use the exe's embedded icon. */
+const getWindowIconPath = (): string | undefined => {
+  if (app.isPackaged) return undefined;
+  return join(__dirname, '../../build/icon.png');
+};
+
 /** Block Ctrl/Cmd+wheel page zoom; keyboard zoom is omitted from the app menu. */
 const blockCtrlWheelZoom = (webContents: WebContents): void => {
   webContents.on('before-input-event', (event, input) => {
@@ -51,6 +57,7 @@ const blockCtrlWheelZoom = (webContents: WebContents): void => {
 };
 
 const createWindow = (): void => {
+  const iconPath = getWindowIconPath();
   const window = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -64,6 +71,7 @@ const createWindow = (): void => {
     frame: false,
     center: true,
     show: false,
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
