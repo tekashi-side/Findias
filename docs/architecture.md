@@ -994,11 +994,20 @@ metadata never influences it):
 | Catalog has it | Installed (enabled) | Installed (disabled) | Status                                                        |
 | -------------- | ------------------- | -------------------- | ------------------------------------------------------------- |
 | ✓              | —                   | —                    | **Not installed** → _Install_                                 |
-| ✓              | ≥ catalog version   | —                    | **Up to date** → _Disable_ + _Delete_                         |
-| ✓              | < catalog version   | —                    | **Update available** → _Update_ + _Disable_ + _Delete_        |
-| ✓              | —                   | any                  | **Disabled** → _Enable_ (+ _Update_ if stale) + _Delete_      |
+| ✓              | = catalog version   | —                    | **Up to date** → _Disable_ + _Delete_                         |
+| ✓              | ≠ catalog version   | —                    | **Update available** → _Update_ + _Disable_ + _Delete_        |
+| ✓              | —                   | any                  | **Disabled** → _Enable_ (+ _Update_ if mismatched) + _Delete_ |
 | —              | enabled             | —                    | **Orphan** (installed, not in catalog) → _Disable_ + _Delete_ |
 | —              | —                   | disabled             | **Orphan** (installed, not in catalog) → _Enable_ + _Delete_  |
+
+The comparison is a **mismatch** (`installed !== catalog`), not strictly-older.
+Normally the installed version is only ever behind the catalog, but a catalog
+**re-baseline** (a mod re-published with a reset/lower version — e.g. installed
+`v5` while the catalog now points to `v2`) leaves the on-disk file _ahead_ of the
+authoritative catalog. Treating any difference as an update surfaces that case so
+the user can reconcile; installing simply replaces the on-disk file with the
+catalog's version (the installer already reconciles by `modId`, in either
+direction).
 
 **State vs. display label.** The canonical per-variant field is an orthogonal
 `ModState` — `{ isInCatalog, presence: 'absent' | 'enabled' | 'disabled', isUpdateAvailable }` —
@@ -1028,7 +1037,9 @@ next resolve.
 banner-only flag, `metadata.isOutdated = supportedGameVersion !== currentGameVersion`.
 It drives **only** the top-of-app banner and the conditional display of each
 variant's `updateType` (`stable`/`volatile`); it is never read into any variant's
-`state`. A variant's `isUpdateAvailable` remains strictly version-number based.
+`state`. A variant's `isUpdateAvailable` remains purely version-number based —
+`installed !== catalog` (see the mismatch note above), independent of the
+game-version metadata.
 
 The resulting `ModListState` is `{ groups, catalog, metadata }`. Each
 `ModGroupRow` carries `groupId`, group `name`, `tags`, `hasVariants`,

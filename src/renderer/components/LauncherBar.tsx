@@ -50,7 +50,7 @@ const LauncherBar: FC<LauncherBarProps> = ({
   const ActionIcon = hasUpdates ? ArrowUpCircle : Play;
 
   return (
-    <div className="flex shrink-0 items-center gap-2 px-6 py-4">
+    <div className="flex shrink-0 items-center gap-4 px-6 py-4">
       <Button
         variant="default"
         className={cn(isGreen && 'bg-emerald-600 text-white hover:bg-emerald-600/90')}

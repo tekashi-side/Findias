@@ -132,7 +132,7 @@ const buildVariantRow = (
   const state: ModState = {
     isInCatalog: true,
     presence: enabledMod ? 'enabled' : disabledMod ? 'disabled' : 'absent',
-    isUpdateAvailable: !!primary && primary.version < variant.version,
+    isUpdateAvailable: !!primary && primary.version !== variant.version,
   };
 
   let actions: ModAction[];
@@ -141,8 +141,10 @@ const buildVariantRow = (
     actions = ['install'];
   } else if (!enabledMod && disabledMod) {
     actions =
-      disabledMod.version < variant.version ? ['update', 'enable', 'delete'] : ['enable', 'delete'];
-  } else if (primary.version < variant.version) {
+      disabledMod.version !== variant.version
+        ? ['update', 'enable', 'delete']
+        : ['enable', 'delete'];
+  } else if (primary.version !== variant.version) {
     actions = ['update', 'disable', 'delete'];
   } else {
     actions = ['disable', 'delete'];
