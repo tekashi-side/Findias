@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.0](https://github.com/tekashi-side/Findias/compare/v1.25.0...v1.26.0) (2026-07-22)
+
+
+### Features
+
+* add dev-only window icon support for non-packaged builds ([e499620](https://github.com/tekashi-side/Findias/commit/e49962092ab223e8ce0159b0c5797c346c04dc80))
+
+
+### Fixes
+
+* update mod version comparison logic to handle catalog re-baseline scenarios ([fbe972c](https://github.com/tekashi-side/Findias/commit/fbe972cf03e12147bd0c9b1e35136964c775379b))
+
 ## [1.25.0](https://github.com/tekashi-side/Findias/compare/v1.24.0...v1.25.0) (2026-07-21)
 
 
