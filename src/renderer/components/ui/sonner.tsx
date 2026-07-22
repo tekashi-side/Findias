@@ -24,8 +24,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          // Matches MainView's mod detail column content (`w-[35%]` with inner `p-6`).
-          '--width': 'calc(35vw - 3rem)',
+          // Matches MainView's mod detail column (`w-[35%] max-w-xl` with inner `p-6`).
+          '--width': 'calc(min(35vw, 36rem) - 3rem)',
           '--normal-bg': 'var(--popover)',
           '--normal-text': 'var(--popover-foreground)',
           '--normal-border': 'var(--border)',

@@ -266,7 +266,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <div className="flex h-full w-[65%] min-w-0 flex-col gap-4 p-6">
+        <div className="flex h-full min-w-0 flex-1 flex-col gap-4 p-6">
           <div className="flex shrink-0 items-center gap-2">
             <InputGroup className="grow">
               <InputGroupInput
@@ -417,7 +417,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
 
         <Separator orientation="vertical" />
 
-        <div className="h-full w-[35%] min-w-0">
+        <div className="h-full w-[35%] max-w-xl min-w-0 shrink-0">
           <ModDetail variant={selected?.variant ?? null} group={selected?.group ?? null} />
         </div>
       </div>
