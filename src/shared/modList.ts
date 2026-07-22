@@ -19,7 +19,9 @@ export interface ModState {
   /** On-disk presence: not installed, installed+enabled, or installed+disabled. */
   presence: 'absent' | 'enabled' | 'disabled';
   /**
-   * Installed version is older than the release version. Only meaningful when
+   * Installed version differs from the release version (either older, or — after
+   * a catalog re-baseline — newer than what the catalog now points to). In both
+   * cases the fix is to reconcile to the catalog's file. Only meaningful when
    * `isInCatalog` and `presence !== 'absent'`; always `false` otherwise.
    */
   isUpdateAvailable: boolean;
@@ -32,8 +34,8 @@ export interface ModState {
  */
 export type ModStatus =
   | 'not-installed' // in the release, not on disk
-  | 'up-to-date' // installed (enabled) at >= the release version
-  | 'update-available' // installed (enabled) at an older version than the release
+  | 'up-to-date' // installed (enabled) at the release version
+  | 'update-available' // installed (enabled) at a version that differs from the release
   | 'disabled' // present only in package/disabled
   | 'orphan'; // installed but absent from the current release
 

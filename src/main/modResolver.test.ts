@@ -148,14 +148,29 @@ describe('resolveModList', () => {
     });
   });
 
-  it('treats an installed version newer than the release as up-to-date', () => {
+  it('flags an installed version newer than the release (catalog re-baseline) for reconcile', () => {
+    // e.g. a mod re-published with a reset version: installed v3, catalog now v2.
+    // The catalog is authoritative, so the mismatch surfaces as update-available
+    // and installing reconciles the on-disk file back to the catalog's version.
     const result = resolveModList(catalogOf([soloGroup(variant('Foo', 2))]), [
       installed('Foo', 3, true),
     ]);
     expect(firstVariant(result)).toMatchObject({
-      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: false },
+      state: { isInCatalog: true, presence: 'enabled', isUpdateAvailable: true },
+      releaseVersion: 2,
       installedVersion: 3,
-      actions: ['disable', 'delete'],
+      actions: ['update', 'disable', 'delete'],
+    });
+  });
+
+  it('flags a disabled version newer than the release (re-baseline) for reconcile', () => {
+    const result = resolveModList(catalogOf([soloGroup(variant('Foo', 2))]), [
+      installed('Foo', 3, false),
+    ]);
+    expect(firstVariant(result)).toMatchObject({
+      state: { isInCatalog: true, presence: 'disabled', isUpdateAvailable: true },
+      installedVersion: 3,
+      actions: ['update', 'enable', 'delete'],
     });
   });
 
