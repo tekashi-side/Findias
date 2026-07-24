@@ -23,6 +23,8 @@ describe('buildIcaclsArgLine', () => {
 });
 
 describe('buildPowershellRunAsCommand', () => {
+  const cancelCatch = `catch { if ($_.Exception.NativeErrorCode -eq ${USER_CANCELLED_EXIT_CODE}) { exit ${USER_CANCELLED_EXIT_CODE} } else { exit 1 } }`;
+
   it('runs the absolute icacls path elevated and propagates its exit code', () => {
     const command = buildPowershellRunAsCommand(
       ICACLS_PATH,
@@ -31,16 +33,16 @@ describe('buildPowershellRunAsCommand', () => {
     expect(command).toBe(
       "try { $p = Start-Process -FilePath 'C:\\Windows\\System32\\icacls.exe' -ArgumentList " +
         '\'"C:\\Program Files\\Game\\package" /grant *S-1-5-21-1-2-3-1001:(OI)(CI)M /T\' ' +
-        `-Verb RunAs -PassThru -Wait; exit $p.ExitCode } catch { exit ${USER_CANCELLED_EXIT_CODE} }`,
+        `-Verb RunAs -PassThru -Wait; exit $p.ExitCode } ${cancelCatch}`,
     );
   });
 
-  it('maps a declined elevation (Start-Process throws) to the cancel sentinel', () => {
+  it('maps only ERROR_CANCELLED (NativeErrorCode 1223) to the cancel sentinel; other throws exit 1', () => {
     const command = buildPowershellRunAsCommand(
       ICACLS_PATH,
       'C:\\Game\\package /grant alice:(OI)(CI)M /T',
     );
-    expect(command).toContain(`catch { exit ${USER_CANCELLED_EXIT_CODE} }`);
+    expect(command).toContain(cancelCatch);
   });
 
   it('keeps the double-quoted path intact inside the single-quoted literal', () => {

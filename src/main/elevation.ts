@@ -47,13 +47,17 @@ const toPowershellLiteral = (value: string): string => `'${value.replace(/'/g, "
  * prompt (`Start-Process -Verb RunAs`) and waits for it to finish. `-PassThru`
  * plus `exit $p.ExitCode` propagates icacls's own exit code out through
  * PowerShell (a plain `-Wait` would always report success, hiding an icacls
- * failure). A declined UAC prompt makes `Start-Process` throw, so the `catch`
- * maps it to {@link USER_CANCELLED_EXIT_CODE} to distinguish "user said no" from
- * a real error. Both the icacls path and its command line are passed as
- * single-quoted PowerShell literals so spaces and internal double quotes survive.
+ * failure). A declined UAC prompt makes `Start-Process` throw a `Win32Exception`
+ * whose `NativeErrorCode` is `1223` (`ERROR_CANCELLED`); the `catch` maps only
+ * that to {@link USER_CANCELLED_EXIT_CODE} and everything else (missing icacls,
+ * policy block, etc.) to `1`, so `classifyElevation` reports a genuine failure
+ * instead of a false cancel. Accessing `.NativeErrorCode` on an exception type
+ * that lacks it yields `$null` in PowerShell, so the guard is safe for any throw.
+ * Both the icacls path and its command line are passed as single-quoted
+ * PowerShell literals so spaces and internal double quotes survive.
  */
 export const buildPowershellRunAsCommand = (icaclsPath: string, icaclsArgLine: string): string =>
-  `try { $p = Start-Process -FilePath ${toPowershellLiteral(icaclsPath)} -ArgumentList ${toPowershellLiteral(icaclsArgLine)} -Verb RunAs -PassThru -Wait; exit $p.ExitCode } catch { exit ${USER_CANCELLED_EXIT_CODE} }`;
+  `try { $p = Start-Process -FilePath ${toPowershellLiteral(icaclsPath)} -ArgumentList ${toPowershellLiteral(icaclsArgLine)} -Verb RunAs -PassThru -Wait; exit $p.ExitCode } catch { if ($_.Exception.NativeErrorCode -eq ${USER_CANCELLED_EXIT_CODE}) { exit ${USER_CANCELLED_EXIT_CODE} } else { exit 1 } }`;
 
 /** Captured result of a spawned command. */
 interface CommandResult {
@@ -84,7 +88,8 @@ export interface ElevationSignals {
  * A writable folder always wins (`granted`), regardless of exit code. Otherwise a
  * declined prompt ({@link USER_CANCELLED_EXIT_CODE}, with no spawn error) is
  * `cancelled`; everything else (spawn error, non-zero/other exit, or exit 0 that
- * still left the folder unwritable) is `failed`.
+ * still left the folder unwritable) is `failed`. The command only emits `1223`
+ * for a genuine `ERROR_CANCELLED`, so other throws land here as `failed`.
  */
 export const classifyElevation = ({
   isWritable,

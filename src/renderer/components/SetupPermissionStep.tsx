@@ -32,6 +32,9 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
     mutationFn: () => window.findias.chooseGameFolder(),
     onSuccess: (result) => {
       if (result.isOk) {
+        // Clear a prior failed-fix result so the amber alert doesn't linger from
+        // the old path if the newly chosen folder is also protected.
+        fix.reset();
         void queryClient.invalidateQueries({ queryKey: ['setupState'] });
       }
     },
@@ -61,7 +64,7 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
 
         <Alert>
           <ShieldCheck />
-          <AlertTitle>One-time fix</AlertTitle>
+          <AlertTitle>Grant write access</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
             <span>
               Windows will show a prompt asking{' '}
