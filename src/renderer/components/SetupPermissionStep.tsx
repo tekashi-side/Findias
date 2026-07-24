@@ -48,10 +48,21 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
         <Alert>
           <ShieldCheck />
           <AlertTitle>One-time fix</AlertTitle>
-          <AlertDescription>
-            Findias will ask for administrator permission once to grant your account write access to
-            this folder. After that, installing and updating mods works normally — Findias never
-            runs as administrator itself.
+          <AlertDescription className="flex flex-col gap-2">
+            <span>
+              Windows will show a prompt asking{' '}
+              <span className="italic">
+                &ldquo;Do you want to allow this app to make changes to your device?&rdquo;
+              </span>{' '}
+              — this is expected. It will name{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">icacls.exe</code> (a built-in
+              Windows tool), not Findias, because that&apos;s what grants your account write access
+              to the folder. Choose <span className="font-medium">Yes</span> to continue.
+            </span>
+            <span>
+              You&apos;ll only see this once. After that, installing and updating mods works
+              normally. Findias never runs as administrator itself.
+            </span>
           </AlertDescription>
         </Alert>
 
