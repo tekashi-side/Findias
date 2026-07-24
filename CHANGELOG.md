@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.27.0](https://github.com/tekashi-side/Findias/compare/v1.26.0...v1.27.0) (2026-07-24)
+
+
+### Features
+
+* enhance elevation handling with detailed diagnostics and telemetry for package write access ([09faa0c](https://github.com/tekashi-side/Findias/commit/09faa0ca6a6261e299aa86fd738ab2d9a4f6bacf))
+* enhance package permissions management with user-friendly prompts ([09c4303](https://github.com/tekashi-side/Findias/commit/09c430349862b5b0e4931a62bc5cd510d5333e6b))
+* implement package permissions management to handle write access for protected folders ([0affd36](https://github.com/tekashi-side/Findias/commit/0affd36fe37d1f7ca311e4e5cd657ed28f7262e5))
+
+
+### Fixes
+
+* clarify user permissions prompt in SetupPermissionStep component for better user understanding ([988a770](https://github.com/tekashi-side/Findias/commit/988a7708be60718ddfdd891ab077c5a85a6807b5))
+* improve error handling in PowerShell to distinguish user cancellation from other errors ([ecdcda5](https://github.com/tekashi-side/Findias/commit/ecdcda5517da2806a735bd06f1316a4341a54f80))
+
 ## [1.26.0](https://github.com/tekashi-side/Findias/compare/v1.25.0...v1.26.0) (2026-07-22)
 
 
