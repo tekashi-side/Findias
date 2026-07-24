@@ -18,6 +18,8 @@ import { detectLauncher, startGame } from './gameLauncher';
 import { catalogModIds, resolveModList } from './modResolver';
 import { installOrUpdateMod } from './modInstaller';
 import { archiveForeignMods, hasForeignMods, listForeignMods } from './modArchive';
+import { checkPackageWritable, isPermissionError, PermissionError } from './permissions';
+import { grantPackageWriteAccess } from './elevation';
 import { quitAndInstallUpdate } from './updater';
 import { createPackageModStore } from './modStore';
 import { CatalogError, type Catalog } from './providers/catalog';
@@ -90,6 +92,7 @@ const computeSetupState = async (): Promise<SetupState> => {
     return {
       gameRootPath: null,
       isValid: false,
+      isPackageWritable: false,
       shouldIncludePrereleases,
       shouldShowModArchive: false,
       isErrorReportingEnabled,
@@ -98,13 +101,19 @@ const computeSetupState = async (): Promise<SetupState> => {
     };
   }
   const { isOk } = await validateGameRoot(gameRootPath);
-  // Only scan while the one-time archive step is pending. The cheap folder check
-  // runs first so the catalog is fetched only when pre-existing mods exist, and
-  // orphans are then determined against the catalog (mods already in the catalog
-  // are legit and must not be flagged/archived).
+  const paths = resolveGamePaths(gameRootPath);
+  // Probe write access only for a valid folder. A protected location (e.g. the
+  // gamania client under C:\Program Files) fails here, and the permission step
+  // becomes the sole setup blocker until it is fixed.
+  const isPackageWritable = isOk ? await checkPackageWritable(paths) : false;
+  // Only scan while the one-time archive step is pending, and never before the
+  // folder is writable — archiving itself writes to disk, so it must wait behind
+  // the permission fix. The cheap folder check runs first so the catalog is
+  // fetched only when pre-existing mods exist, and orphans are then determined
+  // against the catalog (mods already in the catalog are legit and must not be
+  // flagged/archived).
   let shouldShowModArchive = false;
-  if (isOk && !isModSetupCompleted) {
-    const paths = resolveGamePaths(gameRootPath);
+  if (isOk && isPackageWritable && !isModSetupCompleted) {
     const hasAnyForeignMod = await hasForeignMods(paths, null);
     if (hasAnyForeignMod) {
       const knownModIds = await resolveCatalogModIds();
@@ -116,6 +125,7 @@ const computeSetupState = async (): Promise<SetupState> => {
   return {
     gameRootPath,
     isValid: isOk,
+    isPackageWritable,
     shouldIncludePrereleases,
     shouldShowModArchive,
     isErrorReportingEnabled,
@@ -282,6 +292,44 @@ const completeModSetup = async (shouldArchive: boolean): Promise<SetupState> => 
 };
 
 /**
+ * Grant the current user write access to a protected `package` folder via a
+ * single elevated `icacls` call, then return the fresh setup state. The returned
+ * `isPackageWritable` reflects whether the grant actually succeeded (it stays
+ * false when the user declines the UAC prompt), so the renderer can keep the
+ * permission step in place and offer a retry.
+ */
+const fixPackagePermissions = async (): Promise<SetupState> => {
+  const outcome = await grantPackageWriteAccess(await requireGamePaths());
+  // Always leave a breadcrumb for whatever refresh follows. We deliberately keep
+  // visibility that the grant works in the wild, but a declined UAC prompt
+  // (`cancelled`) is an expected, user-recoverable choice — not a bug — so we
+  // report to Sentry only on an unexpected `failed` outcome. Only coarse,
+  // non-identifying diagnostics are attached (never the folder path or the raw
+  // SID, which could reveal a user): the status, exit code, and SID vs. name.
+  addBreadcrumb({
+    category: 'elevation',
+    message: 'grantPackageWriteAccess',
+    level: outcome.status === 'granted' ? 'info' : 'warning',
+    data: {
+      status: outcome.status,
+      isWritable: outcome.isWritable,
+      exitCode: outcome.exitCode,
+      hasSpawnError: Boolean(outcome.spawnError),
+    },
+  });
+  if (outcome.status === 'failed') {
+    reportError(outcome.spawnError ?? new Error(`icacls grant failed (exit ${outcome.exitCode})`), {
+      tags: { operation: 'fixPackagePermissions' },
+      extra: {
+        exitCode: outcome.exitCode,
+        principalKind: outcome.principal.startsWith('*') ? 'sid' : 'name',
+      },
+    });
+  }
+  return computeSetupState();
+};
+
+/**
  * Move a mod in/out of `package/disabled`, then return the fresh mod list.
  * Foreign orphans are identified by a `modId` that is a real `.it` file name and
  * are moved by exact name; managed mods move every version by their parsed modId.
@@ -320,7 +368,10 @@ const setShouldIncludePrereleases = async (
  * expected, user-facing failure (already shown via toast/banner) and is skipped
  * unless its code is `parse` (schema drift / a real bug) — the same predicate
  * `resolveCurrentState` uses — so routine offline/rate-limited failures (and
- * "Update All" bursts) don't burn the free-tier quota.
+ * "Update All" bursts) don't burn the free-tier quota. Filesystem permission
+ * errors (protected `package` folder) are still reported — we want continued
+ * visibility that the permission fix works — but are rethrown as a friendly
+ * `PermissionError` so the renderer shows an actionable message.
  */
 const handleInvoke = <Args extends unknown[], Result>(
   channel: string,
@@ -336,6 +387,13 @@ const handleInvoke = <Args extends unknown[], Result>(
     } catch (error) {
       if (!(error instanceof CatalogError) || error.code === 'parse') {
         reportError(error, { tags: { channel } });
+      }
+      // Convert a raw filesystem permission error into a friendly, actionable
+      // message for the renderer toast. Reported to Sentry above with the real
+      // errno first, so we keep visibility that the permission fix is working;
+      // the original is preserved as `cause`.
+      if (isPermissionError(error)) {
+        throw new PermissionError(undefined, { cause: error });
       }
       throw error;
     }
@@ -377,6 +435,8 @@ export const registerIpcHandlers = (): void => {
   handleInvoke(IpcChannels.completeModSetup, (_event, shouldArchive: boolean) =>
     completeModSetup(shouldArchive),
   );
+
+  handleInvoke(IpcChannels.fixPackagePermissions, () => fixPackagePermissions());
 
   handleInvoke(IpcChannels.refresh, () => refresh());
 

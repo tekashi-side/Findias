@@ -5,14 +5,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // module imports cleanly under Vitest and the inputs are fully controllable. The
 // shared `IpcChannels` map is intentionally NOT mocked so the handler test keys
 // off the real channel name.
-const { loadSettingsMock, isFeatureEnabledMock, getFeatureFlagsMock, ipcMainMock } = vi.hoisted(
-  () => ({
-    loadSettingsMock: vi.fn(),
-    isFeatureEnabledMock: vi.fn(),
-    getFeatureFlagsMock: vi.fn(),
-    ipcMainMock: { handle: vi.fn(), on: vi.fn() },
-  }),
-);
+const {
+  loadSettingsMock,
+  isFeatureEnabledMock,
+  getFeatureFlagsMock,
+  ipcMainMock,
+  reportErrorMock,
+  addBreadcrumbMock,
+  grantPackageWriteAccessMock,
+  validateGameRootMock,
+  resolveGamePathsMock,
+} = vi.hoisted(() => ({
+  loadSettingsMock: vi.fn(),
+  isFeatureEnabledMock: vi.fn(),
+  getFeatureFlagsMock: vi.fn(),
+  ipcMainMock: { handle: vi.fn(), on: vi.fn() },
+  reportErrorMock: vi.fn(),
+  addBreadcrumbMock: vi.fn(),
+  grantPackageWriteAccessMock: vi.fn(),
+  validateGameRootMock: vi.fn(),
+  resolveGamePathsMock: vi.fn(),
+}));
 
 vi.mock('electron', () => ({
   app: { isPackaged: true },
@@ -29,16 +42,30 @@ vi.mock('./featureFlags', () => ({
   isFeatureEnabled: isFeatureEnabledMock,
   getFeatureFlags: getFeatureFlagsMock,
 }));
+vi.mock('./elevation', () => ({ grantPackageWriteAccess: grantPackageWriteAccessMock }));
+// gameLocation touches the filesystem; stub it so requireGamePaths is controllable.
+vi.mock('./gameLocation', () => ({
+  validateGameRoot: validateGameRootMock,
+  resolveGamePaths: resolveGamePathsMock,
+}));
 // telemetry pulls in @sentry/electron/main at import; stub it so ipc imports cleanly.
 vi.mock('./telemetry', () => ({
-  reportError: vi.fn(),
+  reportError: reportErrorMock,
   setErrorReportingEnabled: vi.fn(),
-  addBreadcrumb: vi.fn(),
+  addBreadcrumb: addBreadcrumbMock,
   setModContext: vi.fn(),
 }));
 
 import { arePrereleasesEligible, registerIpcHandlers } from './ipc';
 import { IpcChannels } from '../shared/api';
+import { PermissionError } from './permissions';
+
+/** Find a registered `ipcMain.handle` handler by channel, failing if absent. */
+const invokeHandlerFor = (channel: string): ((event: unknown, ...args: unknown[]) => unknown) => {
+  const registration = ipcMainMock.handle.mock.calls.find(([registered]) => registered === channel);
+  expect(registration).toBeDefined();
+  return registration![1];
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -84,5 +111,131 @@ describe('getFeatureFlags IPC handler', () => {
     handler(event);
 
     expect(event.returnValue).toBe(flags);
+  });
+});
+
+describe('getSetupState IPC handler', () => {
+  it('reports the folder as not writable when no game folder is set', async () => {
+    loadSettingsMock.mockResolvedValue({
+      gameRootPath: null,
+      shouldIncludePrereleases: false,
+      isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
+      shouldStartGameAutomatically: true,
+    });
+    isFeatureEnabledMock.mockReturnValue(false);
+
+    registerIpcHandlers();
+    const state = await invokeHandlerFor(IpcChannels.getSetupState)({});
+
+    expect(state).toMatchObject({ isValid: false, isPackageWritable: false });
+  });
+});
+
+describe('fixPackagePermissions IPC handler', () => {
+  beforeEach(() => {
+    loadSettingsMock.mockResolvedValue({
+      gameRootPath: 'X:\\game\\appdata',
+      shouldIncludePrereleases: false,
+      isModSetupCompleted: true,
+      isErrorReportingEnabled: true,
+      shouldStartGameAutomatically: true,
+    });
+    isFeatureEnabledMock.mockReturnValue(false);
+    validateGameRootMock.mockResolvedValue({ isOk: true });
+    resolveGamePathsMock.mockReturnValue({
+      root: 'X:\\game\\appdata',
+      packageDir: 'X:\\game\\appdata\\package',
+      disabledDir: 'X:\\game\\appdata\\package\\disabled',
+      archivedDir: 'X:\\game\\appdata\\package\\archived',
+    });
+  });
+
+  it('is registered', () => {
+    registerIpcHandlers();
+    expect(() => invokeHandlerFor(IpcChannels.fixPackagePermissions)).not.toThrow();
+  });
+
+  it('rethrows a filesystem permission error as a PermissionError, and still reports it', async () => {
+    const eperm = Object.assign(new Error('EPERM: operation not permitted'), { code: 'EPERM' });
+    grantPackageWriteAccessMock.mockRejectedValue(eperm);
+
+    registerIpcHandlers();
+    const handler = invokeHandlerFor(IpcChannels.fixPackagePermissions);
+
+    await expect(handler({})).rejects.toBeInstanceOf(PermissionError);
+    // Reported to Sentry with the original errno (visibility that the fix works).
+    expect(reportErrorMock).toHaveBeenCalledWith(eperm, expect.anything());
+  });
+
+  it('rethrows a non-permission error unchanged', async () => {
+    const boom = new Error('boom');
+    grantPackageWriteAccessMock.mockRejectedValue(boom);
+
+    registerIpcHandlers();
+    const handler = invokeHandlerFor(IpcChannels.fixPackagePermissions);
+
+    await expect(handler({})).rejects.toBe(boom);
+    expect(reportErrorMock).toHaveBeenCalledWith(boom, expect.anything());
+  });
+
+  it('breadcrumbs and reports when the grant fails unexpectedly', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'failed',
+      isWritable: false,
+      exitCode: 5,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'warning' }),
+    );
+    expect(reportErrorMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: { operation: 'fixPackagePermissions' } }),
+    );
+  });
+
+  it('breadcrumbs but does NOT report when the user cancels the UAC prompt', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'cancelled',
+      isWritable: false,
+      exitCode: 1223,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'warning' }),
+    );
+    expect(reportErrorMock).not.toHaveBeenCalled();
+  });
+
+  it('breadcrumbs without reporting when the grant succeeds', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'granted',
+      isWritable: true,
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'info' }),
+    );
+    expect(reportErrorMock).not.toHaveBeenCalled();
   });
 });

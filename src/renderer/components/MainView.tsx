@@ -107,10 +107,18 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     queryClient.setQueryData(MOD_LIST_KEY, state);
   };
 
+  // A mutation can fail because the package folder became unwritable (e.g. the
+  // grant was revoked). Re-checking setup state re-gates the app to the fix step
+  // when that happens; it's a no-op for any other failure.
+  const recheckSetupState = (): void => {
+    void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+  };
+
   const install = useMutation({
     mutationFn: (modId: string) => window.findias.installOrUpdate(modId),
     onSuccess: seedModList,
     onError: (e) => {
+      recheckSetupState();
       // During "Update All" the batch aggregates failures into one summary toast.
       if (!isUpdatingAllRef.current) toast.error(errorMessage(e));
     },
@@ -120,14 +128,20 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const remove = useMutation({
     mutationFn: (modId: string) => window.findias.deleteMod(modId),
     onSuccess: seedModList,
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      recheckSetupState();
+      toast.error(errorMessage(e));
+    },
   });
 
   const toggle = useMutation({
     mutationFn: ({ modId, isDisabled }: { modId: string; isDisabled: boolean }) =>
       window.findias.setDisabled(modId, isDisabled),
     onSuccess: seedModList,
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      recheckSetupState();
+      toast.error(errorMessage(e));
+    },
   });
 
   // On success the main process quits Findias, so only failures are handled here.
