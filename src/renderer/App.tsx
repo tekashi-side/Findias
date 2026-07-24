@@ -24,7 +24,8 @@ const App: FC = () => {
     queryFn: () => window.findias.getSetupState(),
   });
 
-  const isSettingsAvailable = Boolean(data?.isValid) && !data?.shouldShowModArchive;
+  const isSettingsAvailable =
+    Boolean(data?.isValid) && Boolean(data?.isPackageWritable) && !data?.shouldShowModArchive;
   const isSettingsOpen = overlay === 'settings';
   const isFeedbackOpen = overlay === 'feedback';
 
@@ -65,7 +66,9 @@ const App: FC = () => {
     );
   }
 
-  if (!data.isValid || data.shouldShowModArchive) return shell(<SetupView setup={data} />);
+  if (!data.isValid || !data.isPackageWritable || data.shouldShowModArchive) {
+    return shell(<SetupView setup={data} />);
+  }
 
   if (isSettingsOpen) return shell(<SettingsView setup={data} />);
   if (isFeedbackOpen) return shell(<FeedbackView />);

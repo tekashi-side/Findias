@@ -20,6 +20,7 @@ const api: FindiasApi = {
   listForeignMods: () => ipcRenderer.invoke(IpcChannels.listForeignMods),
   completeModSetup: (shouldArchive) =>
     ipcRenderer.invoke(IpcChannels.completeModSetup, shouldArchive),
+  fixPackagePermissions: () => ipcRenderer.invoke(IpcChannels.fixPackagePermissions),
   refresh: () => ipcRenderer.invoke(IpcChannels.refresh),
   installOrUpdate: (modId) => ipcRenderer.invoke(IpcChannels.installOrUpdate, modId),
   deleteMod: (modId) => ipcRenderer.invoke(IpcChannels.deleteMod, modId),

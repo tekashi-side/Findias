@@ -58,6 +58,13 @@ export interface SetupState {
   gameRootPath: string | null;
   isValid: boolean;
   /**
+   * Whether Findias can write to the game's `package` folder. False when the
+   * game is installed in a protected location (e.g. `C:\Program Files`) whose
+   * ACLs deny writes to the unelevated app. Only meaningful when `isValid` is
+   * true; gates the one-time "fix permissions" setup step.
+   */
+  isPackageWritable: boolean;
+  /**
    * Effective (feature-flag-gated) value of whether prerelease Uiscias releases
    * are considered when fetching the catalog. Always false when the
    * `prereleases` feature is inactive, regardless of the persisted setting.
@@ -149,6 +156,12 @@ export interface FindiasApi {
    * step complete and returns the fresh setup state.
    */
   completeModSetup(shouldArchive: boolean): Promise<SetupState>;
+  /**
+   * Grant the current user write access to a protected `package` folder via a
+   * single elevated `icacls` call (one UAC prompt), then return the fresh setup
+   * state. `isPackageWritable` reflects whether the grant succeeded.
+   */
+  fixPackagePermissions(): Promise<SetupState>;
   /** Scan the package folder, fetch the catalog, and resolve the mod list. */
   refresh(): Promise<ModListState>;
   /** Install (or replace with) the latest release version of a mod. */
@@ -204,6 +217,7 @@ export const IpcChannels = {
   startGame: 'game:start',
   listForeignMods: 'setup:listForeignMods',
   completeModSetup: 'setup:completeModSetup',
+  fixPackagePermissions: 'setup:fixPackagePermissions',
   refresh: 'mods:refresh',
   installOrUpdate: 'mods:installOrUpdate',
   deleteMod: 'mods:delete',
