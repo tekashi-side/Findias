@@ -53,6 +53,22 @@ interface CommandResult {
   error?: Error;
 }
 
+/** Outcome of an elevation attempt, with diagnostics for logging/telemetry. */
+export interface ElevationOutcome {
+  /** Whether the package folder is writable afterward — the source of truth. */
+  isWritable: boolean;
+  /** icacls exit code propagated through PowerShell, or null if it couldn't launch. */
+  exitCode: number | null;
+  /** Captured stdout of the elevation command. */
+  stdout: string;
+  /** Captured stderr of the elevation command (e.g. a cancelled UAC prompt). */
+  stderr: string;
+  /** Set when PowerShell itself failed to launch. */
+  spawnError?: Error;
+  /** The icacls grantee used (a `*SID` literal or an account name). */
+  principal: string;
+}
+
 /** Run a command, capturing stdout/stderr/exit code and never rejecting. */
 const run = (command: string, args: readonly string[]): Promise<CommandResult> =>
   new Promise((resolve) => {
@@ -102,13 +118,13 @@ const resolveGranteePrincipal = async (): Promise<string> => {
 
 /**
  * Grant the current user write access to the game's `package` folder via a single
- * elevated `icacls` call, then re-probe. Returns whether the folder is writable
- * afterward — `false` when the user declined the UAC prompt or the grant didn't
- * take — so the caller never has to trust the child's exit code. Logs each step
- * (command, exit code, output) so a failure is diagnosable from the dev/main
- * console.
+ * elevated `icacls` call, then re-probe. The returned {@link ElevationOutcome}'s
+ * `isWritable` is the source of truth (`false` when the user declined the UAC
+ * prompt or the grant didn't take), so the caller never has to trust the child's
+ * exit code; the other fields are diagnostics. Logs each step (command, exit
+ * code, output) so a failure is diagnosable from the dev/main console.
  */
-export const grantPackageWriteAccess = async (paths: GamePaths): Promise<boolean> => {
+export const grantPackageWriteAccess = async (paths: GamePaths): Promise<ElevationOutcome> => {
   const principal = await resolveGranteePrincipal();
   const icaclsArgLine = buildIcaclsArgLine(paths.packageDir, principal);
   const command = buildPowershellRunAsCommand(icaclsArgLine);
@@ -133,5 +149,12 @@ export const grantPackageWriteAccess = async (paths: GamePaths): Promise<boolean
 
   const isWritable = await checkPackageWritable(paths);
   console.info(`${LOG_PREFIX} writable after grant: ${isWritable}`);
-  return isWritable;
+  return {
+    isWritable,
+    exitCode: result.code,
+    stdout: result.stdout.trim(),
+    stderr: result.stderr.trim(),
+    spawnError: result.error,
+    principal,
+  };
 };

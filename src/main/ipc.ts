@@ -299,7 +299,31 @@ const completeModSetup = async (shouldArchive: boolean): Promise<SetupState> => 
  * permission step in place and offer a retry.
  */
 const fixPackagePermissions = async (): Promise<SetupState> => {
-  await grantPackageWriteAccess(await requireGamePaths());
+  const outcome = await grantPackageWriteAccess(await requireGamePaths());
+  // Leave a trail for whatever error/refresh follows, and — on failure —
+  // report it. Permission fixes are user-recoverable, but we deliberately keep
+  // visibility that the grant actually works in the wild. Only coarse,
+  // non-identifying diagnostics are attached (never the folder path or the raw
+  // SID, which could reveal a user): the exit code and whether a SID was used.
+  addBreadcrumb({
+    category: 'elevation',
+    message: 'grantPackageWriteAccess',
+    level: outcome.isWritable ? 'info' : 'warning',
+    data: {
+      isWritable: outcome.isWritable,
+      exitCode: outcome.exitCode,
+      hasSpawnError: Boolean(outcome.spawnError),
+    },
+  });
+  if (!outcome.isWritable) {
+    reportError(outcome.spawnError ?? new Error(`icacls grant failed (exit ${outcome.exitCode})`), {
+      tags: { operation: 'fixPackagePermissions' },
+      extra: {
+        exitCode: outcome.exitCode,
+        principalKind: outcome.principal.startsWith('*') ? 'sid' : 'name',
+      },
+    });
+  }
   return computeSetupState();
 };
 

@@ -11,6 +11,7 @@ const {
   getFeatureFlagsMock,
   ipcMainMock,
   reportErrorMock,
+  addBreadcrumbMock,
   grantPackageWriteAccessMock,
   validateGameRootMock,
   resolveGamePathsMock,
@@ -20,6 +21,7 @@ const {
   getFeatureFlagsMock: vi.fn(),
   ipcMainMock: { handle: vi.fn(), on: vi.fn() },
   reportErrorMock: vi.fn(),
+  addBreadcrumbMock: vi.fn(),
   grantPackageWriteAccessMock: vi.fn(),
   validateGameRootMock: vi.fn(),
   resolveGamePathsMock: vi.fn(),
@@ -50,7 +52,7 @@ vi.mock('./gameLocation', () => ({
 vi.mock('./telemetry', () => ({
   reportError: reportErrorMock,
   setErrorReportingEnabled: vi.fn(),
-  addBreadcrumb: vi.fn(),
+  addBreadcrumb: addBreadcrumbMock,
   setModContext: vi.fn(),
 }));
 
@@ -175,5 +177,44 @@ describe('fixPackagePermissions IPC handler', () => {
 
     await expect(handler({})).rejects.toBe(boom);
     expect(reportErrorMock).toHaveBeenCalledWith(boom, expect.anything());
+  });
+
+  it('breadcrumbs and reports when the grant leaves the folder unwritable', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      isWritable: false,
+      exitCode: 5,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'warning' }),
+    );
+    expect(reportErrorMock).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: { operation: 'fixPackagePermissions' } }),
+    );
+  });
+
+  it('breadcrumbs without reporting when the grant succeeds', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      isWritable: true,
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'info' }),
+    );
+    expect(reportErrorMock).not.toHaveBeenCalled();
   });
 });
