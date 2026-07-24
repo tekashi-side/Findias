@@ -179,8 +179,9 @@ describe('fixPackagePermissions IPC handler', () => {
     expect(reportErrorMock).toHaveBeenCalledWith(boom, expect.anything());
   });
 
-  it('breadcrumbs and reports when the grant leaves the folder unwritable', async () => {
+  it('breadcrumbs and reports when the grant fails unexpectedly', async () => {
     grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'failed',
       isWritable: false,
       exitCode: 5,
       stdout: '',
@@ -200,8 +201,28 @@ describe('fixPackagePermissions IPC handler', () => {
     );
   });
 
+  it('breadcrumbs but does NOT report when the user cancels the UAC prompt', async () => {
+    grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'cancelled',
+      isWritable: false,
+      exitCode: 1223,
+      stdout: '',
+      stderr: '',
+      principal: '*S-1-5-21-1',
+    });
+
+    registerIpcHandlers();
+    await invokeHandlerFor(IpcChannels.fixPackagePermissions)({});
+
+    expect(addBreadcrumbMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'elevation', level: 'warning' }),
+    );
+    expect(reportErrorMock).not.toHaveBeenCalled();
+  });
+
   it('breadcrumbs without reporting when the grant succeeds', async () => {
     grantPackageWriteAccessMock.mockResolvedValue({
+      status: 'granted',
       isWritable: true,
       exitCode: 0,
       stdout: '',

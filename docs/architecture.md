@@ -496,8 +496,9 @@ All renderer↔main communication goes through a single typed API exposed on
 // Shape exposed by the preload (illustrative, not final)
 interface FindiasApi {
   // settings & setup
-  getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, shouldIncludePrereleases, shouldShowModArchive, gameLauncher }
+  getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, isPackageWritable, shouldIncludePrereleases, shouldShowModArchive, gameLauncher }
   chooseGameFolder(): Promise<ChooseFolderResult>; // { isOk, isCanceled?, error?, state? }
+  fixPackagePermissions(): Promise<SetupState>; // one-time elevated icacls grant, then re-probe
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>; // persist + re-resolve
 
   // launch
@@ -1081,8 +1082,11 @@ Data flow through Findias:
 ```
 app ready
   → load settings
-  → SetupState.isValid? ──no──► show setup gate (chooseGameFolder)
+  → SetupState.isValid? ──────────no──► show setup gate (chooseGameFolder)
         │ yes
+        ▼
+  SetupState.isPackageWritable? ──no──► show permission step (fixPackagePermissions:
+        │ yes                            one-time elevated icacls grant, then re-probe)
         ▼
   InstalledModsProvider.list()                             ┐ (folder scan)
   ModCatalogProvider.getCatalog(shouldIncludePrereleases)  ┘ (manifest of newest release)
@@ -1193,8 +1197,17 @@ interface AppState {
   action) → the resolver flags the mod and the next install/update reconciles to
   a single newest file.
 - **Non-conforming or unowned files** in `package` → ignored, never modified.
-- **Disk write failure / permissions** (e.g. game installed under a protected
-  path) → surfaced to the UI with the OS error; no silent failure.
+- **Protected install location** (e.g. game under `C:\Program Files`, whose
+  `package` folder is read-only for the unelevated app) → detected up front by a
+  write-probe (`Permissions.checkPackageWritable`) that gates setup. The user is
+  shown a permission step offering a one-time fix (`Elevation`): a single elevated
+  `icacls` grant of Modify on `package` (one UAC prompt), after which all normal
+  mod operations run unelevated. The step also offers an escape hatch to pick a
+  different, writable folder. Findias itself never runs as administrator.
+- **Runtime disk write failure / permissions regression** (e.g. a game
+  update/repair resets the ACLs) → the failing op throws a friendly
+  `PermissionError` (still reported to Sentry), and the next `getSetupState`
+  re-probe re-gates back to the permission step; no silent failure.
 
 ## Module responsibilities (main process)
 
@@ -1202,6 +1215,8 @@ interface AppState {
 | ------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SettingsStore`           | —                       | Load/save the JSON settings file in `userData`.                                                                                                                                               |
 | `GameLocation`            | —                       | Validate a chosen folder; resolve `package` and `package/disabled` paths.                                                                                                                     |
+| `Permissions`             | —                       | Write-probe the `package` folder (`checkPackageWritable`); classify/wrap filesystem permission errors as a friendly `PermissionError` (`isPermissionError`).                                  |
+| `Elevation`               | —                       | One-time elevated `icacls` grant of Modify on `package` via a single UAC prompt; classify the outcome (`granted`/`cancelled`/`failed`) and re-probe.                                          |
 | `ManifestCatalogProvider` | `ModCatalogProvider`    | Select newest eligible release (via `githubReleases.ts`), download + leniently validate its `manifestCatalog.json`, return normalized grouped `Catalog`. Swappable (source-tree).             |
 | `PackageFolderProvider`   | `InstalledModsProvider` | List/parse managed `.it` files (root + `package/disabled`); return `InstalledMod[]`. Swappable (`installedMods.json`).                                                                        |
 | `ModStore`                | — (invariant)           | Physical disk ops: write/delete/move `.it` files in `package` and `package/disabled`.                                                                                                         |

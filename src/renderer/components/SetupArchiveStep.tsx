@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 
 /**
- * Second setup step: shown when a valid game folder already contains pre-existing
+ * Final setup step: shown when a valid, writable game folder already contains pre-existing
  * (non-official) mods. Warns that they may conflict with the mods Findias manages
  * and offers to archive them (a non-destructive move into `package/archived`) or
  * skip. Either choice completes the one-time step for this folder.

@@ -15,6 +15,14 @@ import { checkPackageWritable } from './permissions';
 
 const LOG_PREFIX = '[elevation]';
 
+/**
+ * Sentinel exit code used when the user declines the elevation (UAC consent or
+ * the credential prompt). `Start-Process -Verb RunAs` throws in that case, so the
+ * command's `catch` maps it to Windows' `ERROR_CANCELLED` — a locale-independent
+ * signal that this was a user choice, not a failure worth reporting.
+ */
+export const USER_CANCELLED_EXIT_CODE = 1223;
+
 /** Quote a Windows command-line token, wrapping it in double quotes if it has whitespace. */
 const toWindowsArg = (value: string): string => (/\s/.test(value) ? `"${value}"` : value);
 
@@ -39,11 +47,13 @@ const toPowershellLiteral = (value: string): string => `'${value.replace(/'/g, "
  * prompt (`Start-Process -Verb RunAs`) and waits for it to finish. `-PassThru`
  * plus `exit $p.ExitCode` propagates icacls's own exit code out through
  * PowerShell (a plain `-Wait` would always report success, hiding an icacls
- * failure). The whole icacls command line is passed as one single-quoted
- * PowerShell literal so its internal double quotes reach icacls intact.
+ * failure). A declined UAC prompt makes `Start-Process` throw, so the `catch`
+ * maps it to {@link USER_CANCELLED_EXIT_CODE} to distinguish "user said no" from
+ * a real error. Both the icacls path and its command line are passed as
+ * single-quoted PowerShell literals so spaces and internal double quotes survive.
  */
-export const buildPowershellRunAsCommand = (icaclsArgLine: string): string =>
-  `$p = Start-Process -FilePath 'icacls' -ArgumentList ${toPowershellLiteral(icaclsArgLine)} -Verb RunAs -PassThru -Wait; exit $p.ExitCode`;
+export const buildPowershellRunAsCommand = (icaclsPath: string, icaclsArgLine: string): string =>
+  `try { $p = Start-Process -FilePath ${toPowershellLiteral(icaclsPath)} -ArgumentList ${toPowershellLiteral(icaclsArgLine)} -Verb RunAs -PassThru -Wait; exit $p.ExitCode } catch { exit ${USER_CANCELLED_EXIT_CODE} }`;
 
 /** Captured result of a spawned command. */
 interface CommandResult {
@@ -53,8 +63,43 @@ interface CommandResult {
   error?: Error;
 }
 
+/**
+ * Classified result of an elevation attempt:
+ * - `granted` — the folder is writable afterward (the source of truth).
+ * - `cancelled` — the user declined the UAC prompt; expected and recoverable.
+ * - `failed` — an unexpected failure (spawn error, icacls error, or a grant that
+ *   silently didn't take) worth reporting.
+ */
+export type ElevationStatus = 'granted' | 'cancelled' | 'failed';
+
+/** Inputs {@link classifyElevation} needs to distinguish cancel from failure. */
+export interface ElevationSignals {
+  isWritable: boolean;
+  exitCode: number | null;
+  spawnError?: Error;
+}
+
+/**
+ * Pure classifier mapping raw elevation signals to an {@link ElevationStatus}.
+ * A writable folder always wins (`granted`), regardless of exit code. Otherwise a
+ * declined prompt ({@link USER_CANCELLED_EXIT_CODE}, with no spawn error) is
+ * `cancelled`; everything else (spawn error, non-zero/other exit, or exit 0 that
+ * still left the folder unwritable) is `failed`.
+ */
+export const classifyElevation = ({
+  isWritable,
+  exitCode,
+  spawnError,
+}: ElevationSignals): ElevationStatus => {
+  if (isWritable) return 'granted';
+  if (!spawnError && exitCode === USER_CANCELLED_EXIT_CODE) return 'cancelled';
+  return 'failed';
+};
+
 /** Outcome of an elevation attempt, with diagnostics for logging/telemetry. */
 export interface ElevationOutcome {
+  /** Classified result used to decide breadcrumb vs. error reporting. */
+  status: ElevationStatus;
   /** Whether the package folder is writable afterward — the source of truth. */
   isWritable: boolean;
   /** icacls exit code propagated through PowerShell, or null if it couldn't launch. */
@@ -127,7 +172,8 @@ const resolveGranteePrincipal = async (): Promise<string> => {
 export const grantPackageWriteAccess = async (paths: GamePaths): Promise<ElevationOutcome> => {
   const principal = await resolveGranteePrincipal();
   const icaclsArgLine = buildIcaclsArgLine(paths.packageDir, principal);
-  const command = buildPowershellRunAsCommand(icaclsArgLine);
+  const icaclsPath = resolveSystem32Exe('icacls.exe');
+  const command = buildPowershellRunAsCommand(icaclsPath, icaclsArgLine);
   const powershell = resolvePowershellPath();
 
   console.info(`${LOG_PREFIX} granting write access`, {
@@ -149,7 +195,9 @@ export const grantPackageWriteAccess = async (paths: GamePaths): Promise<Elevati
 
   const isWritable = await checkPackageWritable(paths);
   console.info(`${LOG_PREFIX} writable after grant: ${isWritable}`);
+  const status = classifyElevation({ isWritable, exitCode: result.code, spawnError: result.error });
   return {
+    status,
     isWritable,
     exitCode: result.code,
     stdout: result.stdout.trim(),

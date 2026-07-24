@@ -300,22 +300,24 @@ const completeModSetup = async (shouldArchive: boolean): Promise<SetupState> => 
  */
 const fixPackagePermissions = async (): Promise<SetupState> => {
   const outcome = await grantPackageWriteAccess(await requireGamePaths());
-  // Leave a trail for whatever error/refresh follows, and — on failure —
-  // report it. Permission fixes are user-recoverable, but we deliberately keep
-  // visibility that the grant actually works in the wild. Only coarse,
+  // Always leave a breadcrumb for whatever refresh follows. We deliberately keep
+  // visibility that the grant works in the wild, but a declined UAC prompt
+  // (`cancelled`) is an expected, user-recoverable choice — not a bug — so we
+  // report to Sentry only on an unexpected `failed` outcome. Only coarse,
   // non-identifying diagnostics are attached (never the folder path or the raw
-  // SID, which could reveal a user): the exit code and whether a SID was used.
+  // SID, which could reveal a user): the status, exit code, and SID vs. name.
   addBreadcrumb({
     category: 'elevation',
     message: 'grantPackageWriteAccess',
-    level: outcome.isWritable ? 'info' : 'warning',
+    level: outcome.status === 'granted' ? 'info' : 'warning',
     data: {
+      status: outcome.status,
       isWritable: outcome.isWritable,
       exitCode: outcome.exitCode,
       hasSpawnError: Boolean(outcome.spawnError),
     },
   });
-  if (!outcome.isWritable) {
+  if (outcome.status === 'failed') {
     reportError(outcome.spawnError ?? new Error(`icacls grant failed (exit ${outcome.exitCode})`), {
       tags: { operation: 'fixPackagePermissions' },
       extra: {

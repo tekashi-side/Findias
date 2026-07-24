@@ -1,6 +1,7 @@
 import type { FC } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FolderLock, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { FolderLock, FolderSearch, ShieldCheck, TriangleAlert } from 'lucide-react';
+import type { ChooseFolderResult } from '@shared/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -14,7 +15,8 @@ type SetupPermissionStepProps = {
  * one-time fix that grants the current user write access via a single elevated
  * `icacls` call (one UAC prompt), so all normal mod operations then work without
  * running Findias as administrator. A declined prompt or failed grant leaves the
- * folder unwritable, so the step stays put and offers a retry.
+ * folder unwritable, so the step stays put and offers a retry — plus an escape
+ * hatch to pick a different (writable) folder for users who can't approve UAC.
  */
 const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => {
   const queryClient = useQueryClient();
@@ -26,9 +28,21 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
     },
   });
 
+  const choose = useMutation<ChooseFolderResult>({
+    mutationFn: () => window.findias.chooseGameFolder(),
+    onSuccess: (result) => {
+      if (result.isOk) {
+        void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+      }
+    },
+  });
+
   // The mutation resolves with fresh setup state; a still-unwritable result means
   // the user declined the UAC prompt or the grant didn't take.
   const didFixFail = fix.data ? !fix.data.isPackageWritable : false;
+  const isBusy = fix.isPending || choose.isPending;
+  const chooseError =
+    choose.data && !choose.data.isOk && !choose.data.isCanceled ? choose.data.error : undefined;
 
   return (
     <div className="flex h-full items-center justify-center px-4 py-8">
@@ -56,13 +70,10 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
               </span>{' '}
               — this is expected. It will name{' '}
               <code className="rounded bg-muted px-1 py-0.5 text-xs">icacls.exe</code> (a built-in
-              Windows tool), not Findias, because that&apos;s what grants your account write access
-              to the folder. Choose <span className="font-medium">Yes</span> to continue.
+              Windows tool), because that&apos;s what grants your account write access to the
+              folder. Choose <span className="font-medium">Yes</span> to continue.
             </span>
-            <span>
-              You&apos;ll only see this once. After that, installing and updating mods works
-              normally. Findias never runs as administrator itself.
-            </span>
+            <span>You&apos;ll usually only see this once.</span>
           </AlertDescription>
         </Alert>
 
@@ -72,22 +83,32 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
             <AlertTitle>Still can&apos;t write to the folder</AlertTitle>
             <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
               The permission wasn&apos;t granted. If you dismissed the prompt, try again and choose
-              Yes. Alternatively, reinstall the game outside of a protected folder like Program
-              Files.
+              <span className="font-medium">Yes</span>. If you can&apos;t approve it, choose a
+              different game folder outside a protected location like Program Files.
             </AlertDescription>
           </Alert>
         )}
 
-        {fix.isError && (
+        {chooseError && (
+          <Alert variant="destructive">
+            <AlertDescription>{chooseError}</AlertDescription>
+          </Alert>
+        )}
+
+        {(fix.isError || choose.isError) && (
           <Alert variant="destructive">
             <AlertDescription>Something went wrong. Please try again.</AlertDescription>
           </Alert>
         )}
 
-        <div className="flex justify-center">
-          <Button onClick={() => fix.mutate()} disabled={fix.isPending}>
+        <div className="flex flex-col items-center gap-2">
+          <Button onClick={() => fix.mutate()} disabled={isBusy}>
             <ShieldCheck />
             {fix.isPending ? 'Fixing…' : 'Fix permissions'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => choose.mutate()} disabled={isBusy}>
+            <FolderSearch />
+            {choose.isPending ? 'Opening…' : 'Choose a different folder'}
           </Button>
         </div>
       </div>
