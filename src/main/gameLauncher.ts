@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { shell } from 'electron';
 import type { GameLauncher, StartGameResult } from '../shared/api';
+import { resolveProgramFilesX86 } from './gameLocation';
 
 /** Mabinogi's Steam AppID, used to build the `steam://rungameid` launch URI. */
 export const STEAM_APP_ID = '212200';
@@ -50,11 +51,8 @@ export const detectLauncher = (gameRootPath: string): GameLauncher => {
 };
 
 /** Default Nexon Launcher install dir, resolved via env (never hard-coded drive). */
-const resolveNexonLauncherDir = (): string => {
-  const base =
-    process.env['ProgramFiles(x86)'] ?? process.env.ProgramFiles ?? 'C:\\Program Files (x86)';
-  return join(base, 'Nexon', 'Nexon Launcher');
-};
+const resolveNexonLauncherDir = (): string =>
+  join(resolveProgramFilesX86(), 'Nexon', 'Nexon Launcher');
 
 /**
  * Where the Nexon updater should drop its logs: the launcher's own folder when

@@ -105,11 +105,11 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
         )}
 
         <div className="flex flex-col items-center gap-2">
-          <Button onClick={() => fix.mutate()} disabled={isBusy}>
+          <Button size="lg" onClick={() => fix.mutate()} disabled={isBusy}>
             <ShieldCheck />
             {fix.isPending ? 'Fixing…' : 'Fix permissions'}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => choose.mutate()} disabled={isBusy}>
+          <Button variant="ghost" size="lg" onClick={() => choose.mutate()} disabled={isBusy}>
             <FolderSearch />
             {choose.isPending ? 'Opening…' : 'Choose a different folder'}
           </Button>

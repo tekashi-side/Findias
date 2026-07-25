@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // off the real channel name.
 const {
   loadSettingsMock,
+  saveSettingsMock,
   isFeatureEnabledMock,
   getFeatureFlagsMock,
   ipcMainMock,
@@ -15,8 +16,11 @@ const {
   grantPackageWriteAccessMock,
   validateGameRootMock,
   resolveGamePathsMock,
+  detectDefaultGameRootsMock,
+  getDefaultGameRootCandidatesMock,
 } = vi.hoisted(() => ({
   loadSettingsMock: vi.fn(),
+  saveSettingsMock: vi.fn(),
   isFeatureEnabledMock: vi.fn(),
   getFeatureFlagsMock: vi.fn(),
   ipcMainMock: { handle: vi.fn(), on: vi.fn() },
@@ -25,6 +29,8 @@ const {
   grantPackageWriteAccessMock: vi.fn(),
   validateGameRootMock: vi.fn(),
   resolveGamePathsMock: vi.fn(),
+  detectDefaultGameRootsMock: vi.fn(),
+  getDefaultGameRootCandidatesMock: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -37,7 +43,10 @@ vi.mock('./updater', () => ({ quitAndInstallUpdate: vi.fn() }));
 vi.mock('./providers/manifestCatalog', () => ({
   createManifestCatalogProvider: () => ({ getCatalog: vi.fn() }),
 }));
-vi.mock('./settingsStore', () => ({ loadSettings: loadSettingsMock, saveSettings: vi.fn() }));
+vi.mock('./settingsStore', () => ({
+  loadSettings: loadSettingsMock,
+  saveSettings: saveSettingsMock,
+}));
 vi.mock('./featureFlags', () => ({
   isFeatureEnabled: isFeatureEnabledMock,
   getFeatureFlags: getFeatureFlagsMock,
@@ -47,6 +56,12 @@ vi.mock('./elevation', () => ({ grantPackageWriteAccess: grantPackageWriteAccess
 vi.mock('./gameLocation', () => ({
   validateGameRoot: validateGameRootMock,
   resolveGamePaths: resolveGamePathsMock,
+  detectDefaultGameRoots: detectDefaultGameRootsMock,
+  getDefaultGameRootCandidates: getDefaultGameRootCandidatesMock,
+}));
+vi.mock('./gameLauncher', () => ({
+  detectLauncher: (path: string) => (path.includes('Steam') ? 'steam' : 'nexon'),
+  startGame: vi.fn(),
 }));
 // telemetry pulls in @sentry/electron/main at import; stub it so ipc imports cleanly.
 vi.mock('./telemetry', () => ({
@@ -237,5 +252,96 @@ describe('fixPackagePermissions IPC handler', () => {
       expect.objectContaining({ category: 'elevation', level: 'info' }),
     );
     expect(reportErrorMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('setGameFolder IPC handler', () => {
+  beforeEach(() => {
+    loadSettingsMock.mockResolvedValue({
+      gameRootPath: null,
+      shouldIncludePrereleases: false,
+      isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
+      shouldStartGameAutomatically: true,
+    });
+    isFeatureEnabledMock.mockReturnValue(false);
+    saveSettingsMock.mockResolvedValue(undefined);
+  });
+
+  it('persists a valid path and returns setup state', async () => {
+    validateGameRootMock.mockResolvedValue({ isOk: true });
+    loadSettingsMock.mockResolvedValue({
+      gameRootPath: 'C:\\game\\appdata',
+      shouldIncludePrereleases: false,
+      isModSetupCompleted: false,
+      isErrorReportingEnabled: true,
+      shouldStartGameAutomatically: true,
+    });
+    resolveGamePathsMock.mockReturnValue({
+      root: 'C:\\game\\appdata',
+      packageDir: 'C:\\game\\appdata\\package',
+      disabledDir: 'C:\\game\\appdata\\package\\disabled',
+      archivedDir: 'C:\\game\\appdata\\package\\archived',
+    });
+
+    registerIpcHandlers();
+    const result = await invokeHandlerFor(IpcChannels.setGameFolder)({}, 'C:\\game\\appdata');
+
+    expect(validateGameRootMock).toHaveBeenCalledWith('C:\\game\\appdata');
+    expect(saveSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameRootPath: 'C:\\game\\appdata',
+        isModSetupCompleted: false,
+      }),
+    );
+    expect(result).toMatchObject({ isOk: true, state: { isValid: true } });
+  });
+
+  it('rejects an invalid path without saving', async () => {
+    validateGameRootMock.mockResolvedValue({ isOk: false, error: 'nope' });
+
+    registerIpcHandlers();
+    const result = await invokeHandlerFor(IpcChannels.setGameFolder)({}, 'C:\\bad');
+
+    expect(saveSettingsMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ isOk: false, error: 'nope' });
+  });
+});
+
+describe('detectGameFolders IPC handler', () => {
+  beforeEach(() => {
+    getDefaultGameRootCandidatesMock.mockReturnValue([
+      'C:\\Nexon\\Library\\mabinogi\\appdata',
+      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+    ]);
+    detectDefaultGameRootsMock.mockResolvedValue([
+      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+    ]);
+  });
+
+  it('maps found and default candidates with launcher labels', async () => {
+    registerIpcHandlers();
+    const result = await invokeHandlerFor(IpcChannels.detectGameFolders)({});
+
+    expect(getDefaultGameRootCandidatesMock).toHaveBeenCalled();
+    expect(detectDefaultGameRootsMock).toHaveBeenCalledWith([
+      'C:\\Nexon\\Library\\mabinogi\\appdata',
+      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+    ]);
+    expect(result).toEqual({
+      found: [
+        {
+          path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+          launcher: 'steam',
+        },
+      ],
+      defaults: [
+        { path: 'C:\\Nexon\\Library\\mabinogi\\appdata', launcher: 'nexon' },
+        {
+          path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+          launcher: 'steam',
+        },
+      ],
+    });
   });
 });

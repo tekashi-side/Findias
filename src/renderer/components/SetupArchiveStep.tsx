@@ -88,14 +88,15 @@ const SetupArchiveStep: FC = () => {
         )}
 
         <div className="flex justify-center gap-2">
-          <Button onClick={() => complete.mutate(true)} disabled={complete.isPending}>
+          <Button disabled={complete.isPending} onClick={() => complete.mutate(true)} size="lg">
             <Archive />
             {complete.isPending ? 'Working…' : 'Archive existing mods'}
           </Button>
           <Button
-            variant="outline"
-            onClick={() => complete.mutate(false)}
             disabled={complete.isPending}
+            onClick={() => complete.mutate(false)}
+            size="lg"
+            variant="outline"
           >
             Skip
           </Button>

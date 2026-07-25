@@ -4,6 +4,7 @@ import {
   IpcChannels,
   type AppInfo,
   type ChooseFolderResult,
+  type DetectGameFoldersResult,
   type DownloadProgress,
   type ForeignMod,
   type GamePaths,
@@ -13,7 +14,13 @@ import {
 import type { ModListState } from '../shared/modList';
 import { loadSettings, saveSettings } from './settingsStore';
 import { getFeatureFlags, isFeatureEnabled } from './featureFlags';
-import { resolveGamePaths, validateGameRoot, type ValidationResult } from './gameLocation';
+import {
+  detectDefaultGameRoots,
+  getDefaultGameRootCandidates,
+  resolveGamePaths,
+  validateGameRoot,
+  type ValidationResult,
+} from './gameLocation';
 import { detectLauncher, startGame } from './gameLauncher';
 import { catalogModIds, resolveModList } from './modResolver';
 import { installOrUpdateMod } from './modInstaller';
@@ -145,6 +152,33 @@ const requireGamePaths = async (): Promise<GamePaths> => {
     throw new Error(validation.error ?? 'No game folder is configured.');
   }
   return resolveGamePaths(gameRootPath);
+};
+
+/** Validate and persist a game root chosen by the user or auto-detected in setup. */
+const applyGameRoot = async (chosen: string): Promise<ChooseFolderResult> => {
+  const validation = await validateGameRoot(chosen);
+  if (!validation.isOk) {
+    return { isOk: false, error: validation.error };
+  }
+
+  // Reset the one-time mod-archive step so the newly chosen folder is
+  // re-checked for pre-existing mods.
+  const settings = await loadSettings();
+  await saveSettings({ ...settings, gameRootPath: chosen, isModSetupCompleted: false });
+  return { isOk: true, state: await computeSetupState() };
+};
+
+const buildDetectGameFoldersResult = async (): Promise<DetectGameFoldersResult> => {
+  const candidates = getDefaultGameRootCandidates();
+  const foundPaths = await detectDefaultGameRoots(candidates);
+  const toDetected = (path: string): DetectGameFoldersResult['found'][number] => ({
+    path,
+    launcher: detectLauncher(path),
+  });
+  return {
+    found: foundPaths.map(toDetected),
+    defaults: candidates.map(toDetected),
+  };
 };
 
 /**
@@ -502,18 +536,18 @@ export const registerIpcHandlers = (): void => {
       return { isOk: false, isCanceled: true };
     }
 
-    const chosen = result.filePaths[0];
-    const validation = await validateGameRoot(chosen);
-    if (!validation.isOk) {
-      return { isOk: false, error: validation.error };
-    }
-
-    // Reset the one-time mod-archive step so the newly chosen folder is
-    // re-checked for pre-existing mods.
-    const settings = await loadSettings();
-    await saveSettings({ ...settings, gameRootPath: chosen, isModSetupCompleted: false });
-    return { isOk: true, state: await computeSetupState() };
+    return applyGameRoot(result.filePaths[0]);
   });
+
+  handleInvoke(
+    IpcChannels.setGameFolder,
+    async (_event, path: string): Promise<ChooseFolderResult> => applyGameRoot(path),
+  );
+
+  handleInvoke(
+    IpcChannels.detectGameFolders,
+    async (): Promise<DetectGameFoldersResult> => buildDetectGameFoldersResult(),
+  );
 
   // Dev-only telemetry self-test paths for the Settings panel. Guarded on
   // `import.meta.env.DEV` so the whole block is dead-stripped from packaged
