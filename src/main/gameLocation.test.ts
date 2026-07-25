@@ -62,9 +62,13 @@ describe('getDefaultGameRootCandidates', () => {
     process.env.SystemDrive = 'D:';
     process.env['ProgramFiles(x86)'] = 'D:\\Program Files (x86)';
 
+    const systemRoot = 'D:\\';
+    const programFilesX86 = 'D:\\Program Files (x86)';
+
+    // Build expected paths with the same `join` the code uses so separators match the host OS.
     expect(getDefaultGameRootCandidates()).toEqual([
-      'D:\\Nexon\\Library\\mabinogi\\appdata',
-      'D:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+      join(systemRoot, 'Nexon', 'Library', 'mabinogi', 'appdata'),
+      join(programFilesX86, 'Steam', 'steamapps', 'common', 'Mabinogi', 'appdata'),
     ]);
   });
 
@@ -73,9 +77,12 @@ describe('getDefaultGameRootCandidates', () => {
     delete process.env['ProgramFiles(x86)'];
     delete process.env.ProgramFiles;
 
+    const systemRoot = 'C:\\';
+    const programFilesX86 = join(systemRoot, 'Program Files (x86)');
+
     expect(getDefaultGameRootCandidates()).toEqual([
-      'C:\\Nexon\\Library\\mabinogi\\appdata',
-      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
+      join(systemRoot, 'Nexon', 'Library', 'mabinogi', 'appdata'),
+      join(programFilesX86, 'Steam', 'steamapps', 'common', 'Mabinogi', 'appdata'),
     ]);
   });
 });
