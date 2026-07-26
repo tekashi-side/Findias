@@ -427,7 +427,7 @@ src/
 │  ├─ index.ts               # app lifecycle + window creation (bootstrap)
 │  ├─ ipc.ts                 # ipcMain.handle registration; emits events
 │  ├─ settingsStore.ts       # load/save + zod-validate settings   (+ .test.ts)
-│  ├─ gameLocation.ts        # validate game folder; resolve package paths (+ .test.ts)
+│  ├─ gameLocation.ts        # validate game folder; resolve package paths; default-path detection (+ .test.ts)
 │  ├─ modStore.ts            # PackageModStore: physical .it disk ops (invariant)
 │  ├─ modResolver.ts         # merge catalog + installed → ModListState
 │  ├─ modInstaller.ts        # orchestrate install / update / delete / disable
@@ -498,6 +498,8 @@ interface FindiasApi {
   // settings & setup
   getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, isPackageWritable, shouldIncludePrereleases, shouldShowModArchive, gameLauncher }
   chooseGameFolder(): Promise<ChooseFolderResult>; // { isOk, isCanceled?, error?, state? }
+  setGameFolder(path: string): Promise<ChooseFolderResult>; // validate + persist without native picker (setup confirm / dual-select)
+  detectGameFolders(): Promise<DetectGameFoldersResult>; // probe default Nexon/Steam install paths; { found, defaults }
   fixPackagePermissions(): Promise<SetupState>; // one-time elevated icacls grant, then re-probe
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>; // persist + re-resolve
 
@@ -786,11 +788,31 @@ provider's `fetch` (covering the releases API, `manifestCatalog.json`, and every
 - On launch, read settings. If no game path is stored (or the stored path no
   longer contains a `package` directory), the UI shows a **setup gate**: the app
   cannot operate until a valid folder is chosen.
+- **First run** (`gameRootPath` is null): a welcome screen introduces the app,
+  then the folder step runs. Users with a broken saved path skip welcome and go
+  straight to folder recovery.
+- **Auto-detection:** on mount, the folder step calls `detectGameFolders`, which
+  probes the two common default install locations (Nexon on the system drive and
+  Steam under the default library), resolved via Windows env vars in
+  `gameLocation.getDefaultGameRootCandidates`. Each candidate is validated with
+  `validateGameRoot` (requires a `package` subfolder). The UI branches on how
+  many valid paths are found:
+  - **One** — confirm the detected path (`setGameFolder` on Confirm)
+  - **Two** — per-row Select actions (`setGameFolder` on click)
+  - **Zero** (or user chooses "different folder") — manual picker with env-resolved
+    hint paths
 - `chooseGameFolder` opens the native directory picker and **validates** that the
   selection is/contains the expected layout (a `package` subfolder). The chosen
   root is the `appdata` folder per [`game-structure.md`](./game-structure.md).
+- `setGameFolder` and `chooseGameFolder` both persist through a shared
+  `applyGameRoot` helper: validate, save `gameRootPath`, reset
+  `isModSetupCompleted`, return fresh `SetupState`.
 - On success the path is written to the settings file and the catalog refresh
   runs.
+
+> **Detection limits:** Nexon is only probed on `SystemDrive` (e.g.
+> `C:\Nexon\...`); installs on other drives (e.g. `D:\Nexon\...`) and Steam
+> secondary libraries are not auto-detected.
 
 ### Scanning installed mods (current `InstalledModsProvider`)
 
@@ -1082,7 +1104,11 @@ Data flow through Findias:
 ```
 app ready
   → load settings
-  → SetupState.isValid? ──────────no──► show setup gate (chooseGameFolder)
+  → SetupState.isValid? ──────────no──► setup gate
+        │                                  ├─ gameRootPath null? → welcome, then folder step
+        │                                  │   └─ detectGameFolders → confirm | dual-select | picker
+        │                                  │       (setGameFolder or chooseGameFolder)
+        │                                  └─ gameRootPath set but invalid → folder step (recovery)
         │ yes
         ▼
   SetupState.isPackageWritable? ──no──► show permission step (fixPackagePermissions:

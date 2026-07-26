@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FolderLock, FolderSearch, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { ChooseFolderResult } from '@shared/api';
+import SetupStepShell from './SetupStepShell';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -48,74 +49,76 @@ const SetupPermissionStep: FC<SetupPermissionStepProps> = ({ gameRootPath }) => 
     choose.data && !choose.data.isOk && !choose.data.isCanceled ? choose.data.error : undefined;
 
   return (
-    <div className="flex h-full items-center justify-center px-4 py-8">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <FolderLock className="size-6 text-muted-foreground" />
-          </div>
-          <h1 className="font-heading text-3xl font-semibold">Permission needed</h1>
-          <p className="text-sm text-muted-foreground">
+    <SetupStepShell
+      icon={
+        <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+          <FolderLock className="size-6 text-muted-foreground" />
+        </div>
+      }
+      title="Permission needed"
+      description={
+        <>
+          <p>
             Your game is installed in a protected location, so Findias can&apos;t manage mods in its{' '}
             <code className="rounded bg-muted px-1 py-0.5 text-xs">package</code> folder yet.
           </p>
-          <span className="text-xs break-all text-muted-foreground">{gameRootPath}</span>
-        </div>
+          <span className="text-xs break-all">{gameRootPath}</span>
+        </>
+      }
+    >
+      <Alert>
+        <ShieldCheck />
+        <AlertTitle>Grant write access</AlertTitle>
+        <AlertDescription className="flex flex-col gap-2">
+          <span>
+            Windows will show a prompt asking{' '}
+            <span className="italic">
+              &ldquo;Do you want to allow this app to make changes to your device?&rdquo;
+            </span>{' '}
+            — this is expected. It will name{' '}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">icacls.exe</code> (a built-in
+            Windows tool), because that&apos;s what grants your account write access to the folder.
+            Choose <span className="font-medium">Yes</span> to continue.
+          </span>
+          <span>You&apos;ll usually only see this once.</span>
+        </AlertDescription>
+      </Alert>
 
-        <Alert>
-          <ShieldCheck />
-          <AlertTitle>Grant write access</AlertTitle>
-          <AlertDescription className="flex flex-col gap-2">
-            <span>
-              Windows will show a prompt asking{' '}
-              <span className="italic">
-                &ldquo;Do you want to allow this app to make changes to your device?&rdquo;
-              </span>{' '}
-              — this is expected. It will name{' '}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">icacls.exe</code> (a built-in
-              Windows tool), because that&apos;s what grants your account write access to the
-              folder. Choose <span className="font-medium">Yes</span> to continue.
-            </span>
-            <span>You&apos;ll usually only see this once.</span>
+      {didFixFail && (
+        <Alert className="border-amber-500/30 text-amber-700 dark:text-amber-400">
+          <TriangleAlert />
+          <AlertTitle>Still can&apos;t write to the folder</AlertTitle>
+          <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
+            The permission wasn&apos;t granted. If you dismissed the prompt, try again and choose
+            <span className="font-medium">Yes</span>. If you can&apos;t approve it, choose a
+            different game folder outside a protected location like Program Files.
           </AlertDescription>
         </Alert>
+      )}
 
-        {didFixFail && (
-          <Alert className="border-amber-500/30 text-amber-700 dark:text-amber-400">
-            <TriangleAlert />
-            <AlertTitle>Still can&apos;t write to the folder</AlertTitle>
-            <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
-              The permission wasn&apos;t granted. If you dismissed the prompt, try again and choose
-              <span className="font-medium">Yes</span>. If you can&apos;t approve it, choose a
-              different game folder outside a protected location like Program Files.
-            </AlertDescription>
-          </Alert>
-        )}
+      {chooseError && (
+        <Alert variant="destructive">
+          <AlertDescription>{chooseError}</AlertDescription>
+        </Alert>
+      )}
 
-        {chooseError && (
-          <Alert variant="destructive">
-            <AlertDescription>{chooseError}</AlertDescription>
-          </Alert>
-        )}
+      {(fix.isError || choose.isError) && (
+        <Alert variant="destructive">
+          <AlertDescription>Something went wrong. Please try again.</AlertDescription>
+        </Alert>
+      )}
 
-        {(fix.isError || choose.isError) && (
-          <Alert variant="destructive">
-            <AlertDescription>Something went wrong. Please try again.</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex flex-col items-center gap-2">
-          <Button size="lg" onClick={() => fix.mutate()} disabled={isBusy}>
-            <ShieldCheck />
-            {fix.isPending ? 'Fixing…' : 'Fix permissions'}
-          </Button>
-          <Button variant="ghost" size="lg" onClick={() => choose.mutate()} disabled={isBusy}>
-            <FolderSearch />
-            {choose.isPending ? 'Opening…' : 'Choose a different folder'}
-          </Button>
-        </div>
+      <div className="flex flex-col items-center gap-2">
+        <Button size="lg" onClick={() => fix.mutate()} disabled={isBusy}>
+          <ShieldCheck />
+          {fix.isPending ? 'Fixing…' : 'Fix permissions'}
+        </Button>
+        <Button variant="ghost" size="lg" onClick={() => choose.mutate()} disabled={isBusy}>
+          <FolderSearch />
+          {choose.isPending ? 'Opening…' : 'Choose a different folder'}
+        </Button>
       </div>
-    </div>
+    </SetupStepShell>
   );
 };
 
