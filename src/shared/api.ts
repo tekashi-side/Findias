@@ -110,6 +110,18 @@ export interface ChooseFolderResult {
   state?: SetupState;
 }
 
+/** A detected game folder with its inferred launcher. */
+export interface DetectedGameFolder {
+  path: string;
+  launcher: GameLauncher;
+}
+
+/** Result of probing the two common default install locations. */
+export interface DetectGameFoldersResult {
+  /** Valid installs found (0–2). */
+  found: DetectedGameFolder[];
+}
+
 /** Progress event emitted while a mod is downloading. */
 export interface DownloadProgress {
   modId: string;
@@ -142,6 +154,10 @@ export interface FindiasApi {
   getAppInfo(): Promise<AppInfo>;
   getSetupState(): Promise<SetupState>;
   chooseGameFolder(): Promise<ChooseFolderResult>;
+  /** Persist a validated game folder without opening the native picker (setup confirm / dual-select). */
+  setGameFolder(path: string): Promise<ChooseFolderResult>;
+  /** Probe the two common default install locations for valid `appdata` folders. */
+  detectGameFolders(): Promise<DetectGameFoldersResult>;
   /**
    * Launch Mabinogi via the inferred launcher's protocol URI. On success the
    * main process quits Findias; on failure it resolves with a `launch-failed`
@@ -214,6 +230,8 @@ export const IpcChannels = {
   getAppInfo: 'app:getInfo',
   getSetupState: 'setup:getState',
   chooseGameFolder: 'setup:chooseGameFolder',
+  setGameFolder: 'setup:setGameFolder',
+  detectGameFolders: 'setup:detectGameFolders',
   startGame: 'game:start',
   listForeignMods: 'setup:listForeignMods',
   completeModSetup: 'setup:completeModSetup',

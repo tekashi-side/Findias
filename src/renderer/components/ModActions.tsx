@@ -64,9 +64,10 @@ const ModActions: FC<ModActionsProps> = ({ variant, isDisabled, onAction }) => {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete {variant.name}?</AlertDialogTitle>
+                <AlertDialogTitle>Delete this mod?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This removes the mod file from your package folder. You can reinstall it later.
+                  <span className="font-medium text-foreground wrap-anywhere">{variant.name}</span>{' '}
+                  will be removed from your package folder. You can reinstall it later.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

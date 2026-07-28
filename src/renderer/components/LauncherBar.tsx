@@ -65,8 +65,8 @@ const LauncherBar: FC<LauncherBarProps> = ({
         {isUpdatingAll
           ? `Updating… (${updateAllProgress.done}/${updateAllProgress.total})`
           : hasUpdates
-            ? 'Update All Mods & Start Game'
-            : 'Start Game'}
+            ? 'Update All Mods & Start Launcher'
+            : 'Start Launcher'}
       </Button>
 
       <div className="flex items-center gap-2">
