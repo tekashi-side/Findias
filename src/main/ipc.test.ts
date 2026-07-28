@@ -17,7 +17,6 @@ const {
   validateGameRootMock,
   resolveGamePathsMock,
   detectDefaultGameRootsMock,
-  getDefaultGameRootCandidatesMock,
 } = vi.hoisted(() => ({
   loadSettingsMock: vi.fn(),
   saveSettingsMock: vi.fn(),
@@ -30,7 +29,6 @@ const {
   validateGameRootMock: vi.fn(),
   resolveGamePathsMock: vi.fn(),
   detectDefaultGameRootsMock: vi.fn(),
-  getDefaultGameRootCandidatesMock: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -57,7 +55,6 @@ vi.mock('./gameLocation', () => ({
   validateGameRoot: validateGameRootMock,
   resolveGamePaths: resolveGamePathsMock,
   detectDefaultGameRoots: detectDefaultGameRootsMock,
-  getDefaultGameRootCandidates: getDefaultGameRootCandidatesMock,
 }));
 vi.mock('./gameLauncher', () => ({
   detectLauncher: (path: string) => (path.includes('Steam') ? 'steam' : 'nexon'),
@@ -309,33 +306,17 @@ describe('setGameFolder IPC handler', () => {
 });
 
 describe('detectGameFolders IPC handler', () => {
-  beforeEach(() => {
-    getDefaultGameRootCandidatesMock.mockReturnValue([
+  it('maps found paths to their launcher labels', async () => {
+    detectDefaultGameRootsMock.mockResolvedValue([
       'C:\\Nexon\\Library\\mabinogi\\appdata',
       'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
     ]);
-    detectDefaultGameRootsMock.mockResolvedValue([
-      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
-    ]);
-  });
 
-  it('maps found and default candidates with launcher labels', async () => {
     registerIpcHandlers();
     const result = await invokeHandlerFor(IpcChannels.detectGameFolders)({});
 
-    expect(getDefaultGameRootCandidatesMock).toHaveBeenCalled();
-    expect(detectDefaultGameRootsMock).toHaveBeenCalledWith([
-      'C:\\Nexon\\Library\\mabinogi\\appdata',
-      'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
-    ]);
     expect(result).toEqual({
       found: [
-        {
-          path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
-          launcher: 'steam',
-        },
-      ],
-      defaults: [
         { path: 'C:\\Nexon\\Library\\mabinogi\\appdata', launcher: 'nexon' },
         {
           path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Mabinogi\\appdata',
@@ -343,5 +324,14 @@ describe('detectGameFolders IPC handler', () => {
         },
       ],
     });
+  });
+
+  it('returns an empty list when no install is found', async () => {
+    detectDefaultGameRootsMock.mockResolvedValue([]);
+
+    registerIpcHandlers();
+    const result = await invokeHandlerFor(IpcChannels.detectGameFolders)({});
+
+    expect(result).toEqual({ found: [] });
   });
 });

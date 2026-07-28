@@ -65,6 +65,13 @@ const SetupFolderStep: FC = () => {
     },
   });
 
+  /** Switch modes, dropping stale results so an old error can't follow the user. */
+  const goToMode = (next: FolderMode | null): void => {
+    setFolder.reset();
+    choose.reset();
+    setModeOverride(next);
+  };
+
   const setFolderError = setFolder.data && !setFolder.data.isOk ? setFolder.data.error : undefined;
   const chooseResult = choose.data;
   const chooseValidationError =
@@ -97,14 +104,16 @@ const SetupFolderStep: FC = () => {
   }
 
   const data: DetectGameFoldersResult = detect.data;
-  const mode = modeOverride ?? deriveMode(data.found.length);
+  // What detection alone says, ignoring any user override.
+  const derivedMode = deriveMode(data.found.length);
+  const mode = modeOverride ?? derivedMode;
 
   if (mode === 'confirm' && data.found.length === 1) {
     const detected = data.found[0];
     return (
       <SetupStepShell
         title="Game Folder Detected"
-        description="We auto-detected your install location:"
+        description="We auto-detected your Mabinogi install location:"
       >
         <ItemGroup className="text-left">
           <GameFolderItem
@@ -130,7 +139,7 @@ const SetupFolderStep: FC = () => {
           </Button>
           <Button
             disabled={isActionPending}
-            onClick={() => setModeOverride('picker')}
+            onClick={() => goToMode('picker')}
             size="lg"
             variant="ghost"
           >
@@ -156,7 +165,7 @@ const SetupFolderStep: FC = () => {
               icon={launcherIcon(folder.launcher)}
               actions={
                 <Button
-                  size="lg"
+                  size="sm"
                   disabled={isActionPending}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -179,7 +188,7 @@ const SetupFolderStep: FC = () => {
         <div className="flex flex-col items-center gap-3">
           <Button
             disabled={isActionPending}
-            onClick={() => setModeOverride('picker')}
+            onClick={() => goToMode('picker')}
             size="lg"
             variant="ghost"
           >
@@ -202,28 +211,25 @@ const SetupFolderStep: FC = () => {
             <code className="rounded bg-muted px-1 py-0.5 text-xs">package</code> subfolder. Findias
             needs this before it can manage mods.
           </p>
+          {derivedMode === 'picker' && (
+            <p>
+              It&apos;s usually at{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                ...\Nexon\Library\mabinogi\appdata
+              </code>{' '}
+              or, on Steam,{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                ...\steamapps\common\Mabinogi\appdata
+              </code>
+              .
+            </p>
+          )}
         </>
       }
     >
-      <ItemGroup className="text-left">
-        {data.defaults.map((folder) => (
-          <GameFolderItem
-            key={folder.path}
-            title={folderTitle(folder)}
-            path={folder.path}
-            icon={launcherIcon(folder.launcher)}
-          />
-        ))}
-      </ItemGroup>
-
       {chooseValidationError && (
         <Alert variant="destructive">
           <AlertDescription>{chooseValidationError}</AlertDescription>
-        </Alert>
-      )}
-      {setFolderError && (
-        <Alert variant="destructive">
-          <AlertDescription>{setFolderError}</AlertDescription>
         </Alert>
       )}
       {choose.isError && (
@@ -232,10 +238,20 @@ const SetupFolderStep: FC = () => {
         </Alert>
       )}
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-3">
         <Button disabled={isActionPending} onClick={() => choose.mutate()} size="lg">
           {choose.isPending ? 'Opening…' : 'Choose game folder'}
         </Button>
+        {derivedMode !== 'picker' && (
+          <Button
+            disabled={isActionPending}
+            onClick={() => goToMode(null)}
+            size="lg"
+            variant="ghost"
+          >
+            {derivedMode === 'confirm' ? 'Back to detected folder' : 'Back to detected folders'}
+          </Button>
+        )}
       </div>
     </SetupStepShell>
   );

@@ -16,7 +16,6 @@ import { loadSettings, saveSettings } from './settingsStore';
 import { getFeatureFlags, isFeatureEnabled } from './featureFlags';
 import {
   detectDefaultGameRoots,
-  getDefaultGameRootCandidates,
   resolveGamePaths,
   validateGameRoot,
   type ValidationResult,
@@ -169,15 +168,9 @@ const applyGameRoot = async (chosen: string): Promise<ChooseFolderResult> => {
 };
 
 const buildDetectGameFoldersResult = async (): Promise<DetectGameFoldersResult> => {
-  const candidates = getDefaultGameRootCandidates();
-  const foundPaths = await detectDefaultGameRoots(candidates);
-  const toDetected = (path: string): DetectGameFoldersResult['found'][number] => ({
-    path,
-    launcher: detectLauncher(path),
-  });
+  const foundPaths = await detectDefaultGameRoots();
   return {
-    found: foundPaths.map(toDetected),
-    defaults: candidates.map(toDetected),
+    found: foundPaths.map((path) => ({ path, launcher: detectLauncher(path) })),
   };
 };
 

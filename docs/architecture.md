@@ -499,7 +499,7 @@ interface FindiasApi {
   getSetupState(): Promise<SetupState>; // { gameRootPath, isValid, isPackageWritable, shouldIncludePrereleases, shouldShowModArchive, gameLauncher }
   chooseGameFolder(): Promise<ChooseFolderResult>; // { isOk, isCanceled?, error?, state? }
   setGameFolder(path: string): Promise<ChooseFolderResult>; // validate + persist without native picker (setup confirm / dual-select)
-  detectGameFolders(): Promise<DetectGameFoldersResult>; // probe default Nexon/Steam install paths; { found, defaults }
+  detectGameFolders(): Promise<DetectGameFoldersResult>; // probe default Nexon/Steam install paths; { found }
   fixPackagePermissions(): Promise<SetupState>; // one-time elevated icacls grant, then re-probe
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>; // persist + re-resolve
 
@@ -799,8 +799,11 @@ provider's `fetch` (covering the releases API, `manifestCatalog.json`, and every
   many valid paths are found:
   - **One** — confirm the detected path (`setGameFolder` on Confirm)
   - **Two** — per-row Select actions (`setGameFolder` on click)
-  - **Zero** (or user chooses "different folder") — manual picker with env-resolved
-    hint paths
+  - **Zero** (or user chooses "different folder") — manual picker. Example locations
+    live in the copy as drive-agnostic paths (`...\Nexon\Library\mabinogi\appdata`),
+    not as rows, since users read rows as clickable options. When the picker was
+    reached via the override rather than by finding nothing, it drops the example
+    paths and offers a Back button to the detected result.
 - `chooseGameFolder` opens the native directory picker and **validates** that the
   selection is/contains the expected layout (a `package` subfolder). The chosen
   root is the `appdata` folder per [`game-structure.md`](./game-structure.md).

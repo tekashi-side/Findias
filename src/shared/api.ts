@@ -110,7 +110,7 @@ export interface ChooseFolderResult {
   state?: SetupState;
 }
 
-/** A default or detected game folder with its inferred launcher. */
+/** A detected game folder with its inferred launcher. */
 export interface DetectedGameFolder {
   path: string;
   launcher: GameLauncher;
@@ -120,8 +120,6 @@ export interface DetectedGameFolder {
 export interface DetectGameFoldersResult {
   /** Valid installs found (0–2). */
   found: DetectedGameFolder[];
-  /** Env-resolved default candidate paths (always 2), for picker hints. */
-  defaults: DetectedGameFolder[];
 }
 
 /** Progress event emitted while a mod is downloading. */

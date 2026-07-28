@@ -17,7 +17,7 @@ type GameFolderItemProps = {
 
 /** Presentational row for a game folder path during setup. */
 const GameFolderItem: FC<GameFolderItemProps> = ({ title, path, icon, actions }) => (
-  <Item variant="outline">
+  <Item className="items-start" variant="outline">
     <ItemMedia variant="icon">{icon}</ItemMedia>
     <ItemContent>
       <ItemTitle>{title}</ItemTitle>

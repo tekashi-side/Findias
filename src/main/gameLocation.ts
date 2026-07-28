@@ -2,7 +2,11 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import type { GamePaths } from '../shared/api';
 
-/** Resolve the x86 Program Files folder from Windows env vars (never hard-coded drive). */
+/**
+ * Resolve the x86 Program Files folder from Windows env vars (never hard-coded drive).
+ * `ProgramFiles(x86)` is always set on 64-bit Windows; the `ProgramFiles` fallback only
+ * fires on 32-bit Windows, where `C:\Program Files` *is* the x86 location.
+ */
 export const resolveProgramFilesX86 = (): string => {
   const systemDrive = process.env.SystemDrive ?? 'C:';
   const systemRoot = `${systemDrive}\\`;
@@ -92,7 +96,7 @@ export const validateGameRoot = async (root: string): Promise<ValidationResult> 
     return {
       isOk: false,
       error:
-        'This does not look like a Mabinogi game folder — no "package" subfolder was found inside it.',
+        'This does not look like a Mabinogi appdata folder — no "package" subfolder was found inside it.',
     };
   }
   return { isOk: true };
