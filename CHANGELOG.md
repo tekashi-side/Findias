@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.28.0](https://github.com/tekashi-side/Findias/compare/v1.27.0...v1.28.0) (2026-07-28)
+
+
+### Features
+
+* implement game folder detection and selection flow ([df7dcde](https://github.com/tekashi-side/Findias/commit/df7dcde1eb5710f418477df52d5d5613dcf02aed))
+* introduce SetupStepShell component for consistent layout across setup steps ([0c97cb7](https://github.com/tekashi-side/Findias/commit/0c97cb76885dc76a4dee84e97b08d7e249b49cb2))
+
+
+### Fixes
+
+* update button labels for clarity in LauncherBar and ModActions components ([3975539](https://github.com/tekashi-side/Findias/commit/3975539044b16f6dac10d36d2770e4124a643a51))
+
 ## [1.27.0](https://github.com/tekashi-side/Findias/compare/v1.26.0...v1.27.0) (2026-07-24)
 
 
