@@ -8,7 +8,10 @@ import ModList from './ModList';
 import ModDetail from './ModDetail';
 import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
 import TagFilter from './TagFilter';
+import SortMenu from './SortMenu';
 import LauncherBar from './LauncherBar';
+import { useModSortPreference } from '@/hooks/useModSortPreference';
+import { compareModGroups } from '@/lib/modSort';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,6 +56,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
+  const { sortBy, sortDirection, setSortBy, setSortDirection } = useModSortPreference();
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
   // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
@@ -250,13 +254,15 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         ? byTab
         : byTab.filter((g) => selectedTags.some((tag) => g.tags.includes(tag)));
     const q = deferredSearch.trim().toLowerCase();
-    if (!q) return byTags;
-    return byTags.filter(
-      (g) =>
-        g.name.toLowerCase().includes(q) ||
-        g.variants.some((v) => v.name.toLowerCase().includes(q)),
-    );
-  }, [groups, deferredSearch, tab, selectedTags]);
+    const bySearch = q
+      ? byTags.filter(
+          (g) =>
+            g.name.toLowerCase().includes(q) ||
+            g.variants.some((v) => v.name.toLowerCase().includes(q)),
+        )
+      : byTags;
+    return [...bySearch].sort((a, b) => compareModGroups(a, b, sortBy, sortDirection));
+  }, [groups, deferredSearch, tab, selectedTags, sortBy, sortDirection]);
 
   // Resolve the selected variant + its group from the full (unfiltered) list, so
   // the detail pane survives search/tab changes that hide the row.
@@ -318,6 +324,12 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             <div className="flex shrink-0 items-center gap-2">
               <ModTabs value={tab} onValueChange={setTab} groups={groups} />
               <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
+              <SortMenu
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortByChange={setSortBy}
+                onSortDirectionChange={setSortDirection}
+              />
             </div>
 
             {isLoading && (
