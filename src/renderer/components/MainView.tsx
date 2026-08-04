@@ -4,11 +4,14 @@ import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
+import { sortModGroups } from '@shared/modSort';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
 import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
 import TagFilter from './TagFilter';
+import SortMenu from './SortMenu';
 import LauncherBar from './LauncherBar';
+import { useModSortPreference } from '@/hooks/useModSortPreference';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +31,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const MOD_LIST_KEY = ['modList'] as const;
 
@@ -53,6 +57,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
+  const { sortBy, sortDirection, setSortBy, setSortDirection, resetSort } = useModSortPreference();
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
   // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
@@ -250,13 +255,24 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         ? byTab
         : byTab.filter((g) => selectedTags.some((tag) => g.tags.includes(tag)));
     const q = deferredSearch.trim().toLowerCase();
-    if (!q) return byTags;
-    return byTags.filter(
-      (g) =>
-        g.name.toLowerCase().includes(q) ||
-        g.variants.some((v) => v.name.toLowerCase().includes(q)),
-    );
-  }, [groups, deferredSearch, tab, selectedTags]);
+    const bySearch = q
+      ? byTags.filter(
+          (g) =>
+            g.name.toLowerCase().includes(q) ||
+            g.variants.some((v) => v.name.toLowerCase().includes(q)),
+        )
+      : byTags;
+    return sortModGroups(bySearch, sortBy, sortDirection);
+  }, [groups, deferredSearch, tab, selectedTags, sortBy, sortDirection]);
+
+  // Reordering under a scrolled-down viewport strands the user mid-list, so a
+  // sort change returns them to the top. Radix exposes no viewport ref, and the
+  // shadcn primitive is generated, so reach it through the root's data-slot.
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+    if (viewport instanceof HTMLElement) viewport.scrollTop = 0;
+  }, [sortBy, sortDirection]);
 
   // Resolve the selected variant + its group from the full (unfiltered) list, so
   // the detail pane survives search/tab changes that hide the row.
@@ -300,24 +316,34 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                 </InputGroupAddon>
               )}
             </InputGroup>
-            <Button
-              variant="outline"
-              onClick={() => void refetch()}
-              disabled={isFetching || isBusy || isUpdatingAll}
-            >
-              {isFetching ? (
-                <Spinner data-icon="inline-start" aria-hidden />
-              ) : (
-                <RefreshCw data-icon="inline-start" aria-hidden />
-              )}
-              {isFetching ? 'Refreshing' : 'Refresh'}
-            </Button>
+            <SortMenu
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSortByChange={setSortBy}
+              onSortDirectionChange={setSortDirection}
+              onReset={resetSort}
+            />
+            <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={isFetching ? 'Refreshing' : 'Refresh'}
+                  onClick={() => void refetch()}
+                  disabled={isFetching || isBusy || isUpdatingAll}
+                >
+                  {isFetching ? <Spinner aria-hidden /> : <RefreshCw aria-hidden />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isFetching ? 'Refreshing' : 'Refresh'}</TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="flex shrink-0 items-center gap-2">
+            {/* Row wrapper: ModTabs grows along the main axis, which must stay horizontal. */}
+            <div className="flex shrink-0 items-center">
               <ModTabs value={tab} onValueChange={setTab} groups={groups} />
-              <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
             </div>
 
             {isLoading && (
@@ -411,7 +437,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             )}
 
             {filteredGroups.length > 0 && (
-              <ScrollArea className="-mr-3 min-h-0 flex-1">
+              <ScrollArea ref={scrollAreaRef} className="-mr-3 min-h-0 flex-1">
                 <div className="pr-3">
                   <ModList
                     groups={filteredGroups}

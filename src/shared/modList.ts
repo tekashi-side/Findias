@@ -125,6 +125,14 @@ export interface ModGroupRow {
   images?: string[];
 }
 
+/**
+ * A group is an orphan group when its (only) variant is an orphan. Lives here,
+ * beside {@link toDisplayStatus}, so the main process and the renderer share one
+ * definition instead of each keeping a copy.
+ */
+export const isOrphanGroup = (group: ModGroupRow): boolean =>
+  group.variants.some((variant) => !variant.state.isInCatalog);
+
 /** Catalog-wide metadata for the renderer, including the derived freshness flag. */
 export interface CatalogMetadata {
   schemaVersion: number;

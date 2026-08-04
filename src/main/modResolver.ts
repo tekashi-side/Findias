@@ -7,6 +7,7 @@ import type {
   ModVariantRow,
 } from '../shared/modList';
 import { orphanDisplayName } from '../shared/modFilename';
+import { DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION, sortModGroups } from '../shared/modSort';
 import type { Catalog, CatalogGroup, CatalogVariant } from './providers/catalog';
 import type { InstalledMod } from './providers/installed';
 
@@ -224,19 +225,6 @@ const buildOrphanGroup = (modId: string, installedGroup: InstalledGroup): ModGro
   };
 };
 
-/** A group is an orphan group when its (only) variant is an orphan. */
-const isOrphanGroup = (group: ModGroupRow): boolean =>
-  group.variants.some((variant) => !variant.state.isInCatalog);
-
-/**
- * Order groups for display: catalog groups first (alphabetical), then orphans
- * (alphabetical among themselves) pinned to the bottom of the list.
- */
-const compareGroups = (a: ModGroupRow, b: ModGroupRow): number => {
-  const orphanDelta = Number(isOrphanGroup(a)) - Number(isOrphanGroup(b));
-  return orphanDelta !== 0 ? orphanDelta : a.name.localeCompare(b.name);
-};
-
 /** Pick the installed variant of a group (preferring the enabled location). */
 const installedVariantId = (
   group: CatalogGroup,
@@ -267,7 +255,10 @@ export const resolveModList = (
     const groups = [...installedByModId.entries()].map(([modId, group]) =>
       buildOrphanGroup(modId, group),
     );
-    return { groups: groups.sort(compareGroups), metadata: null };
+    return {
+      groups: sortModGroups(groups, DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION),
+      metadata: null,
+    };
   }
 
   const catalogIndex = indexCatalogByModId(catalog);
@@ -305,5 +296,5 @@ export const resolveModList = (
     isOutdated: catalog.metadata.supportedGameVersion !== catalog.metadata.currentGameVersion,
   };
 
-  return { groups: groups.sort(compareGroups), metadata };
+  return { groups: sortModGroups(groups, DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION), metadata };
 };
