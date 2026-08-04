@@ -4,6 +4,7 @@ import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
+import { sortModGroups } from '@shared/modSort';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
 import ModTabs, { groupMatchesTab, type ModTab } from './ModTabs';
@@ -11,7 +12,6 @@ import TagFilter from './TagFilter';
 import SortMenu from './SortMenu';
 import LauncherBar from './LauncherBar';
 import { useModSortPreference } from '@/hooks/useModSortPreference';
-import { compareModGroups } from '@/lib/modSort';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,7 +56,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
-  const { sortBy, sortDirection, setSortBy, setSortDirection } = useModSortPreference();
+  const { sortBy, sortDirection, setSortBy, setSortDirection, resetSort } = useModSortPreference();
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
   // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
@@ -261,8 +261,17 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             g.variants.some((v) => v.name.toLowerCase().includes(q)),
         )
       : byTags;
-    return [...bySearch].sort((a, b) => compareModGroups(a, b, sortBy, sortDirection));
+    return sortModGroups(bySearch, sortBy, sortDirection);
   }, [groups, deferredSearch, tab, selectedTags, sortBy, sortDirection]);
+
+  // Reordering under a scrolled-down viewport strands the user mid-list, so a
+  // sort change returns them to the top. Radix exposes no viewport ref, and the
+  // shadcn primitive is generated, so reach it through the root's data-slot.
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const viewport = scrollAreaRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+    if (viewport instanceof HTMLElement) viewport.scrollTop = 0;
+  }, [sortBy, sortDirection]);
 
   // Resolve the selected variant + its group from the full (unfiltered) list, so
   // the detail pane survives search/tab changes that hide the row.
@@ -329,6 +338,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                 sortDirection={sortDirection}
                 onSortByChange={setSortBy}
                 onSortDirectionChange={setSortDirection}
+                onReset={resetSort}
               />
             </div>
 
@@ -423,7 +433,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             )}
 
             {filteredGroups.length > 0 && (
-              <ScrollArea className="-mr-3 min-h-0 flex-1">
+              <ScrollArea ref={scrollAreaRef} className="-mr-3 min-h-0 flex-1">
                 <div className="pr-3">
                   <ModList
                     groups={filteredGroups}
