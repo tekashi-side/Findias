@@ -31,6 +31,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const MOD_LIST_KEY = ['modList'] as const;
 
@@ -315,31 +316,34 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                 </InputGroupAddon>
               )}
             </InputGroup>
-            <Button
-              variant="outline"
-              onClick={() => void refetch()}
-              disabled={isFetching || isBusy || isUpdatingAll}
-            >
-              {isFetching ? (
-                <Spinner data-icon="inline-start" aria-hidden />
-              ) : (
-                <RefreshCw data-icon="inline-start" aria-hidden />
-              )}
-              {isFetching ? 'Refreshing' : 'Refresh'}
-            </Button>
+            <SortMenu
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSortByChange={setSortBy}
+              onSortDirectionChange={setSortDirection}
+              onReset={resetSort}
+            />
+            <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label={isFetching ? 'Refreshing' : 'Refresh'}
+                  onClick={() => void refetch()}
+                  disabled={isFetching || isBusy || isUpdatingAll}
+                >
+                  {isFetching ? <Spinner aria-hidden /> : <RefreshCw aria-hidden />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{isFetching ? 'Refreshing' : 'Refresh'}</TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="flex shrink-0 items-center gap-2">
+            {/* Row wrapper: ModTabs grows along the main axis, which must stay horizontal. */}
+            <div className="flex shrink-0 items-center">
               <ModTabs value={tab} onValueChange={setTab} groups={groups} />
-              <TagFilter allTags={allTags} selectedTags={selectedTags} onChange={setSelectedTags} />
-              <SortMenu
-                sortBy={sortBy}
-                sortDirection={sortDirection}
-                onSortByChange={setSortBy}
-                onSortDirectionChange={setSortDirection}
-                onReset={resetSort}
-              />
             </div>
 
             {isLoading && (

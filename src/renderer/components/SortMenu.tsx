@@ -108,11 +108,7 @@ const SortMenu: FC<SortMenuProps> = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-48 justify-between"
-          aria-label={`Sort by ${option.label}, ${direction.label}`}
-        >
+        <Button variant="outline" aria-label={`Sort by ${option.label}, ${direction.label}`}>
           <Icon data-icon="inline-start" aria-hidden />
           {`Sort: ${option.label}`}
           <ChevronDown data-icon="inline-end" aria-hidden />
