@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.0](https://github.com/tekashi-side/Findias/compare/v1.28.0...v1.29.0) (2026-08-04)
+
+
+### Features
+
+* add sorting functionality to mod list with user preferences ([53895f0](https://github.com/tekashi-side/Findias/commit/53895f0bdc22ca5c1097b27c3751a7323105ac97))
+* enhance MainView with tooltip support for refresh button and improve layout structure ([41e9c15](https://github.com/tekashi-side/Findias/commit/41e9c15828eacbbaf44c42bb0e364d6448c7707e))
+
 ## [1.28.0](https://github.com/tekashi-side/Findias/compare/v1.27.0...v1.28.0) (2026-07-28)
 
 
