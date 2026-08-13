@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModAction, ModGroupRow, ModState, ModVariantRow, UpdateType } from './modList';
-import { deriveBulkActionIds, groupUpdateType } from './modList';
+import { deriveBulkActions, groupUpdateType } from './modList';
 
 /** Build a minimal variant row; `actions`/`updateType`/`state` cover the cases here. */
 const makeVariant = (overrides: Partial<ModVariantRow> = {}): ModVariantRow => ({
@@ -55,7 +55,7 @@ const groupOf = (variants: ModVariantRow[], overrides: Partial<ModGroupRow> = {}
   ...overrides,
 });
 
-describe('deriveBulkActionIds', () => {
+describe('deriveBulkActions', () => {
   it('splits managed variants into enabled/disabled by their offered action', () => {
     const groups = [
       groupOf([managed('Enabled', { presence: 'enabled', actions: ['disable'] })], {
@@ -65,11 +65,15 @@ describe('deriveBulkActionIds', () => {
         groupId: 'g2',
       }),
     ];
-    expect(deriveBulkActionIds(groups)).toEqual({
+    expect(deriveBulkActions(groups)).toEqual({
       updatableModIds: [],
       enabledModIds: ['Enabled'],
       disabledModIds: ['Disabled'],
       enabledVolatileModIds: [],
+      updateCount: 0,
+      canEnableAll: true,
+      canDisableAll: true,
+      canDisableVolatile: false,
     });
   });
 
@@ -93,10 +97,11 @@ describe('deriveBulkActionIds', () => {
         },
       ),
     ];
-    const result = deriveBulkActionIds(groups);
+    const result = deriveBulkActions(groups);
     expect(result.updatableModIds).toEqual(['EnabledOutdated', 'DisabledOutdated']);
     expect(result.enabledModIds).toEqual(['UpToDate', 'EnabledOutdated']);
     expect(result.disabledModIds).toEqual(['DisabledOutdated']);
+    expect(result.updateCount).toBe(2);
   });
 
   it('excludes orphans from every list (never re-enable a disabled orphan)', () => {
@@ -125,11 +130,15 @@ describe('deriveBulkActionIds', () => {
         { groupId: 'orphan:2' },
       ),
     ];
-    expect(deriveBulkActionIds(groups)).toEqual({
+    expect(deriveBulkActions(groups)).toEqual({
       updatableModIds: [],
       enabledModIds: [],
       disabledModIds: [],
       enabledVolatileModIds: [],
+      updateCount: 0,
+      canEnableAll: false,
+      canDisableAll: false,
+      canDisableVolatile: false,
     });
   });
 
@@ -167,21 +176,26 @@ describe('deriveBulkActionIds', () => {
         { groupId: 'g3' },
       ),
     ];
-    const result = deriveBulkActionIds(groups);
+    const result = deriveBulkActions(groups);
     expect(result.enabledModIds).toEqual(['EnabledVolatile', 'EnabledStable']);
     expect(result.disabledModIds).toEqual(['DisabledVolatile']);
     expect(result.enabledVolatileModIds).toEqual(['EnabledVolatile']);
+    expect(result.canDisableVolatile).toBe(true);
   });
 
   it('ignores variants that offer neither enable nor disable (e.g. not-installed)', () => {
     const groups = [
       groupOf([managed('NotInstalled', { presence: 'absent', actions: ['install'] })]),
     ];
-    expect(deriveBulkActionIds(groups)).toEqual({
+    expect(deriveBulkActions(groups)).toEqual({
       updatableModIds: [],
       enabledModIds: [],
       disabledModIds: [],
       enabledVolatileModIds: [],
+      updateCount: 0,
+      canEnableAll: false,
+      canDisableAll: false,
+      canDisableVolatile: false,
     });
   });
 
@@ -198,11 +212,15 @@ describe('deriveBulkActionIds', () => {
         groupId: 'solo',
       }),
     ];
-    expect(deriveBulkActionIds(groups)).toEqual({
+    expect(deriveBulkActions(groups)).toEqual({
       updatableModIds: [],
       enabledModIds: ['A', 'C'],
       disabledModIds: ['B'],
       enabledVolatileModIds: ['A'],
+      updateCount: 0,
+      canEnableAll: true,
+      canDisableAll: true,
+      canDisableVolatile: true,
     });
   });
 });

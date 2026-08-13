@@ -4,7 +4,7 @@ import { CircleX, PackageOpen, PowerOff, RefreshCw, SearchX, X } from 'lucide-re
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
-import { deriveBulkActionIds } from '@shared/modList';
+import { deriveBulkActions } from '@shared/modList';
 import { sortModGroups } from '@shared/modSort';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
@@ -193,20 +193,18 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const groups = data?.groups ?? [];
   const isOutdated = data?.metadata?.isOutdated ?? false;
 
-  // modId lists for every bulk action (orphans excluded). See {@link deriveBulkActionIds}.
-  const { updatableModIds, enabledModIds, disabledModIds, enabledVolatileModIds } = useMemo(
-    () => deriveBulkActionIds(groups),
-    [groups],
-  );
-  const updateCount = updatableModIds.length;
-  // "Disable All" is a no-op (disabled) once nothing is enabled
-  const canDisableAll = enabledModIds.length > 0;
-  // "Enable All" is a no-op once nothing is disabled. It can re-create a conflict
-  // between two rows that were both disabled (per-row detection only sees the
-  // enabled set), which the next refresh re-surfaces.
-  const canEnableAll = disabledModIds.length > 0;
-  // "Disable Volatile Mods" is a no-op once no enabled volatile mods remain.
-  const canDisableVolatile = enabledVolatileModIds.length > 0;
+  // id lists + availability flags for every bulk action (orphans excluded).
+  // See {@link deriveBulkActions}.
+  const {
+    updatableModIds,
+    enabledModIds,
+    disabledModIds,
+    enabledVolatileModIds,
+    updateCount,
+    canEnableAll,
+    canDisableAll,
+    canDisableVolatile,
+  } = useMemo(() => deriveBulkActions(groups), [groups]);
 
   // Any single, bulk, or refresh operation that should lock out competing actions.
   // Mirrors LauncherBar's own guard so the banner's action button stays disabled

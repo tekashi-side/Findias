@@ -141,12 +141,12 @@ export interface ModGroupRow {
 export const isOrphanGroup = (group: ModGroupRow): boolean =>
   group.variants.some((variant) => !variant.state.isInCatalog);
 
-/** The modIds eligible for each bulk action, split by target. */
-export interface BulkActionIds {
+/** The modId lists plus availability flags for every bulk action, split by target. */
+export interface BulkActions {
   /**
    * Variants offering `update`, including disabled ones — the installer always
    * writes to the package root, so updating a disabled mod re-enables it. Powers
-   * "Update All" and matches the "Updates" tab count.
+   * "Update All".
    */
   updatableModIds: string[];
   /** Managed, currently-enabled variants (they offer `disable`). */
@@ -155,18 +155,30 @@ export interface BulkActionIds {
   disabledModIds: string[];
   /** The subset of `enabledModIds` flagged `volatile` (the banner's target). */
   enabledVolatileModIds: string[];
+  /** How many updates are available; also the "Updates" tab count. */
+  updateCount: number;
+  /**
+   * Whether "Enable All" would do anything. Note: enabling every disabled row can
+   * re-create a conflict between two rows that were both disabled (per-row
+   * detection only sees the enabled set), which the next refresh re-surfaces.
+   */
+  canEnableAll: boolean;
+  /** Whether "Disable All" would do anything (something is enabled). */
+  canDisableAll: boolean;
+  /** Whether "Disable Volatile Mods" would do anything (an enabled volatile remains). */
+  canDisableVolatile: boolean;
 }
 
 /**
- * Partition every managed variant into the id lists that drive the bulk actions
- * (Update All / Enable All / Disable All / Disable Volatile). Orphans
- * (`state.isInCatalog === false`) are excluded on purpose: we never want a bulk
- * action to touch them (e.g. "Enable All" switching a disabled orphan back on).
- * The resolver's `actions` are the source of truth — an enabled row always offers
- * `disable`, a disabled row always offers `enable` — so we read presence off them
- * rather than re-deriving it here.
+ * Derive everything the bulk actions (Update All / Enable All / Disable All /
+ * Disable Volatile) need: the id lists to act on plus whether each is a no-op.
+ * Orphans (`state.isInCatalog === false`) are excluded on purpose: we never want
+ * a bulk action to touch them (e.g. "Enable All" switching a disabled orphan back
+ * on). The resolver's `actions` are the source of truth — an enabled row always
+ * offers `disable`, a disabled row always offers `enable` — so we read presence
+ * off them rather than re-deriving it here.
  */
-export const deriveBulkActionIds = (groups: readonly ModGroupRow[]): BulkActionIds => {
+export const deriveBulkActions = (groups: readonly ModGroupRow[]): BulkActions => {
   const updatableModIds: string[] = [];
   const enabledModIds: string[] = [];
   const disabledModIds: string[] = [];
@@ -184,7 +196,16 @@ export const deriveBulkActionIds = (groups: readonly ModGroupRow[]): BulkActionI
       }
     }
   }
-  return { updatableModIds, enabledModIds, disabledModIds, enabledVolatileModIds };
+  return {
+    updatableModIds,
+    enabledModIds,
+    disabledModIds,
+    enabledVolatileModIds,
+    updateCount: updatableModIds.length,
+    canEnableAll: disabledModIds.length > 0,
+    canDisableAll: enabledModIds.length > 0,
+    canDisableVolatile: enabledVolatileModIds.length > 0,
+  };
 };
 
 /**
