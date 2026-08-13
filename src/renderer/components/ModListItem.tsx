@@ -1,13 +1,12 @@
 import type { FC } from 'react';
-import { Info } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModVariantRow } from '@shared/modList';
 import { formatBytes, formatDate, formatDownloads } from '../format';
 import StatusChip from './StatusChip';
 import ModActions from './ModActions';
 import ModProgressBar from './ModProgressBar';
+import UpdateTypeBadge from './UpdateTypeBadge';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Item,
   ItemActions,
@@ -91,37 +90,7 @@ const ModListItem: FC<ModListItemProps> = ({
         {((shouldShowUpdateType && variant.updateType) || (tags && tags.length > 0)) && (
           <div className="flex flex-wrap gap-1">
             {shouldShowUpdateType && variant.updateType && (
-              <Badge
-                variant="outline"
-                className={cn(
-                  'gap-1',
-                  variant.updateType === 'volatile'
-                    ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-                )}
-              >
-                {variant.updateType === 'volatile' ? 'Volatile' : 'Stable'}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex cursor-default items-center"
-                      aria-label={
-                        variant.updateType === 'volatile'
-                          ? 'Volatile mods are likely affected by patches'
-                          : 'Stable mods usually survive patches'
-                      }
-                    >
-                      <Info className="size-3" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {variant.updateType === 'volatile'
-                      ? 'Likely affected by patches'
-                      : 'Usually survives patches'}
-                  </TooltipContent>
-                </Tooltip>
-              </Badge>
+              <UpdateTypeBadge updateType={variant.updateType} />
             )}
             {tags?.map((tag) => (
               <Badge key={tag} variant="secondary">
