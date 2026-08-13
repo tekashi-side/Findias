@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
+import { CircleX, PackageOpen, PowerOff, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
@@ -60,7 +60,9 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
-  const [toggleAllDirection, setToggleAllDirection] = useState<'enable' | 'disable' | null>(null);
+  const [toggleAllDirection, setToggleAllDirection] = useState<
+    'enable' | 'disable' | 'disable-volatile' | null
+  >(null);
   const [toggleAllProgress, setToggleAllProgress] = useState({ done: 0, total: 0 });
   const isTogglingAll = toggleAllDirection !== null;
 
@@ -223,10 +225,24 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         .map((v) => v.modId),
     [allVariants],
   );
+  // Enabled managed mods flagged volatile (likely broken by a game patch). Powers
+  // the banner's "Disable Volatile Mods" action. Same predicate as `enabledModIds`
+  // plus the volatile filter; orphans are excluded (no `isInCatalog`, null `updateType`).
+  const enabledVolatileModIds = useMemo(
+    () =>
+      allVariants
+        .filter(
+          (v) => v.state.isInCatalog && v.actions.includes('disable') && v.updateType === 'volatile',
+        )
+        .map((v) => v.modId),
+    [allVariants],
+  );
   // "Disable All" is a no-op (disabled) once nothing is enabled
   const canDisableAll = enabledModIds.length > 0;
   // "Enable All" is a no-op once nothing is disabled.
   const canEnableAll = disabledModIds.length > 0;
+  // "Disable Volatile Mods" is a no-op once no enabled volatile mods remain.
+  const canDisableVolatile = enabledVolatileModIds.length > 0;
 
   /**
    * Sequentially update every mod that has an update available. The list is
@@ -278,9 +294,16 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
    * list is snapshotted up front because each mutation reseeds the cache. Failures
    * don't abort the batch; they're aggregated into a single summary toast.
    */
-  const handleToggleAll = async (direction: 'enable' | 'disable'): Promise<void> => {
-    const isDisabled = direction === 'disable';
-    const ids = isDisabled ? enabledModIds : disabledModIds;
+  const handleToggleAll = async (
+    direction: 'enable' | 'disable' | 'disable-volatile',
+  ): Promise<void> => {
+    const isDisabled = direction !== 'enable';
+    const ids =
+      direction === 'enable'
+        ? disabledModIds
+        : direction === 'disable'
+          ? enabledModIds
+          : enabledVolatileModIds;
     if (ids.length === 0) return;
     isTogglingAllRef.current = true;
     setToggleAllDirection(direction);
@@ -430,20 +453,47 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             )}
 
             {data && isOutdated && !isOutdatedDismissed && (
-              <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
-                <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
-                  New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
+              <Alert variant="destructive" className="shrink-0 border-destructive/30 !pr-64">
+                <AlertDescription className="text-destructive/90">
+                  New game patch ({data.metadata?.currentGameVersion}) — mods may not work correctly
+                  yet. It is <strong className="font-semibold">highly recommended</strong> you{' '}
+                  <strong className="font-semibold">disable</strong> all volatile mods until this warning
+                  banner is gone.
                 </AlertDescription>
                 <AlertAction>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
-                    aria-label="Dismiss"
-                    onClick={() => setIsOutdatedDismissed(true)}
-                  >
-                    <X className="size-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => void handleToggleAll('disable-volatile')}
+                      disabled={
+                        !canDisableVolatile ||
+                        isBusy ||
+                        isUpdatingAll ||
+                        isFetching ||
+                        isTogglingAll ||
+                        start.isPending
+                      }
+                    >
+                      {toggleAllDirection === 'disable-volatile' ? (
+                        <Spinner data-icon="inline-start" aria-hidden />
+                      ) : (
+                        <PowerOff data-icon="inline-start" aria-hidden />
+                      )}
+                      {toggleAllDirection === 'disable-volatile'
+                        ? `Disabling… (${toggleAllProgress.done}/${toggleAllProgress.total})`
+                        : 'Disable Volatile Mods'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      aria-label="Dismiss"
+                      onClick={() => setIsOutdatedDismissed(true)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
                 </AlertAction>
               </Alert>
             )}

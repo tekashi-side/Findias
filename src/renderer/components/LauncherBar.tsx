@@ -24,7 +24,7 @@ type LauncherBarProps = {
   /** Whether there are enabled managed mods to disable (else "Disable All" is disabled). */
   canDisableAll: boolean;
   /** Which "toggle all" batch is currently running, if any (drives its spinner/progress). */
-  toggleAllDirection: 'enable' | 'disable' | null;
+  toggleAllDirection: 'enable' | 'disable' | 'disable-volatile' | null;
   /** Whether a batch "toggle all mods" is running. */
   isTogglingAll: boolean;
   /** Progress of the running "toggle all mods" batch. */
@@ -102,9 +102,9 @@ const LauncherBar: FC<LauncherBarProps> = ({
 
       <div className="ml-auto flex items-center gap-2">
         <Button
-          variant="outline"
-          onClick={onEnableAll}
           disabled={isActionInProgress || isStarting || !canEnableAll}
+          onClick={onEnableAll}
+          variant="outline"
         >
           {toggleAllDirection === 'enable' ? (
             <Spinner data-icon="inline-start" aria-hidden />
@@ -116,9 +116,9 @@ const LauncherBar: FC<LauncherBarProps> = ({
             : 'Enable All Mods'}
         </Button>
         <Button
-          variant="outline"
-          onClick={onDisableAll}
           disabled={isActionInProgress || isStarting || !canDisableAll}
+          onClick={onDisableAll}
+          variant="outline"
         >
           {toggleAllDirection === 'disable' ? (
             <Spinner data-icon="inline-start" aria-hidden />
