@@ -1,12 +1,13 @@
 import type { FC } from 'react';
 import { Info } from 'lucide-react';
+import type { UpdateType } from '@shared/modList';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type UpdateTypeBadgeProps = {
-  /** The variant/group freshness class; anything other than `volatile` reads as stable. */
-  updateType: string;
+  /** The variant/group freshness class. */
+  updateType: UpdateType;
 };
 
 /**

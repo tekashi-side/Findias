@@ -9,6 +9,8 @@
  * See docs/architecture.md ("Source abstraction").
  */
 
+import type { UpdateType } from '../../shared/modList';
+
 /** One installable artifact (a single mod, or one variant of a group). */
 export interface CatalogVariant {
   modId: string;
@@ -18,8 +20,8 @@ export interface CatalogVariant {
   size: number;
   /** UTC ISO-8601 instant the mod was last repacked (always present in the manifest). */
   updatedAt: string;
-  /** Freshness class (`stable` | `volatile`); kept as a string for leniency. */
-  updateType: string;
+  /** Freshness class; the manifest schema degrades unknown values to `volatile`. */
+  updateType: UpdateType;
   /** Repo-relative game files this variant modifies; drives conflict detection. */
   usedFiles: string[];
   modAuthor: string;

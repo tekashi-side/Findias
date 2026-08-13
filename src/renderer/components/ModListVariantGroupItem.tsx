@@ -2,6 +2,7 @@ import { useState, type FC } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { DownloadProgress } from '@shared/api';
 import type { ModAction, ModGroupRow } from '@shared/modList';
+import { groupUpdateType } from '@shared/modList';
 import ModListItem from './ModListItem';
 import ModActions from './ModActions';
 import ModProgressBar from './ModProgressBar';
@@ -58,13 +59,9 @@ const ModListVariantGroupItem: FC<ModListVariantGroupItemProps> = ({
   const isDisabled = isBusy || isLocked;
 
   // Group-level freshness isn't surfaced by the catalog, so derive it from the
-  // variants: volatile wins, so a group with any volatile variant reads volatile.
-  const groupUpdateType = group.variants.some((variant) => variant.updateType === 'volatile')
-    ? 'volatile'
-    : group.variants.some((variant) => variant.updateType === 'stable')
-      ? 'stable'
-      : null;
-  const shouldShowUpdateType = isOutdated && groupUpdateType !== null;
+  // variants (volatile wins). See {@link groupUpdateType}.
+  const derivedUpdateType = groupUpdateType(group);
+  const shouldShowUpdateType = isOutdated && derivedUpdateType !== null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -78,10 +75,10 @@ const ModListVariantGroupItem: FC<ModListVariantGroupItemProps> = ({
               </Badge>
             </ItemTitle>
 
-            {((shouldShowUpdateType && groupUpdateType) || group.tags.length > 0) && (
+            {((shouldShowUpdateType && derivedUpdateType) || group.tags.length > 0) && (
               <div className="flex flex-wrap gap-1">
-                {shouldShowUpdateType && groupUpdateType && (
-                  <UpdateTypeBadge updateType={groupUpdateType} />
+                {shouldShowUpdateType && derivedUpdateType && (
+                  <UpdateTypeBadge updateType={derivedUpdateType} />
                 )}
                 {group.tags.map((tag) => (
                   <Badge key={tag} variant="secondary">

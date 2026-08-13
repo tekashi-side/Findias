@@ -13,10 +13,12 @@ type LauncherBarProps = {
   isUpdatingAll: boolean;
   /** Progress of the running "Update All" batch. */
   updateAllProgress: { done: number; total: number };
-  /** Whether a single-mod operation (install/update/toggle/delete) is running. */
-  isBusy: boolean;
-  /** Whether the mod list is refreshing. */
-  isFetching: boolean;
+  /**
+   * Whether any mod operation or catalog refresh is running (single-mod op, Update
+   * All, refresh, or toggle-all). Derived once by the parent and used to disable
+   * the bar's actions. Excludes `isStarting`, which each action adds explicitly.
+   */
+  isActionInProgress: boolean;
   /** Whether a Start Game request is in flight. */
   isStarting: boolean;
   /** Whether there are disabled managed mods to enable (else "Enable All" is disabled). */
@@ -50,8 +52,7 @@ const LauncherBar: FC<LauncherBarProps> = ({
   updateCount,
   isUpdatingAll,
   updateAllProgress,
-  isBusy,
-  isFetching,
+  isActionInProgress,
   isStarting,
   canEnableAll,
   canDisableAll,
@@ -64,7 +65,6 @@ const LauncherBar: FC<LauncherBarProps> = ({
   onDisableAll,
   onStartGameAutomaticallyChange,
 }) => {
-  const isActionInProgress = isBusy || isUpdatingAll || isFetching || isTogglingAll;
   const hasUpdates = updateCount > 0;
   const isGreen = hasUpdates || isUpdatingAll;
   const showSpinner = isUpdatingAll || isStarting;

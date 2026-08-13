@@ -12,6 +12,7 @@ import TagFilter from './TagFilter';
 import SortMenu from './SortMenu';
 import LauncherBar from './LauncherBar';
 import { useModSortPreference } from '@/hooks/useModSortPreference';
+import { useBulkActionIds } from '@/hooks/useBulkActionIds';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -192,58 +193,23 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const groups = data?.groups ?? [];
   const isOutdated = data?.metadata?.isOutdated ?? false;
 
-  // Every variant currently offering an update, including disabled ones. Note the
-  // installer always writes to the package root, so updating a disabled mod
-  // re-enables it. Matches the "Updates" tab count.
-  const updatableModIds = useMemo(
-    () =>
-      groups
-        .flatMap((g) => g.variants)
-        .filter((v) => v.actions.includes('update'))
-        .map((v) => v.modId),
-    [groups],
-  );
+  // modId lists for every bulk action (orphans excluded). See {@link deriveBulkActionIds}.
+  const { updatableModIds, enabledModIds, disabledModIds, enabledVolatileModIds } =
+    useBulkActionIds(groups);
   const updateCount = updatableModIds.length;
-
-  // Managed catalog variants, split by current enable state. Orphans
-  // (`state.isInCatalog === false`) are excluded on purpose: we never want
-  // "Enable All" to switch a disabled orphan back on. The resolver's `actions`
-  // are the source of truth — an enabled row always offers `disable`, a disabled
-  // row always offers `enable`.
-  const allVariants = useMemo(() => groups.flatMap((g) => g.variants), [groups]);
-  const enabledModIds = useMemo(
-    () =>
-      allVariants
-        .filter((v) => v.state.isInCatalog && v.actions.includes('disable'))
-        .map((v) => v.modId),
-    [allVariants],
-  );
-  const disabledModIds = useMemo(
-    () =>
-      allVariants
-        .filter((v) => v.state.isInCatalog && v.actions.includes('enable'))
-        .map((v) => v.modId),
-    [allVariants],
-  );
-  // Enabled managed mods flagged volatile (likely broken by a game patch). Powers
-  // the banner's "Disable Volatile Mods" action. Same predicate as `enabledModIds`
-  // plus the volatile filter; orphans are excluded (no `isInCatalog`, null `updateType`).
-  const enabledVolatileModIds = useMemo(
-    () =>
-      allVariants
-        .filter(
-          (v) =>
-            v.state.isInCatalog && v.actions.includes('disable') && v.updateType === 'volatile',
-        )
-        .map((v) => v.modId),
-    [allVariants],
-  );
   // "Disable All" is a no-op (disabled) once nothing is enabled
   const canDisableAll = enabledModIds.length > 0;
-  // "Enable All" is a no-op once nothing is disabled.
+  // "Enable All" is a no-op once nothing is disabled. It can re-create a conflict
+  // between two rows that were both disabled (per-row detection only sees the
+  // enabled set), which the next refresh re-surfaces.
   const canEnableAll = disabledModIds.length > 0;
   // "Disable Volatile Mods" is a no-op once no enabled volatile mods remain.
   const canDisableVolatile = enabledVolatileModIds.length > 0;
+
+  // Any single, bulk, or refresh operation that should lock out competing actions.
+  // Mirrors LauncherBar's own guard so the banner's action button stays disabled
+  // during the same operations without restating the condition inline.
+  const isActionInProgress = isBusy || isUpdatingAll || isFetching || isTogglingAll;
 
   /**
    * Sequentially update every mod that has an update available. The list is
@@ -419,7 +385,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                   size="icon"
                   aria-label={isFetching ? 'Refreshing' : 'Refresh'}
                   onClick={() => void refetch()}
-                  disabled={isFetching || isBusy || isUpdatingAll || isTogglingAll}
+                  disabled={isActionInProgress}
                 >
                   {isFetching ? <Spinner aria-hidden /> : <RefreshCw aria-hidden />}
                 </Button>
@@ -467,14 +433,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                       variant="destructive"
                       size="sm"
                       onClick={() => void handleToggleAll('disable-volatile')}
-                      disabled={
-                        !canDisableVolatile ||
-                        isBusy ||
-                        isUpdatingAll ||
-                        isFetching ||
-                        isTogglingAll ||
-                        start.isPending
-                      }
+                      disabled={!canDisableVolatile || isActionInProgress || start.isPending}
                     >
                       {toggleAllDirection === 'disable-volatile' ? (
                         <Spinner data-icon="inline-start" aria-hidden />
@@ -583,8 +542,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         updateCount={updateCount}
         isUpdatingAll={isUpdatingAll}
         updateAllProgress={updateAllProgress}
-        isBusy={isBusy}
-        isFetching={isFetching}
+        isActionInProgress={isActionInProgress}
         isStarting={start.isPending}
         canEnableAll={canEnableAll}
         canDisableAll={canDisableAll}
