@@ -51,6 +51,14 @@ export const toDisplayStatus = (state: ModState): ModStatus => {
   return state.isUpdateAvailable ? 'update-available' : 'up-to-date';
 };
 
+/**
+ * Freshness class of a released variant: `stable` usually survives a game patch,
+ * `volatile` likely breaks. The main-process schema (`manifestSchema.ts`) is the
+ * runtime source of truth — it degrades unknown manifest values to `volatile` —
+ * so by the time a value reaches this DTO it is always one of these two.
+ */
+export type UpdateType = 'stable' | 'volatile';
+
 /** An action the user may take on a variant row. */
 export type ModAction = 'install' | 'update' | 'enable' | 'disable' | 'delete';
 
@@ -81,8 +89,8 @@ export interface ModVariantRow {
    * orphans and for manifests published before this field existed.
    */
   updatedAt?: string;
-  /** Freshness class (`stable` | `volatile`), or null for orphans. */
-  updateType: string | null;
+  /** Freshness class, or null for orphans. */
+  updateType: UpdateType | null;
   /** Lifetime downloads across every released version of this variant. */
   downloadCount?: number;
   /** Valid actions for this row, in display order. */
@@ -132,6 +140,86 @@ export interface ModGroupRow {
  */
 export const isOrphanGroup = (group: ModGroupRow): boolean =>
   group.variants.some((variant) => !variant.state.isInCatalog);
+
+/** The modId lists plus availability flags for every bulk action, split by target. */
+export interface BulkActions {
+  /**
+   * Variants offering `update`, including disabled ones — the installer always
+   * writes to the package root, so updating a disabled mod re-enables it. Powers
+   * "Update All".
+   */
+  updatableModIds: string[];
+  /** Managed, currently-enabled variants (they offer `disable`). */
+  enabledModIds: string[];
+  /** Managed, currently-disabled variants (they offer `enable`). */
+  disabledModIds: string[];
+  /** The subset of `enabledModIds` flagged `volatile` (the banner's target). */
+  enabledVolatileModIds: string[];
+  /** How many updates are available; also the "Updates" tab count. */
+  updateCount: number;
+  /**
+   * Whether "Enable All" would do anything. Note: enabling every disabled row can
+   * re-create a conflict between two rows that were both disabled (per-row
+   * detection only sees the enabled set), which the next refresh re-surfaces.
+   */
+  canEnableAll: boolean;
+  /** Whether "Disable All" would do anything (something is enabled). */
+  canDisableAll: boolean;
+  /** Whether "Disable Volatile Mods" would do anything (an enabled volatile remains). */
+  canDisableVolatile: boolean;
+}
+
+/**
+ * Derive everything the bulk actions (Update All / Enable All / Disable All /
+ * Disable Volatile) need: the id lists to act on plus whether each is a no-op.
+ * Orphans (`state.isInCatalog === false`) are excluded on purpose: we never want
+ * a bulk action to touch them (e.g. "Enable All" switching a disabled orphan back
+ * on). The resolver's `actions` are the source of truth — an enabled row always
+ * offers `disable`, a disabled row always offers `enable` — so we read presence
+ * off them rather than re-deriving it here.
+ */
+export const deriveBulkActions = (groups: readonly ModGroupRow[]): BulkActions => {
+  const updatableModIds: string[] = [];
+  const enabledModIds: string[] = [];
+  const disabledModIds: string[] = [];
+  const enabledVolatileModIds: string[] = [];
+  for (const group of groups) {
+    for (const variant of group.variants) {
+      if (!variant.state.isInCatalog) continue;
+      if (variant.actions.includes('update')) updatableModIds.push(variant.modId);
+      if (variant.actions.includes('disable')) {
+        enabledModIds.push(variant.modId);
+        if (variant.updateType === 'volatile') enabledVolatileModIds.push(variant.modId);
+      }
+      if (variant.actions.includes('enable')) {
+        disabledModIds.push(variant.modId);
+      }
+    }
+  }
+  return {
+    updatableModIds,
+    enabledModIds,
+    disabledModIds,
+    enabledVolatileModIds,
+    updateCount: updatableModIds.length,
+    canEnableAll: disabledModIds.length > 0,
+    canDisableAll: enabledModIds.length > 0,
+    canDisableVolatile: enabledVolatileModIds.length > 0,
+  };
+};
+
+/**
+ * Group-level freshness, derived from the variants since the catalog only carries
+ * it per-variant. **Volatile wins**: any volatile variant makes the whole group
+ * read `volatile` (a conservative warning while a patch is pending); otherwise
+ * `stable` if any variant is stable; otherwise null (e.g. an orphan group whose
+ * variants carry no freshness class).
+ */
+export const groupUpdateType = (group: ModGroupRow): UpdateType | null => {
+  if (group.variants.some((variant) => variant.updateType === 'volatile')) return 'volatile';
+  if (group.variants.some((variant) => variant.updateType === 'stable')) return 'stable';
+  return null;
+};
 
 /** Catalog-wide metadata for the renderer, including the derived freshness flag. */
 export interface CatalogMetadata {

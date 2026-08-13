@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { UpdateType } from '../shared/modList';
 import type { Catalog, CatalogGroup, CatalogVariant } from './providers/catalog';
 import type { InstalledMod } from './providers/installed';
 import { resolveModList } from './modResolver';
@@ -9,7 +10,7 @@ const variant = (
   opts: {
     size?: number;
     usedFiles?: string[];
-    updateType?: string;
+    updateType?: UpdateType;
     name?: string;
     updatedAt?: string;
     downloadCount?: number;

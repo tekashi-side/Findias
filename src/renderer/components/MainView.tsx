@@ -1,9 +1,10 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CircleX, PackageOpen, RefreshCw, SearchX, X } from 'lucide-react';
+import { CircleX, PackageOpen, PowerOff, RefreshCw, SearchX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
+import { deriveBulkActions } from '@shared/modList';
 import { sortModGroups } from '@shared/modSort';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
@@ -52,17 +53,25 @@ type MainViewProps = {
 const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
-  const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const { sortBy, sortDirection, setSortBy, setSortDirection, resetSort } = useModSortPreference();
+  const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
+  const [toggleAllDirection, setToggleAllDirection] = useState<
+    'enable' | 'disable' | 'disable-volatile' | null
+  >(null);
+  const [toggleAllProgress, setToggleAllProgress] = useState({ done: 0, total: 0 });
+  const isTogglingAll = toggleAllDirection !== null;
+
   // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
   // suppress its per-mod toast during a batch (the batch reports one summary).
   const isUpdatingAllRef = useRef(false);
+  // Same idea for the toggle mutation during a "toggle all" batch.
+  const isTogglingAllRef = useRef(false);
   const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
@@ -145,7 +154,8 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     onSuccess: seedModList,
     onError: (e) => {
       recheckSetupState();
-      toast.error(errorMessage(e));
+      // During "Toggle All" the batch aggregates failures into one summary toast.
+      if (!isTogglingAllRef.current) toast.error(errorMessage(e));
     },
   });
 
@@ -183,18 +193,23 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const groups = data?.groups ?? [];
   const isOutdated = data?.metadata?.isOutdated ?? false;
 
-  // Every variant currently offering an update, including disabled ones. Note the
-  // installer always writes to the package root, so updating a disabled mod
-  // re-enables it. Matches the "Updates" tab count.
-  const updatableModIds = useMemo(
-    () =>
-      groups
-        .flatMap((g) => g.variants)
-        .filter((v) => v.actions.includes('update'))
-        .map((v) => v.modId),
-    [groups],
-  );
-  const updateCount = updatableModIds.length;
+  // id lists + availability flags for every bulk action (orphans excluded).
+  // See {@link deriveBulkActions}.
+  const {
+    updatableModIds,
+    enabledModIds,
+    disabledModIds,
+    enabledVolatileModIds,
+    updateCount,
+    canEnableAll,
+    canDisableAll,
+    canDisableVolatile,
+  } = useMemo(() => deriveBulkActions(groups), [groups]);
+
+  // Any single, bulk, or refresh operation that should lock out competing actions.
+  // Mirrors LauncherBar's own guard so the banner's action button stays disabled
+  // during the same operations without restating the condition inline.
+  const isActionInProgress = isBusy || isUpdatingAll || isFetching || isTogglingAll;
 
   /**
    * Sequentially update every mod that has an update available. The list is
@@ -239,6 +254,45 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
       if (!didAllSucceed) return;
     }
     start.mutate();
+  };
+
+  /**
+   * Sequentially disable every enabled mod (or enable every disabled one). The id
+   * list is snapshotted up front because each mutation reseeds the cache. Failures
+   * don't abort the batch; they're aggregated into a single summary toast.
+   */
+  const handleToggleAll = async (
+    direction: 'enable' | 'disable' | 'disable-volatile',
+  ): Promise<void> => {
+    const isDisabled = direction !== 'enable';
+    const ids =
+      direction === 'enable'
+        ? disabledModIds
+        : direction === 'disable'
+          ? enabledModIds
+          : enabledVolatileModIds;
+    if (ids.length === 0) return;
+    isTogglingAllRef.current = true;
+    setToggleAllDirection(direction);
+    setToggleAllProgress({ done: 0, total: ids.length });
+    const failed: string[] = [];
+    try {
+      for (const modId of ids) {
+        try {
+          await toggle.mutateAsync({ modId, isDisabled });
+        } catch {
+          failed.push(modId);
+        }
+        setToggleAllProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+      }
+    } finally {
+      isTogglingAllRef.current = false;
+      setToggleAllDirection(null);
+    }
+    if (failed.length > 0) {
+      const verb = isDisabled ? 'disable' : 'enable';
+      toast.error(`Failed to ${verb} ${failed.length} of ${ids.length} mods.`);
+    }
   };
 
   // Every tag present across the catalog, deduped and sorted, for the tag filter.
@@ -331,7 +385,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                   size="icon"
                   aria-label={isFetching ? 'Refreshing' : 'Refresh'}
                   onClick={() => void refetch()}
-                  disabled={isFetching || isBusy || isUpdatingAll}
+                  disabled={isActionInProgress}
                 >
                   {isFetching ? <Spinner aria-hidden /> : <RefreshCw aria-hidden />}
                 </Button>
@@ -366,20 +420,40 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
             )}
 
             {data && isOutdated && !isOutdatedDismissed && (
-              <Alert className="shrink-0 border-amber-500/30 text-amber-700 dark:text-amber-400">
-                <AlertDescription className="text-amber-700/90 dark:text-amber-400/90">
-                  New game patch ({data.metadata?.currentGameVersion}) — some mods may need updates.
+              <Alert variant="destructive" className="shrink-0 border-destructive/30 !pr-64">
+                <AlertDescription className="text-destructive/90">
+                  New game patch ({data.metadata?.currentGameVersion}) — mods may not work correctly
+                  yet. It is <strong className="font-semibold">highly recommended</strong> you{' '}
+                  <strong className="font-semibold">disable</strong> all volatile mods until this
+                  warning banner is gone.
                 </AlertDescription>
                 <AlertAction>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 text-amber-700/90 hover:text-amber-700 dark:text-amber-400/90 dark:hover:text-amber-400"
-                    aria-label="Dismiss"
-                    onClick={() => setIsOutdatedDismissed(true)}
-                  >
-                    <X className="size-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => void handleToggleAll('disable-volatile')}
+                      disabled={!canDisableVolatile || isActionInProgress || start.isPending}
+                    >
+                      {toggleAllDirection === 'disable-volatile' ? (
+                        <Spinner data-icon="inline-start" aria-hidden />
+                      ) : (
+                        <PowerOff data-icon="inline-start" aria-hidden />
+                      )}
+                      {toggleAllDirection === 'disable-volatile'
+                        ? `Disabling… (${toggleAllProgress.done}/${toggleAllProgress.total})`
+                        : 'Disable Volatile Mods'}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      aria-label="Dismiss"
+                      onClick={() => setIsOutdatedDismissed(true)}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
                 </AlertAction>
               </Alert>
             )}
@@ -444,7 +518,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                     busyModId={busyModId}
                     progressByMod={progressByMod}
                     isOutdated={isOutdated}
-                    isLocked={isUpdatingAll}
+                    isLocked={isUpdatingAll || isTogglingAll}
                     onAction={handleAction}
                     selectedModId={selectedModId}
                     onSelect={setSelectedModId}
@@ -468,11 +542,17 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         updateCount={updateCount}
         isUpdatingAll={isUpdatingAll}
         updateAllProgress={updateAllProgress}
-        isBusy={isBusy}
-        isFetching={isFetching}
+        isActionInProgress={isActionInProgress}
         isStarting={start.isPending}
+        canEnableAll={canEnableAll}
+        canDisableAll={canDisableAll}
+        toggleAllDirection={toggleAllDirection}
+        isTogglingAll={isTogglingAll}
+        toggleAllProgress={toggleAllProgress}
         shouldStartGameAutomatically={shouldStartGameAutomatically}
         onUpdateAndStart={() => void handleUpdateAndStart()}
+        onEnableAll={() => void handleToggleAll('enable')}
+        onDisableAll={() => void handleToggleAll('disable')}
         onStartGameAutomaticallyChange={handleStartGameAutomaticallyChange}
       />
     </div>
