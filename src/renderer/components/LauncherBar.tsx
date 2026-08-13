@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { ArrowUpCircle, Play } from 'lucide-react';
+import { ArrowUpCircle, Play, Power, PowerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -19,10 +19,24 @@ type LauncherBarProps = {
   isFetching: boolean;
   /** Whether a Start Game request is in flight. */
   isStarting: boolean;
+  /** Whether there are disabled managed mods to enable (else "Enable All" is disabled). */
+  canEnableAll: boolean;
+  /** Whether there are enabled managed mods to disable (else "Disable All" is disabled). */
+  canDisableAll: boolean;
+  /** Which "toggle all" batch is currently running, if any (drives its spinner/progress). */
+  toggleAllDirection: 'enable' | 'disable' | null;
+  /** Whether a batch "toggle all mods" is running. */
+  isTogglingAll: boolean;
+  /** Progress of the running "toggle all mods" batch. */
+  toggleAllProgress: { done: number; total: number };
   /** Whether "Start Game" launches the game directly (vs. opening the launcher only). */
   shouldStartGameAutomatically: boolean;
   /** Update all mods (if any are available), then launch the game. */
   onUpdateAndStart: () => void;
+  /** Enable every disabled managed mod. */
+  onEnableAll: () => void;
+  /** Disable every enabled managed mod. */
+  onDisableAll: () => void;
   onStartGameAutomaticallyChange: (shouldStartGameAutomatically: boolean) => void;
 };
 
@@ -39,11 +53,18 @@ const LauncherBar: FC<LauncherBarProps> = ({
   isBusy,
   isFetching,
   isStarting,
+  canEnableAll,
+  canDisableAll,
+  toggleAllDirection,
+  isTogglingAll,
+  toggleAllProgress,
   shouldStartGameAutomatically,
   onUpdateAndStart,
+  onEnableAll,
+  onDisableAll,
   onStartGameAutomaticallyChange,
 }) => {
-  const isActionInProgress = isBusy || isUpdatingAll || isFetching;
+  const isActionInProgress = isBusy || isUpdatingAll || isFetching || isTogglingAll;
   const hasUpdates = updateCount > 0;
   const isGreen = hasUpdates || isUpdatingAll;
   const showSpinner = isUpdatingAll || isStarting;
@@ -74,9 +95,40 @@ const LauncherBar: FC<LauncherBarProps> = ({
           id="start-game-automatically"
           checked={shouldStartGameAutomatically}
           onCheckedChange={onStartGameAutomaticallyChange}
-          disabled={isStarting}
+          disabled={isStarting || isTogglingAll}
         />
         <Label htmlFor="start-game-automatically">Start game automatically</Label>
+      </div>
+
+      <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={onEnableAll}
+          disabled={isActionInProgress || isStarting || !canEnableAll}
+        >
+          {toggleAllDirection === 'enable' ? (
+            <Spinner data-icon="inline-start" aria-hidden />
+          ) : (
+            <Power data-icon="inline-start" aria-hidden />
+          )}
+          {toggleAllDirection === 'enable'
+            ? `Enabling… (${toggleAllProgress.done}/${toggleAllProgress.total})`
+            : 'Enable All Mods'}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={onDisableAll}
+          disabled={isActionInProgress || isStarting || !canDisableAll}
+        >
+          {toggleAllDirection === 'disable' ? (
+            <Spinner data-icon="inline-start" aria-hidden />
+          ) : (
+            <PowerOff data-icon="inline-start" aria-hidden />
+          )}
+          {toggleAllDirection === 'disable'
+            ? `Disabling… (${toggleAllProgress.done}/${toggleAllProgress.total})`
+            : 'Disable All Mods'}
+        </Button>
       </div>
     </div>
   );

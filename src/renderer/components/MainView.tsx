@@ -52,17 +52,23 @@ type MainViewProps = {
 const MainView: FC<MainViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const [progressByMod, setProgressByMod] = useState<Record<string, DownloadProgress>>({});
-  const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<ModTab>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const { sortBy, sortDirection, setSortBy, setSortDirection, resetSort } = useModSortPreference();
+  const [isOutdatedDismissed, setIsOutdatedDismissed] = useState(false);
   const [isUpdatingAll, setIsUpdatingAll] = useState(false);
   const [updateAllProgress, setUpdateAllProgress] = useState({ done: 0, total: 0 });
+  const [toggleAllDirection, setToggleAllDirection] = useState<'enable' | 'disable' | null>(null);
+  const [toggleAllProgress, setToggleAllProgress] = useState({ done: 0, total: 0 });
+  const isTogglingAll = toggleAllDirection !== null;
+
   // Synchronous mirror of `isUpdatingAll` so the install mutation's `onError` can
   // suppress its per-mod toast during a batch (the batch reports one summary).
   const isUpdatingAllRef = useRef(false);
+  // Same idea for the toggle mutation during a "toggle all" batch.
+  const isTogglingAllRef = useRef(false);
   const deferredSearch = useDeferredValue(search);
 
   const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
@@ -145,7 +151,8 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     onSuccess: seedModList,
     onError: (e) => {
       recheckSetupState();
-      toast.error(errorMessage(e));
+      // During "Toggle All" the batch aggregates failures into one summary toast.
+      if (!isTogglingAllRef.current) toast.error(errorMessage(e));
     },
   });
 
@@ -196,6 +203,31 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   );
   const updateCount = updatableModIds.length;
 
+  // Managed catalog variants, split by current enable state. Orphans
+  // (`state.isInCatalog === false`) are excluded on purpose: we never want
+  // "Enable All" to switch a disabled orphan back on. The resolver's `actions`
+  // are the source of truth — an enabled row always offers `disable`, a disabled
+  // row always offers `enable`.
+  const allVariants = useMemo(() => groups.flatMap((g) => g.variants), [groups]);
+  const enabledModIds = useMemo(
+    () =>
+      allVariants
+        .filter((v) => v.state.isInCatalog && v.actions.includes('disable'))
+        .map((v) => v.modId),
+    [allVariants],
+  );
+  const disabledModIds = useMemo(
+    () =>
+      allVariants
+        .filter((v) => v.state.isInCatalog && v.actions.includes('enable'))
+        .map((v) => v.modId),
+    [allVariants],
+  );
+  // "Disable All" is a no-op (disabled) once nothing is enabled
+  const canDisableAll = enabledModIds.length > 0;
+  // "Enable All" is a no-op once nothing is disabled.
+  const canEnableAll = disabledModIds.length > 0;
+
   /**
    * Sequentially update every mod that has an update available. The list is
    * snapshotted up front because each mutation reseeds the cache (and thus
@@ -239,6 +271,38 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
       if (!didAllSucceed) return;
     }
     start.mutate();
+  };
+
+  /**
+   * Sequentially disable every enabled mod (or enable every disabled one). The id
+   * list is snapshotted up front because each mutation reseeds the cache. Failures
+   * don't abort the batch; they're aggregated into a single summary toast.
+   */
+  const handleToggleAll = async (direction: 'enable' | 'disable'): Promise<void> => {
+    const isDisabled = direction === 'disable';
+    const ids = isDisabled ? enabledModIds : disabledModIds;
+    if (ids.length === 0) return;
+    isTogglingAllRef.current = true;
+    setToggleAllDirection(direction);
+    setToggleAllProgress({ done: 0, total: ids.length });
+    const failed: string[] = [];
+    try {
+      for (const modId of ids) {
+        try {
+          await toggle.mutateAsync({ modId, isDisabled });
+        } catch {
+          failed.push(modId);
+        }
+        setToggleAllProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+      }
+    } finally {
+      isTogglingAllRef.current = false;
+      setToggleAllDirection(null);
+    }
+    if (failed.length > 0) {
+      const verb = isDisabled ? 'disable' : 'enable';
+      toast.error(`Failed to ${verb} ${failed.length} of ${ids.length} mods.`);
+    }
   };
 
   // Every tag present across the catalog, deduped and sorted, for the tag filter.
@@ -331,7 +395,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                   size="icon"
                   aria-label={isFetching ? 'Refreshing' : 'Refresh'}
                   onClick={() => void refetch()}
-                  disabled={isFetching || isBusy || isUpdatingAll}
+                  disabled={isFetching || isBusy || isUpdatingAll || isTogglingAll}
                 >
                   {isFetching ? <Spinner aria-hidden /> : <RefreshCw aria-hidden />}
                 </Button>
@@ -444,7 +508,7 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                     busyModId={busyModId}
                     progressByMod={progressByMod}
                     isOutdated={isOutdated}
-                    isLocked={isUpdatingAll}
+                    isLocked={isUpdatingAll || isTogglingAll}
                     onAction={handleAction}
                     selectedModId={selectedModId}
                     onSelect={setSelectedModId}
@@ -471,8 +535,15 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
         isBusy={isBusy}
         isFetching={isFetching}
         isStarting={start.isPending}
+        canEnableAll={canEnableAll}
+        canDisableAll={canDisableAll}
+        toggleAllDirection={toggleAllDirection}
+        isTogglingAll={isTogglingAll}
+        toggleAllProgress={toggleAllProgress}
         shouldStartGameAutomatically={shouldStartGameAutomatically}
         onUpdateAndStart={() => void handleUpdateAndStart()}
+        onEnableAll={() => void handleToggleAll('enable')}
+        onDisableAll={() => void handleToggleAll('disable')}
         onStartGameAutomaticallyChange={handleStartGameAutomaticallyChange}
       />
     </div>
