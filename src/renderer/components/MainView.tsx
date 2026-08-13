@@ -4,6 +4,7 @@ import { CircleX, PackageOpen, PowerOff, RefreshCw, SearchX, X } from 'lucide-re
 import { toast } from 'sonner';
 import type { DownloadProgress, SetupState } from '@shared/api';
 import type { ModAction, ModListState } from '@shared/modList';
+import { deriveBulkActionIds } from '@shared/modList';
 import { sortModGroups } from '@shared/modSort';
 import ModList from './ModList';
 import ModDetail from './ModDetail';
@@ -12,7 +13,6 @@ import TagFilter from './TagFilter';
 import SortMenu from './SortMenu';
 import LauncherBar from './LauncherBar';
 import { useModSortPreference } from '@/hooks/useModSortPreference';
-import { useBulkActionIds } from '@/hooks/useBulkActionIds';
 import { Alert, AlertAction, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -194,8 +194,10 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
   const isOutdated = data?.metadata?.isOutdated ?? false;
 
   // modId lists for every bulk action (orphans excluded). See {@link deriveBulkActionIds}.
-  const { updatableModIds, enabledModIds, disabledModIds, enabledVolatileModIds } =
-    useBulkActionIds(groups);
+  const { updatableModIds, enabledModIds, disabledModIds, enabledVolatileModIds } = useMemo(
+    () => deriveBulkActionIds(groups),
+    [groups],
+  );
   const updateCount = updatableModIds.length;
   // "Disable All" is a no-op (disabled) once nothing is enabled
   const canDisableAll = enabledModIds.length > 0;
