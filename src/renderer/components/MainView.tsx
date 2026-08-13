@@ -232,7 +232,8 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
     () =>
       allVariants
         .filter(
-          (v) => v.state.isInCatalog && v.actions.includes('disable') && v.updateType === 'volatile',
+          (v) =>
+            v.state.isInCatalog && v.actions.includes('disable') && v.updateType === 'volatile',
         )
         .map((v) => v.modId),
     [allVariants],
@@ -457,8 +458,8 @@ const MainView: FC<MainViewProps> = ({ setup }) => {
                 <AlertDescription className="text-destructive/90">
                   New game patch ({data.metadata?.currentGameVersion}) — mods may not work correctly
                   yet. It is <strong className="font-semibold">highly recommended</strong> you{' '}
-                  <strong className="font-semibold">disable</strong> all volatile mods until this warning
-                  banner is gone.
+                  <strong className="font-semibold">disable</strong> all volatile mods until this
+                  warning banner is gone.
                 </AlertDescription>
                 <AlertAction>
                   <div className="flex items-center gap-1">
