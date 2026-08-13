@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.30.0](https://github.com/tekashi-side/Findias/compare/v1.29.0...v1.30.0) (2026-08-13)
+
+
+### Features
+
+* add "Enable All" and "Disable All" functionality to LauncherBar and MainView ([8883a1f](https://github.com/tekashi-side/Findias/commit/8883a1fc21bed234fff2d67e9f7e1a73791ea451))
+* extend toggle functionality in MainView and LauncherBar to include "Disable Volatile Mods" ([5c8c0f6](https://github.com/tekashi-side/Findias/commit/5c8c0f644c131177e2a3286daaa4d7ca1874b792))
+* introduce UpdateType handling and bulk action IDs for mod management ([743cf5d](https://github.com/tekashi-side/Findias/commit/743cf5d23c5efcceae120dea9673448d9b52187d))
+* introduce UpdateTypeBadge component for displaying mod update status ([42dd8b0](https://github.com/tekashi-side/Findias/commit/42dd8b0a3f4a5f95905fed1050a4e414919fa35c))
+
 ## [1.29.0](https://github.com/tekashi-side/Findias/compare/v1.28.0...v1.29.0) (2026-08-04)
 
 
