@@ -351,6 +351,17 @@ describe('resolveModList', () => {
       expect(bRow.conflicts).toEqual([{ modId: 'A', modName: 'Mod A' }]);
     });
 
+    it('detects a conflict when usedFiles differ only by case (game FS is case-insensitive)', () => {
+      const catalog = catalogOf([
+        soloGroup(variant('A', 1, { usedFiles: ['data/db/CommerceCommon.xml'], name: 'Mod A' })),
+        soloGroup(variant('B', 1, { usedFiles: ['data/db/commercecommon.xml'], name: 'Mod B' })),
+      ]);
+      const result = resolveModList(catalog, [installed('A', 1, true)]);
+      const bRow = result.groups.find((g) => g.groupId === 'B')!.variants[0];
+      expect(bRow.actions).toEqual([]);
+      expect(bRow.conflicts).toEqual([{ modId: 'A', modName: 'Mod A' }]);
+    });
+
     it('does NOT block installs when the conflicting mod is only disabled', () => {
       const catalog = catalogOf([
         soloGroup(variant('A', 1, { usedFiles: shared })),

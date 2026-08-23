@@ -81,6 +81,10 @@ const indexCatalogByModId = (
  * Map each game file -> the currently-enabled, catalog-known mods that modify it.
  * Only enabled mods can actually conflict (the game loads only the package root),
  * and only catalog mods expose their `usedFiles`.
+ *
+ * Keyed by the lowercased path: the game filesystem is case-insensitive, so two
+ * mods editing `CommerceCommon.xml` and `commercecommon.xml` collide in-game and
+ * must be treated as the same file here even when a manifest carries mixed casing.
  */
 const indexEnabledUsedFiles = (
   installedByModId: Map<string, InstalledGroup>,
@@ -93,9 +97,10 @@ const indexEnabledUsedFiles = (
     if (!found) continue;
     const conflict: ModConflict = { modId, modName: found.variant.modName };
     for (const file of found.variant.usedFiles) {
-      const list = byFile.get(file) ?? [];
+      const key = file.toLowerCase();
+      const list = byFile.get(key) ?? [];
       list.push(conflict);
-      byFile.set(file, list);
+      byFile.set(key, list);
     }
   }
   return byFile;
@@ -112,7 +117,7 @@ const conflictsFor = (
 ): ModConflict[] => {
   const byModId = new Map<string, ModConflict>();
   for (const file of variant.usedFiles) {
-    for (const conflict of enabledByFile.get(file) ?? []) {
+    for (const conflict of enabledByFile.get(file.toLowerCase()) ?? []) {
       if (siblingIds.has(conflict.modId)) continue;
       byModId.set(conflict.modId, conflict);
     }
