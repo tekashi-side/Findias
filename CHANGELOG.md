@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.1](https://github.com/tekashi-side/Findias/compare/v1.30.0...v1.30.1) (2026-08-23)
+
+
+### Fixes
+
+* allowing ci to re-run on title edits ([f965acc](https://github.com/tekashi-side/Findias/commit/f965acc832832f268ecd08c69dac64218ab68a15))
+
 ## [1.30.0](https://github.com/tekashi-side/Findias/compare/v1.29.0...v1.30.0) (2026-08-13)
 
 
