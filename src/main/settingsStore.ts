@@ -25,6 +25,13 @@ export const settingsSchema = z.object({
    */
   shouldIncludePrereleases: z.boolean().catch(false),
   /**
+   * Whether the catalog provider should read `manifestCatalog.json` from the
+   * project root instead of downloading it from the GitHub release. Dev-only
+   * (gated by the `localManifest` feature flag). The `.catch` keeps older
+   * settings files (missing the field) valid by falling back to the default.
+   */
+  shouldUseLocalManifest: z.boolean().catch(false),
+  /**
    * Whether the one-time mod-archive setup step has been completed for the
    * current game folder. Reset to false whenever a new folder is chosen so the
    * step re-checks each folder for pre-existing mods. Defaults to false.
@@ -56,6 +63,7 @@ export type Settings = z.infer<typeof settingsSchema>;
 export const DEFAULT_SETTINGS: Settings = {
   gameRootPath: null,
   shouldIncludePrereleases: false,
+  shouldUseLocalManifest: false,
   isModSetupCompleted: false,
   isErrorReportingEnabled: true,
   installId: null,

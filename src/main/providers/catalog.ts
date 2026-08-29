@@ -70,20 +70,30 @@ export interface Catalog {
 /** Per-call options for {@link ModCatalogProvider.getCatalog}. */
 export interface GetCatalogOptions {
   /**
+   * Whether prerelease GitHub releases are eligible when selecting the newest
+   * one. When `false`, only stable releases are considered.
+   */
+  shouldIncludePrereleases: boolean;
+  /**
    * Bypass the in-memory time-to-live and revalidate against the source now.
    * The implementation may still return a cached catalog if the source reports
    * nothing changed (e.g. an HTTP `304`), which stays free of rate-limit cost.
    */
   shouldForce?: boolean;
+  /**
+   * Absolute path to a local `manifestCatalog.json` to use instead of
+   * downloading from the GitHub release. The `.it` asset URLs are still
+   * resolved from the release. When the file is missing the remote download
+   * is used as fallback. Dev-only; `null` or omitted means "use remote".
+   */
+  localManifestPath?: string | null;
 }
 
-/**
- * Source-agnostic remote catalog. Kept as a one-implementation interface purely
- * so tests can inject a stubbed `fetch`. `shouldIncludePrereleases` controls
- * whether prerelease GitHub releases are eligible when selecting the newest one.
+/** Source-agnostic remote catalog. Kept as a one-implementation interface purely
+ * so tests can inject a stubbed `fetch`.
  */
 export interface ModCatalogProvider {
-  getCatalog(shouldIncludePrereleases: boolean, options?: GetCatalogOptions): Promise<Catalog>;
+  getCatalog(options: GetCatalogOptions): Promise<Catalog>;
 }
 
 export type CatalogErrorCode = 'network' | 'rate-limited' | 'http' | 'parse' | 'not-found';

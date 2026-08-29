@@ -41,8 +41,12 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const queryClient = useQueryClient();
   const { theme, setTheme } = useTheme();
   const isPrereleasesEnabled = useFeatureFlag('prereleases');
+  const isLocalManifestEnabled = useFeatureFlag('localManifest');
   const [shouldIncludePrereleases, setShouldIncludePrereleases] = useState(
     setup.shouldIncludePrereleases,
+  );
+  const [shouldUseLocalManifest, setShouldUseLocalManifest] = useState(
+    setup.shouldUseLocalManifest,
   );
   const [isErrorReportingEnabled, setIsErrorReportingEnabled] = useState(
     setup.isErrorReportingEnabled,
@@ -51,6 +55,10 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   useEffect(() => {
     setShouldIncludePrereleases(setup.shouldIncludePrereleases);
   }, [setup.shouldIncludePrereleases]);
+
+  useEffect(() => {
+    setShouldUseLocalManifest(setup.shouldUseLocalManifest);
+  }, [setup.shouldUseLocalManifest]);
 
   useEffect(() => {
     setIsErrorReportingEnabled(setup.isErrorReportingEnabled);
@@ -80,6 +88,22 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
   const handlePrereleaseChange = (shouldIncludePrereleases: boolean): void => {
     setShouldIncludePrereleases(shouldIncludePrereleases);
     prerelease.mutate(shouldIncludePrereleases);
+  };
+
+  const localManifest = useMutation({
+    mutationFn: (shouldUseLocalManifest: boolean) =>
+      window.findias.setShouldUseLocalManifest(shouldUseLocalManifest),
+    onSuccess: (state: ModListState) => {
+      queryClient.setQueryData(['modList'], state);
+      void queryClient.invalidateQueries({ queryKey: ['setupState'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  /** Optimistically reflect the local-manifest toggle, then persist it. */
+  const handleLocalManifestChange = (shouldUseLocalManifest: boolean): void => {
+    setShouldUseLocalManifest(shouldUseLocalManifest);
+    localManifest.mutate(shouldUseLocalManifest);
   };
 
   const errorReporting = useMutation({
@@ -209,6 +233,28 @@ const SettingsView: FC<SettingsViewProps> = ({ setup }) => {
                   checked={shouldIncludePrereleases}
                   onCheckedChange={handlePrereleaseChange}
                   disabled={prerelease.isPending}
+                />
+              </ItemActions>
+            </Item>
+          )}
+
+          {isLocalManifestEnabled && (
+            <Item variant="outline" className="items-start">
+              <ItemContent>
+                <ItemTitle>Use local manifest</ItemTitle>
+                <ItemDescription>
+                  Load manifestCatalog.json from the Findias project root instead of fetching from
+                  GitHub. The file is still validated the same way, and mod downloads use the real
+                  release assets. Falls back to GitHub when the file is missing.
+                </ItemDescription>
+              </ItemContent>
+
+              <ItemActions>
+                <Switch
+                  id="use-local-manifest"
+                  checked={shouldUseLocalManifest}
+                  onCheckedChange={handleLocalManifestChange}
+                  disabled={localManifest.isPending}
                 />
               </ItemActions>
             </Item>

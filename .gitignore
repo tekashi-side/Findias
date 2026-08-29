@@ -11,3 +11,6 @@ coverage/
 
 # VSCode
 .vscode/
+
+# Mock files
+manifestCatalog.json

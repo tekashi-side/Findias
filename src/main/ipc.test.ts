@@ -32,7 +32,7 @@ const {
 }));
 
 vi.mock('electron', () => ({
-  app: { isPackaged: true },
+  app: { isPackaged: true, getAppPath: () => '/app' },
   BrowserWindow: {},
   dialog: {},
   ipcMain: ipcMainMock,

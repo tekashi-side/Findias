@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { join } from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import {
   IpcChannels,
@@ -50,6 +51,16 @@ const resolveLoggingFetch = () => {
 };
 
 /**
+ * Whether the local manifest override is active: the persisted opt-in AND-ed
+ * with the `localManifest` feature flag. In a packaged build the flag is off,
+ * so this is always false no matter what `findias-settings.json` says.
+ */
+const isLocalManifestActive = async (): Promise<boolean> => {
+  const { shouldUseLocalManifest } = await loadSettings();
+  return shouldUseLocalManifest && isFeatureEnabled('localManifest');
+};
+
+/**
  * A single catalog provider for the whole main process. Constructing it once
  * lets its in-memory catalog cache survive across IPC calls, so a burst of
  * mutations reuses one release-feed fetch instead of one per handler.
@@ -58,6 +69,11 @@ const loggingFetch = resolveLoggingFetch();
 const catalogProvider = createManifestCatalogProvider(
   loggingFetch ? { fetchFn: loggingFetch } : {},
 );
+
+const resolveLocalManifestPath = async (): Promise<string | null> => {
+  const isActive = await isLocalManifestActive();
+  return isActive ? join(app.getAppPath(), 'manifestCatalog.json') : null;
+};
 
 /**
  * Whether prerelease Uiscias releases should be considered: the persisted opt-in
@@ -78,7 +94,10 @@ export const arePrereleasesEligible = async (): Promise<boolean> => {
  */
 const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
   try {
-    const catalog = await catalogProvider.getCatalog(await arePrereleasesEligible());
+    const catalog = await catalogProvider.getCatalog({
+      shouldIncludePrereleases: await arePrereleasesEligible(),
+      localManifestPath: await resolveLocalManifestPath(),
+    });
     return catalogModIds(catalog);
   } catch {
     return null;
@@ -94,12 +113,14 @@ const computeSetupState = async (): Promise<SetupState> => {
     shouldStartGameAutomatically,
   } = await loadSettings();
   const shouldIncludePrereleases = await arePrereleasesEligible();
+  const shouldUseLocalManifest = await isLocalManifestActive();
   if (!gameRootPath) {
     return {
       gameRootPath: null,
       isValid: false,
       isPackageWritable: false,
       shouldIncludePrereleases,
+      shouldUseLocalManifest,
       shouldShowModArchive: false,
       isErrorReportingEnabled,
       gameLauncher: null,
@@ -133,6 +154,7 @@ const computeSetupState = async (): Promise<SetupState> => {
     isValid: isOk,
     isPackageWritable,
     shouldIncludePrereleases,
+    shouldUseLocalManifest,
     shouldShowModArchive,
     isErrorReportingEnabled,
     gameLauncher: detectLauncher(gameRootPath),
@@ -187,8 +209,10 @@ const resolveCurrentState = async (
   const shouldIncludePrereleases = await arePrereleasesEligible();
   const installed = await createPackageFolderProvider(paths).list();
   try {
-    const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases, {
+    const catalog = await catalogProvider.getCatalog({
+      shouldIncludePrereleases,
       shouldForce: options.shouldForce,
+      localManifestPath: await resolveLocalManifestPath(),
     });
     const { groups, metadata } = resolveModList(catalog, installed);
     setModContext({
@@ -250,7 +274,10 @@ const findVariant = (
 const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promise<ModListState> => {
   const paths = await requireGamePaths();
   const shouldIncludePrereleases = await arePrereleasesEligible();
-  const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases);
+  const catalog = await catalogProvider.getCatalog({
+    shouldIncludePrereleases,
+    localManifestPath: await resolveLocalManifestPath(),
+  });
   const found = findVariant(catalog, modId);
   if (!found) {
     throw new Error(`"${modId}" is not available in the latest release.`);
@@ -389,6 +416,22 @@ const setShouldIncludePrereleases = async (
 };
 
 /**
+ * Persist the local-manifest preference, then re-resolve against the new
+ * source. When the `localManifest` feature is inactive the control is hidden in
+ * the UI, so this is a defensive guard: a request to enable is ignored (never
+ * persisted) and the settings are left untouched.
+ */
+const setShouldUseLocalManifest = async (
+  shouldUseLocalManifest: boolean,
+): Promise<ModListState> => {
+  if (isFeatureEnabled('localManifest')) {
+    const settings = await loadSettings();
+    await saveSettings({ ...settings, shouldUseLocalManifest });
+  }
+  return resolveCurrentState(await requireGamePaths());
+};
+
+/**
  * Register an invoke handler that reports *unexpected* errors it throws to Sentry
  * (with full fidelity, before IPC serialization loses the class/cause) and
  * rethrows so the renderer still gets it for the toast. A CatalogError is an
@@ -481,6 +524,10 @@ export const registerIpcHandlers = (): void => {
     IpcChannels.setShouldIncludePrereleases,
     (_event, shouldIncludePrereleases: boolean) =>
       setShouldIncludePrereleases(shouldIncludePrereleases),
+  );
+
+  handleInvoke(IpcChannels.setShouldUseLocalManifest, (_event, shouldUseLocalManifest: boolean) =>
+    setShouldUseLocalManifest(shouldUseLocalManifest),
   );
 
   handleInvoke(IpcChannels.setErrorReportingEnabled, (_event, isEnabled: boolean) =>
