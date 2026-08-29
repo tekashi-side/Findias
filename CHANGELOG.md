@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.2](https://github.com/tekashi-side/Findias/compare/v1.30.1...v1.30.2) (2026-08-29)
+
+
+### Fixes
+
+* add case-insensitivity conflict detection for mod files ([f5a48d7](https://github.com/tekashi-side/Findias/commit/f5a48d7021b2617cf34a019c8f6d0008520e9db4))
+
 ## [1.30.1](https://github.com/tekashi-side/Findias/compare/v1.30.0...v1.30.1) (2026-08-23)
 
 
