@@ -23,16 +23,6 @@ import {
 } from './manifestSchema';
 
 export type { FetchLike };
-export type ManifestCatalogOptions = GitHubReleasesOptions & {
-  /**
-   * Optional async callback that returns the absolute path to a local
-   * `manifestCatalog.json` when the feature is active, or `null` when disabled.
-   * Called on every {@link ModCatalogProvider.getCatalog} invocation. When it
-   * returns a path and the file exists, its contents replace the remote manifest
-   * download while `.it` asset URLs are still resolved from the GitHub release.
-   */
-  resolveLocalManifestPath?: () => Promise<string | null>;
-};
 
 /** The release asset that carries the full catalog. */
 const MANIFEST_ASSET_NAME = 'manifestCatalog.json';
@@ -159,7 +149,9 @@ const buildCatalog = async (
   if (localManifestPath) {
     json = await readLocalManifestJson(localManifestPath);
   }
-  json ??= await downloadManifestJson(options, assets);
+  if (json === undefined) {
+    json = await downloadManifestJson(options, assets);
+  }
 
   const parsed = manifestCatalogSchema.safeParse(json);
   if (!parsed.success) {
@@ -224,18 +216,16 @@ const CACHE_TTL_MS = 5 * 60_000;
  * `200` (cache rebuilt).
  */
 export const createManifestCatalogProvider = (
-  options: ManifestCatalogOptions = {},
+  options: GitHubReleasesOptions = {},
 ): ModCatalogProvider => {
   const resolved = resolveReleaseOptions(options);
-  const resolveLocalManifestPath = options.resolveLocalManifestPath ?? null;
   const cache = new Map<boolean, CacheEntry>();
 
-  const getCatalog = async (
-    shouldIncludePrereleases: boolean,
-    { shouldForce = false }: GetCatalogOptions = {},
-  ): Promise<Catalog> => {
-    const localManifestPath = (await resolveLocalManifestPath?.()) ?? null;
-
+  const getCatalog = async ({
+    shouldIncludePrereleases,
+    shouldForce = false,
+    localManifestPath = null,
+  }: GetCatalogOptions): Promise<Catalog> => {
     const cached = cache.get(shouldIncludePrereleases);
     if (
       cached &&

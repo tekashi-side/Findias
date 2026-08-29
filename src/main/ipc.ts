@@ -66,12 +66,13 @@ const isLocalManifestActive = async (): Promise<boolean> => {
  * mutations reuses one release-feed fetch instead of one per handler.
  */
 const loggingFetch = resolveLoggingFetch();
-const localManifestPath = join(app.getAppPath(), 'manifestCatalog.json');
-const catalogProvider = createManifestCatalogProvider({
-  ...(loggingFetch ? { fetchFn: loggingFetch } : {}),
-  resolveLocalManifestPath: async () =>
-    (await isLocalManifestActive()) ? localManifestPath : null,
-});
+const catalogProvider = createManifestCatalogProvider(
+  loggingFetch ? { fetchFn: loggingFetch } : {},
+);
+
+const resolveLocalManifestPath = async (): Promise<string | null> => {
+  return (await isLocalManifestActive()) ? join(app.getAppPath(), 'manifestCatalog.json') : null;
+};
 
 /**
  * Whether prerelease Uiscias releases should be considered: the persisted opt-in
@@ -92,7 +93,10 @@ export const arePrereleasesEligible = async (): Promise<boolean> => {
  */
 const resolveCatalogModIds = async (): Promise<Set<string> | null> => {
   try {
-    const catalog = await catalogProvider.getCatalog(await arePrereleasesEligible());
+    const catalog = await catalogProvider.getCatalog({
+      shouldIncludePrereleases: await arePrereleasesEligible(),
+      localManifestPath: await resolveLocalManifestPath(),
+    });
     return catalogModIds(catalog);
   } catch {
     return null;
@@ -204,8 +208,10 @@ const resolveCurrentState = async (
   const shouldIncludePrereleases = await arePrereleasesEligible();
   const installed = await createPackageFolderProvider(paths).list();
   try {
-    const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases, {
+    const catalog = await catalogProvider.getCatalog({
+      shouldIncludePrereleases,
       shouldForce: options.shouldForce,
+      localManifestPath: await resolveLocalManifestPath(),
     });
     const { groups, metadata } = resolveModList(catalog, installed);
     setModContext({
@@ -267,7 +273,10 @@ const findVariant = (
 const installOrUpdate = async (event: IpcMainInvokeEvent, modId: string): Promise<ModListState> => {
   const paths = await requireGamePaths();
   const shouldIncludePrereleases = await arePrereleasesEligible();
-  const catalog = await catalogProvider.getCatalog(shouldIncludePrereleases);
+  const catalog = await catalogProvider.getCatalog({
+    shouldIncludePrereleases,
+    localManifestPath: await resolveLocalManifestPath(),
+  });
   const found = findVariant(catalog, modId);
   if (!found) {
     throw new Error(`"${modId}" is not available in the latest release.`);

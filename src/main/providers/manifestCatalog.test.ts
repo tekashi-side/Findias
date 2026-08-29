@@ -112,7 +112,7 @@ describe('ManifestCatalogProvider', () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets));
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const catalog = await provider.getCatalog(true);
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
 
     expect(catalog.metadata).toMatchObject({
       schemaVersion: 1,
@@ -165,7 +165,7 @@ describe('ManifestCatalogProvider', () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), withDocs);
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const catalog = await provider.getCatalog(true);
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
     expect(catalog.groups[0].readme).toBe('# Group readme');
     expect(catalog.groups[0].images).toEqual([
       'https://raw.githubusercontent.com/Root50199/Uiscias/v5/mods/A/images/g.png',
@@ -180,7 +180,7 @@ describe('ManifestCatalogProvider', () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets));
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const catalog = await provider.getCatalog(true);
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
     // Group 0 carries no readme/images; the BriHpBars variants carry no credits/notes.
     expect(catalog.groups[0].readme).toBeUndefined();
     expect(catalog.groups[0].images).toBeUndefined();
@@ -210,7 +210,7 @@ describe('ManifestCatalogProvider', () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), withDownloads);
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const catalog = await provider.getCatalog(true);
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
     expect(catalog.groups[0].variants[0].downloadCount).toBe(123);
     expect(catalog.groups[1].variants.map((v) => v.downloadCount)).toEqual([456, 789]);
   });
@@ -223,7 +223,9 @@ describe('ManifestCatalogProvider', () => {
     };
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), missing);
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'parse',
+    });
   });
 
   it('rejects a manifest whose variant is missing downloadCount', async () => {
@@ -235,14 +237,16 @@ describe('ManifestCatalogProvider', () => {
     };
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), missing);
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'parse',
+    });
   });
 
   it('resolves variant bytes from the matching .it asset url', async () => {
     const { fetchFn, requested } = makeFetch(releaseWith(defaultAssets));
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const catalog = await provider.getCatalog(true);
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
     const stream = await catalog.groups[0].variants[0].fetchBytes();
 
     expect(stream).toBeInstanceOf(ReadableStream);
@@ -252,28 +256,38 @@ describe('ManifestCatalogProvider', () => {
   it('errors when a stable release is requested but only a prerelease exists', async () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets, true));
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(false)).rejects.toMatchObject({ code: 'not-found' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: false })).rejects.toMatchObject({
+      code: 'not-found',
+    });
   });
 
   it('errors when the release has no manifestCatalog.json', async () => {
     const assets = defaultAssets.filter((a) => a.name !== 'manifestCatalog.json');
     const { fetchFn } = makeFetch(releaseWith(assets));
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'not-found' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'not-found',
+    });
   });
 
   it('rejects a manifest whose schemaVersion is newer than supported', async () => {
     const newer = { ...manifest, metadata: { ...manifest.metadata, schemaVersion: 99 } };
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), newer);
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'parse',
+    });
   });
 
   it('rejects a malformed manifest', async () => {
     const { fetchFn } = makeFetch(releaseWith(defaultAssets), { nope: true });
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toBeInstanceOf(CatalogError);
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'parse' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toBeInstanceOf(
+      CatalogError,
+    );
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'parse',
+    });
   });
 
   it('maps a connection failure to a network CatalogError', async () => {
@@ -281,7 +295,9 @@ describe('ManifestCatalogProvider', () => {
       throw new Error('ENOTFOUND');
     };
     const provider = createManifestCatalogProvider({ fetchFn });
-    await expect(provider.getCatalog(true)).rejects.toMatchObject({ code: 'network' });
+    await expect(provider.getCatalog({ shouldIncludePrereleases: true })).rejects.toMatchObject({
+      code: 'network',
+    });
   });
 });
 
@@ -292,9 +308,9 @@ describe('ManifestCatalogProvider caching', () => {
     const { fetchFn, requested } = makeFetch(releaseWith(defaultAssets));
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const first = await provider.getCatalog(true);
+    const first = await provider.getCatalog({ shouldIncludePrereleases: true });
     const countAfterFirst = requested.length;
-    const second = await provider.getCatalog(true);
+    const second = await provider.getCatalog({ shouldIncludePrereleases: true });
 
     expect(second).toBe(first); // same cached object, no rebuild
     expect(requested.length).toBe(countAfterFirst); // no additional network calls
@@ -320,9 +336,9 @@ describe('ManifestCatalogProvider caching', () => {
     };
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const first = await provider.getCatalog(true);
+    const first = await provider.getCatalog({ shouldIncludePrereleases: true });
     const manifestDownloads = requested.filter((u) => u === MANIFEST_URL).length;
-    const second = await provider.getCatalog(true, { shouldForce: true });
+    const second = await provider.getCatalog({ shouldIncludePrereleases: true, shouldForce: true });
 
     expect(second).toBe(first); // cache reused on 304
     expect(releasesCalls).toBe(2); // the feed was revalidated
@@ -349,10 +365,10 @@ describe('ManifestCatalogProvider caching', () => {
     };
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const first = await provider.getCatalog(true);
+    const first = await provider.getCatalog({ shouldIncludePrereleases: true });
     expect(first.metadata.currentGameVersion).toBe('1.2.4');
 
-    const second = await provider.getCatalog(true, { shouldForce: true });
+    const second = await provider.getCatalog({ shouldIncludePrereleases: true, shouldForce: true });
     expect(second.metadata.currentGameVersion).toBe('9.9.9');
   });
 
@@ -375,8 +391,8 @@ describe('ManifestCatalogProvider caching', () => {
     };
     const provider = createManifestCatalogProvider({ fetchFn });
 
-    const first = await provider.getCatalog(true);
-    const second = await provider.getCatalog(true, { shouldForce: true });
+    const first = await provider.getCatalog({ shouldIncludePrereleases: true });
+    const second = await provider.getCatalog({ shouldIncludePrereleases: true, shouldForce: true });
 
     expect(second).toBe(first); // transient rate-limit falls back to the cache
   });
