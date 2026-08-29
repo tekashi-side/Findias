@@ -6,7 +6,7 @@
 import type { ModListState } from './modList';
 
 /** Known feature-flag keys. Add new gated capabilities here. */
-export type FeatureFlag = 'prereleases' | 'previewAppUpdateToast';
+export type FeatureFlag = 'prereleases' | 'previewAppUpdateToast' | 'localManifest';
 
 /** Active state of every feature flag, resolved in the main process. */
 export type FeatureFlags = Record<FeatureFlag, boolean>;
@@ -70,6 +70,12 @@ export interface SetupState {
    * `prereleases` feature is inactive, regardless of the persisted setting.
    */
   shouldIncludePrereleases: boolean;
+  /**
+   * Effective (feature-flag-gated) value of whether a local `manifestCatalog.json`
+   * in the project root is used instead of the GitHub-hosted one. Always false
+   * when the `localManifest` feature is inactive, regardless of the persisted setting.
+   */
+  shouldUseLocalManifest: boolean;
   /**
    * True when the game folder is valid but the one-time mod-archive setup step
    * has not been completed for it AND pre-existing (non-official) mods are
@@ -188,6 +194,8 @@ export interface FindiasApi {
   setDisabled(modId: string, isDisabled: boolean): Promise<ModListState>;
   /** Persist whether prereleases are eligible, then re-resolve the mod list. */
   setShouldIncludePrereleases(shouldIncludePrereleases: boolean): Promise<ModListState>;
+  /** Persist whether to use a local manifest, then re-resolve the mod list. */
+  setShouldUseLocalManifest(shouldUseLocalManifest: boolean): Promise<ModListState>;
   /** Persist and immediately apply the anonymous error-reporting opt-out. */
   setErrorReportingEnabled(isEnabled: boolean): Promise<void>;
   /**
@@ -241,6 +249,7 @@ export const IpcChannels = {
   deleteMod: 'mods:delete',
   setDisabled: 'mods:setDisabled',
   setShouldIncludePrereleases: 'settings:setShouldIncludePrereleases',
+  setShouldUseLocalManifest: 'settings:setShouldUseLocalManifest',
   setErrorReportingEnabled: 'settings:setErrorReportingEnabled',
   setStartGameAutomatically: 'settings:setStartGameAutomatically',
   downloadProgress: 'mods:downloadProgress',

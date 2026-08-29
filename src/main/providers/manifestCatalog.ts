@@ -1,3 +1,4 @@
+import { promises as fs } from 'node:fs';
 import {
   CatalogError,
   type Catalog,
@@ -22,7 +23,16 @@ import {
 } from './manifestSchema';
 
 export type { FetchLike };
-export type ManifestCatalogOptions = GitHubReleasesOptions;
+export type ManifestCatalogOptions = GitHubReleasesOptions & {
+  /**
+   * Optional async callback that returns the absolute path to a local
+   * `manifestCatalog.json` when the feature is active, or `null` when disabled.
+   * Called on every {@link ModCatalogProvider.getCatalog} invocation. When it
+   * returns a path and the file exists, its contents replace the remote manifest
+   * download while `.it` asset URLs are still resolved from the GitHub release.
+   */
+  resolveLocalManifestPath?: () => Promise<string | null>;
+};
 
 /** The release asset that carries the full catalog. */
 const MANIFEST_ASSET_NAME = 'manifestCatalog.json';
@@ -71,24 +81,43 @@ const makeVariant = (
   },
 });
 
-/** Build a normalized `Catalog` from the assets of a single release. */
-const buildCatalog = async (
+/**
+ * Try to read a local `manifestCatalog.json`. Returns `undefined` when the file
+ * does not exist (ENOENT), letting the caller fall back to the remote download.
+ * Other read or parse failures throw so the dev sees what's wrong with their file.
+ */
+const readLocalManifestJson = async (path: string): Promise<unknown> => {
+  let raw: string;
+  try {
+    raw = await fs.readFile(path, 'utf-8');
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
+      return undefined;
+    }
+    throw new CatalogError('parse', `Could not read the local manifest at ${path}.`, {
+      cause: error,
+    });
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (cause) {
+    throw new CatalogError('parse', 'The local mod catalog could not be parsed as JSON.', {
+      cause,
+    });
+  }
+};
+
+/** Download the manifest JSON from the release assets. */
+const downloadManifestJson = async (
   options: ResolvedReleaseOptions,
   assets: ReleaseAsset[],
-): Promise<Catalog> => {
+): Promise<unknown> => {
   const manifestAsset = assets.find((asset) => asset.name === MANIFEST_ASSET_NAME);
   if (!manifestAsset) {
     throw new CatalogError(
       'not-found',
       'The latest release does not contain a manifestCatalog.json. It may not be published yet.',
     );
-  }
-
-  const urlByFileName = new Map<string, string>();
-  for (const asset of assets) {
-    if (asset.name.toLowerCase().endsWith('.it')) {
-      urlByFileName.set(asset.name, asset.browser_download_url);
-    }
   }
 
   let response: Response;
@@ -101,12 +130,36 @@ const buildCatalog = async (
     throw new CatalogError('http', `Failed to download the mod catalog (HTTP ${response.status}).`);
   }
 
-  let json: unknown;
   try {
-    json = await response.json();
+    return await response.json();
   } catch (cause) {
     throw new CatalogError('parse', 'The mod catalog could not be read.', { cause });
   }
+};
+
+/**
+ * Build a normalized `Catalog` from the assets of a single release. When
+ * `localManifestPath` is provided the manifest JSON is read from disk instead
+ * of downloaded; if the file is missing the remote download is used as fallback.
+ * The `.it` asset download URLs always come from the release regardless.
+ */
+const buildCatalog = async (
+  options: ResolvedReleaseOptions,
+  assets: ReleaseAsset[],
+  localManifestPath: string | null,
+): Promise<Catalog> => {
+  const urlByFileName = new Map<string, string>();
+  for (const asset of assets) {
+    if (asset.name.toLowerCase().endsWith('.it')) {
+      urlByFileName.set(asset.name, asset.browser_download_url);
+    }
+  }
+
+  let json: unknown;
+  if (localManifestPath) {
+    json = await readLocalManifestJson(localManifestPath);
+  }
+  json ??= await downloadManifestJson(options, assets);
 
   const parsed = manifestCatalogSchema.safeParse(json);
   if (!parsed.success) {
@@ -174,23 +227,34 @@ export const createManifestCatalogProvider = (
   options: ManifestCatalogOptions = {},
 ): ModCatalogProvider => {
   const resolved = resolveReleaseOptions(options);
+  const resolveLocalManifestPath = options.resolveLocalManifestPath ?? null;
   const cache = new Map<boolean, CacheEntry>();
 
   const getCatalog = async (
     shouldIncludePrereleases: boolean,
     { shouldForce = false }: GetCatalogOptions = {},
   ): Promise<Catalog> => {
+    const localManifestPath = (await resolveLocalManifestPath?.()) ?? null;
+
     const cached = cache.get(shouldIncludePrereleases);
-    if (cached && !shouldForce && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    if (
+      cached &&
+      !localManifestPath &&
+      !shouldForce &&
+      Date.now() - cached.fetchedAt < CACHE_TTL_MS
+    ) {
       return cached.catalog;
     }
 
     let result;
     try {
+      // When a local manifest is active, skip the ETag so we always get a full
+      // 200 with assets (needed to build the `.it` URL map). The extra round
+      // trip is negligible for a dev-only feature.
       result = await fetchLatestReleaseAssets(
         resolved,
         shouldIncludePrereleases,
-        cached?.etag ?? null,
+        localManifestPath ? null : (cached?.etag ?? null),
       );
     } catch (error) {
       // Graceful degradation: a transient failure to revalidate should not drop
@@ -223,9 +287,14 @@ export const createManifestCatalogProvider = (
       );
     }
 
-    // Possible future micro-opt: skip this manifest re-download when the selected release tag is unchanged (a 200 is often just download_count churn); it's free CDN bandwidth, so not done here.
-    const catalog = await buildCatalog(resolved, result.assets);
-    cache.set(shouldIncludePrereleases, { etag: result.etag, catalog, fetchedAt: Date.now() });
+    const catalog = await buildCatalog(resolved, result.assets, localManifestPath);
+
+    // Only cache when using the remote manifest — local catalogs are rebuilt
+    // on every call so edits to the file are reflected without delay.
+    if (!localManifestPath) {
+      cache.set(shouldIncludePrereleases, { etag: result.etag, catalog, fetchedAt: Date.now() });
+    }
+
     return catalog;
   };
 

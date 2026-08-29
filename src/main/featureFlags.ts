@@ -15,6 +15,9 @@ const FLAG_RESOLVERS: Record<FeatureFlag, () => boolean> = {
   /** Dev-only: exposes `__previewAppUpdateToast()` in devtools so the update-ready
    * toast can be previewed without a real download. */
   previewAppUpdateToast: () => !app.isPackaged,
+  /** Dev-only: when active the catalog provider reads `manifestCatalog.json`
+   * from the project root instead of downloading it from the GitHub release. */
+  localManifest: () => !app.isPackaged,
 };
 
 /** Whether a given feature flag is currently active. */
@@ -24,4 +27,5 @@ export const isFeatureEnabled = (flag: FeatureFlag): boolean => FLAG_RESOLVERS[f
 export const getFeatureFlags = (): FeatureFlags => ({
   prereleases: isFeatureEnabled('prereleases'),
   previewAppUpdateToast: isFeatureEnabled('previewAppUpdateToast'),
+  localManifest: isFeatureEnabled('localManifest'),
 });

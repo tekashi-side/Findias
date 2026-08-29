@@ -30,6 +30,8 @@ const api: FindiasApi = {
     ipcRenderer.invoke(IpcChannels.setDisabled, modId, isDisabled),
   setShouldIncludePrereleases: (shouldIncludePrereleases) =>
     ipcRenderer.invoke(IpcChannels.setShouldIncludePrereleases, shouldIncludePrereleases),
+  setShouldUseLocalManifest: (shouldUseLocalManifest) =>
+    ipcRenderer.invoke(IpcChannels.setShouldUseLocalManifest, shouldUseLocalManifest),
   setErrorReportingEnabled: (isEnabled) =>
     ipcRenderer.invoke(IpcChannels.setErrorReportingEnabled, isEnabled),
   setStartGameAutomatically: (shouldStartGameAutomatically) =>

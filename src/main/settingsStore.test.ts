@@ -24,6 +24,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: 'D:/Nexon/mabinogi/appdata' })).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: false,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
       installId: null,
@@ -35,6 +36,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
       installId: null,
@@ -46,6 +48,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null, shouldIncludePrereleases: true })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: true,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
       installId: null,
@@ -57,6 +60,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null, isModSetupCompleted: true })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: true,
       isErrorReportingEnabled: true,
       installId: null,
@@ -68,6 +72,7 @@ describe('parseSettings', () => {
     expect(parseSettings({ gameRootPath: null, isErrorReportingEnabled: false })).toEqual({
       gameRootPath: null,
       shouldIncludePrereleases: false,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: false,
       installId: null,
@@ -117,6 +122,7 @@ describe('loadSettings / saveSettings', () => {
     await saveSettings({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: true,
       isErrorReportingEnabled: false,
       installId: 'a1b2c3d4',
@@ -125,6 +131,7 @@ describe('loadSettings / saveSettings', () => {
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/Nexon/mabinogi/appdata',
       shouldIncludePrereleases: true,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: true,
       isErrorReportingEnabled: false,
       installId: 'a1b2c3d4',
@@ -137,6 +144,7 @@ describe('loadSettings / saveSettings', () => {
     expect(await loadSettings()).toEqual({
       gameRootPath: 'D:/x',
       shouldIncludePrereleases: false,
+      shouldUseLocalManifest: false,
       isModSetupCompleted: false,
       isErrorReportingEnabled: true,
       installId: null,
