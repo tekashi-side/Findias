@@ -71,7 +71,8 @@ const catalogProvider = createManifestCatalogProvider(
 );
 
 const resolveLocalManifestPath = async (): Promise<string | null> => {
-  return (await isLocalManifestActive()) ? join(app.getAppPath(), 'manifestCatalog.json') : null;
+  const isActive = await isLocalManifestActive();
+  return isActive ? join(app.getAppPath(), 'manifestCatalog.json') : null;
 };
 
 /**

@@ -277,6 +277,9 @@ export const createManifestCatalogProvider = (
       );
     }
 
+    // Possible future micro-opt: skip this manifest re-download when the
+    // selected release tag is unchanged (a 200 is often just download_count
+    // churn); it's free CDN bandwidth, so not done here.
     const catalog = await buildCatalog(resolved, result.assets, localManifestPath);
 
     // Only cache when using the remote manifest — local catalogs are rebuilt

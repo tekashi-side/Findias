@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { promises as fs } from 'node:fs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CatalogError } from './catalog';
 import { createManifestCatalogProvider } from './manifestCatalog';
 import type { FetchLike } from './githubReleases';
+
+vi.mock('node:fs', () => ({
+  promises: { readFile: vi.fn() },
+}));
 
 const manifest = {
   metadata: {
@@ -395,5 +400,121 @@ describe('ManifestCatalogProvider caching', () => {
     const second = await provider.getCatalog({ shouldIncludePrereleases: true, shouldForce: true });
 
     expect(second).toBe(first); // transient rate-limit falls back to the cache
+  });
+});
+
+const LOCAL_PATH = '/mock/manifestCatalog.json';
+const readFileMock = vi.mocked(fs.readFile);
+
+describe('ManifestCatalogProvider local manifest', () => {
+  beforeEach(() => {
+    readFileMock.mockReset();
+  });
+
+  it('uses the local file when it exists', async () => {
+    readFileMock.mockResolvedValue(JSON.stringify(manifest));
+    const { fetchFn, requested } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    const catalog = await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+
+    expect(catalog.groups).toHaveLength(2);
+    expect(readFileMock).toHaveBeenCalledWith(LOCAL_PATH, 'utf-8');
+    expect(requested).not.toContain(MANIFEST_URL);
+  });
+
+  it('falls back to remote when the local file is missing (ENOENT)', async () => {
+    readFileMock.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+    const { fetchFn, requested } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    const catalog = await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+
+    expect(catalog.groups).toHaveLength(2);
+    expect(requested).toContain(MANIFEST_URL);
+  });
+
+  it('throws a parse CatalogError on a non-ENOENT read failure', async () => {
+    readFileMock.mockRejectedValue(Object.assign(new Error('EACCES'), { code: 'EACCES' }));
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    await expect(
+      provider.getCatalog({ shouldIncludePrereleases: true, localManifestPath: LOCAL_PATH }),
+    ).rejects.toMatchObject({ code: 'parse' });
+  });
+
+  it('throws a parse CatalogError on invalid JSON in the local file', async () => {
+    readFileMock.mockResolvedValue('not json {');
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    await expect(
+      provider.getCatalog({ shouldIncludePrereleases: true, localManifestPath: LOCAL_PATH }),
+    ).rejects.toMatchObject({ code: 'parse' });
+  });
+
+  it('skips the cache when localManifestPath is provided', async () => {
+    readFileMock.mockResolvedValue(JSON.stringify(manifest));
+    const { fetchFn } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+    await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+
+    expect(readFileMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not write to the cache when localManifestPath is provided', async () => {
+    readFileMock.mockResolvedValue(JSON.stringify(manifest));
+    const { fetchFn, requested } = makeFetch(releaseWith(defaultAssets));
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+
+    readFileMock.mockReset();
+    const catalog = await provider.getCatalog({ shouldIncludePrereleases: true });
+
+    expect(catalog.groups).toHaveLength(2);
+    expect(requested).toContain(MANIFEST_URL);
+  });
+
+  it('skips the ETag when localManifestPath is active', async () => {
+    let sentIfNoneMatch: string | null = 'not-checked';
+    const fetchFn: FetchLike = async (input, init) => {
+      const url = String(input);
+      if (url.endsWith('/releases')) {
+        sentIfNoneMatch = new Headers(init?.headers).get('if-none-match');
+        return jsonResponse(releaseWith(defaultAssets), { headers: { ETag: 'v1' } });
+      }
+      if (url === MANIFEST_URL) return jsonResponse(manifest);
+      return new Response('filebytes');
+    };
+    const provider = createManifestCatalogProvider({ fetchFn });
+
+    await provider.getCatalog({ shouldIncludePrereleases: true });
+
+    readFileMock.mockResolvedValue(JSON.stringify(manifest));
+    await provider.getCatalog({
+      shouldIncludePrereleases: true,
+      localManifestPath: LOCAL_PATH,
+    });
+
+    expect(sentIfNoneMatch).toBeNull();
   });
 });
